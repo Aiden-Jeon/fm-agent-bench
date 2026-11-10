@@ -21,7 +21,7 @@
 | | MLE-bench | TabArena |
 |---|---|---|
 | 상태 | 연동됨 (P0) | 연동 전 |
-| 채점 | 다시 나눈 test (정답은 로컬 mlebench 캐시에만) | 확인 필요 |
+| 채점 | 다시 나눈 test (정답은 로컬 mlebench 캐시 + 채점용 내 Volume, 에이전트 SP 는 못 읽음. 채점은 serverless CPU 작업) | 확인 필요 |
 | 비교 대상 | 공개 리더보드 에이전트 (24시간, 실행별 점수만) | 확인 필요 (튜닝·앙상블한 모델 리더보드로 알고 있음) |
 | 범위 | 표 형식 대회 7개 (`fab/bench/mlebench/__init__.py` 의 `TABULAR`) | 확인 필요 |
 

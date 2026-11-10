@@ -1,6 +1,6 @@
 """저장된 테스트 예측(test.npy)으로 제출 파일 생성. 여러 모델을 주면 예측을 단순 평균.
 
-벤치마크 채점(fab mleb grade 등)이 부름. 명령은 없음.
+벤치마크 채점이 부름 (원격 정리 작업 안에서, fab/remote/reconcile.py). 명령은 없음.
 """
 
 from __future__ import annotations
@@ -11,15 +11,24 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from fab.core.competition import TRANSFORMS, load_competition, load_data
+from fab.core.competition import TRANSFORMS, load_competition
 from fab.core.results import OUTPUTS, test_info
 
 
 def make_submission(comp_name: str, models: list[str]) -> Path:
     """모델들의 test.npy 평균으로 제출 파일을 만들어 경로를 반환."""
     comp = load_competition(comp_name)
-    _, test = load_data(comp)
-    pred = np.mean([np.load(OUTPUTS / comp.name / m / "test.npy") for m in models], axis=0)
+    # 메모리: test 의 id 열 하나만 읽고, 예측은 모델마다 하나씩 읽어 더함 (모델 수에 비례하지 않음)
+    test = pd.read_csv(comp.data_dir / comp.test_file, usecols=[comp.id_col] if comp.id_col else [0])
+    pred = None
+    for m in models:
+        p = np.load(OUTPUTS / comp.name / m / "test.npy")
+        if pred is None:
+            pred = p.astype(float, copy=True)
+        else:
+            pred += p
+        del p
+    pred /= len(models)
 
     ids = test[comp.id_col] if comp.id_col else np.arange(1, len(test) + 1)
     id_name, target_name = comp.submit_columns or [comp.id_col, comp.target]
