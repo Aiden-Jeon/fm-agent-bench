@@ -90,7 +90,31 @@ mleb_agent:
   run_as: <서비스 프린시펄 application id>      # 에이전트는 전용 SP 로 실행
   volume: /Volumes/<catalog>/<schema>/<volume>  # SP 가 읽고 쓰는 scratch Volume
   experiment: <MLflow experiment 이름>          # 선택. 기본 fab-mleb-agent
+  traces_table: <catalog>.<schema>.<prefix>_otel_spans  # 선택. 에이전트 trace (아래 "에이전트 trace")
+  gateway: true                                 # 선택. LLM 요청을 FM API 대신 Unity Gateway 로
 ```
+
+### 에이전트 trace (선택)
+
+`traces_table` 이 있으면 실행기 프록시가 LLM 호출마다 MLflow 형식 span(요청·응답·토큰·429 대기)을 그 UC 표에 쓰고,
+실행 하나를 root span 하나로 묶는다 (`meta.json` 의 `trace_id`, 프록시 span 의 `session.id` = 실행 키). 세 하네스 모두 같은 모양.
+Claude Code 의 OTLP trace(interaction·llm_request·tool 실행)는 프록시가 SP 토큰을 붙여 같은 표로 넘긴다 (resource 의 `fab.run` =
+실행 키, Claude Code 의 trace 로 따로 보임). Codex 의 OTLP 는 끔: 내부 Rust span 만 6분에 약 2.6만 개 나오고 도구·명령 내용이
+없음 (2026-11-11 시험) → 명령은 `codex.jsonl`, 요청·응답은 프록시 span. AIDE 는 OTLP 가 없음.
+전송 기록은 `otel.jsonl`, 실행 중에는 `fab mleb agent peek` 의 "trace 전달". 보는 곳은 표에 묶인 MLflow experiment 의 Traces 탭.
+
+표 만들기 (한 번, 표 이름·experiment 는 `databricks.local.yaml` 에만 적음):
+
+1. `CREATE SCHEMA <catalog>.<schema>` (default storage catalog 는 안 됨)
+2. `mlflow>=3.14` 로 `mlflow.set_experiment(name, trace_location=UnityCatalog(catalog, schema, table_prefix))` → `<prefix>_otel_spans` 등 생김
+3. 에이전트 SP 에 `USE SCHEMA` + 표에 `MODIFY, SELECT` (ALL_PRIVILEGES 로는 안 됨, 문서)
+
+Unity Gateway 의 unified trace 표는 쓰지 않음: 설정이 메타스토어 단위라 여러 워크스페이스가 함께 쓰는 메타스토어에서는
+다른 워크스페이스의 Gateway 요청까지 그 표에 쌓이고, Beta 동안은 한 번 정한 위치를 옮기기 어려움.
+
+`gateway: true` 는 따로: LLM 요청을 Unity Gateway(`/ai-gateway/anthropic|mlflow|openai/...`, 모델 `system.ai.*`)로 보내
+`system.ai_gateway.usage` 에 남긴다 (요청마다 `Databricks-Ai-Gateway-Request-Tags` 에 실행 키). FM API 와 분당 한도·거부 조건이
+다를 수 있어 결과 표의 `llm_route` (`gateway` / `fm_api`)로 구분하고 섞어 비교하지 않는다.
 
 ## 사용
 

@@ -1,13 +1,16 @@
 """MLE-bench 에이전트 1회 실행 (Databricks 서버리스 GPU 작업 안에서, 전용 SP 신원으로 돎).
 
 fab 을 import 하지 않음. 같은 디렉터리의 run.json 이 설정 (fab/agent/__init__.py 가 만듦):
-  {key, cid, harness, model, alias, hours, continue, data_tgz, out, harness_versions}
+  {key, cid, harness, model, alias, hours, continue, data_tgz, out, harness_versions, gateway, upstream_model,
+   traces_table}
 
 흐름 (MLE-bench agents/aide/start.sh 를 따름):
   1. public 데이터 풀기 → HOME/data, 지시문 = instructions.txt(경로만 바꿈) + 추가 안내 + 대회 description.md
   2. 일반 ML 패키지 설치 (TFM 없음), 하네스 설치
   3. 로컬 프록시 (127.0.0.1): 하네스의 LLM 요청을 FM API 로 넘김. 모델은 run.json 의 model 로 고정,
-     SP 토큰은 요청마다 SDK 에서 받음 (1시간 넘게 돌아도 만료 안 됨), 요청마다 토큰 사용량을 proxy.jsonl 에 기록
+     SP 토큰은 요청마다 SDK 에서 받음 (1시간 넘게 돌아도 만료 안 됨), 요청마다 토큰 사용량을 proxy.jsonl 에 기록.
+     traces_table 이 있으면 LLM 호출마다 span 을 그 UC 표에 쓰고, 하네스의 OTLP trace 도 토큰을 붙여 같은 표로 넘김.
+     gateway=true 면 FM API 대신 Unity Gateway(/ai-gateway/...)로 넘김 (아래 'trace')
   4. 제출 형식 검사 서버 (127.0.0.1:5000/validate): 정답 없이 sample_submission 과 열·행 수·id 만 비교
   5. 하네스 실행: 벽시계 hours 시간, 넘으면 프로세스 그룹째 종료. continue=true 면 시간이 남았는데 스스로 끝날 때
      같은 세션을 이어 감 (아래 '이어 가기')
@@ -22,6 +25,7 @@ import random
 import re
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tarfile
@@ -150,11 +154,263 @@ def node_spec() -> dict:
 
 # ---------- LLM 프록시 ----------
 
-ROUTES = {  # 프록시 경로 → FM API 경로
+# ---------- trace (선택, run.json 의 traces_table) ----------
+# traces_table=<catalog>.<schema>.<prefix>_otel_spans 면 (MLflow experiment 에 UC trace 위치로 묶인 표, README 'trace'):
+#   - 프록시가 LLM 호출마다 span 하나를 만들어 /api/2.0/otel/v1/traces 로 그 표에 씀 (SP 토큰, X-Databricks-UC-Table-Name).
+#     MLflow 형식 속성 (mlflow.spanType=LLM, spanInputs=프록시가 바꾼 뒤의 요청, spanOutputs=응답, 토큰) → experiment 의
+#     Traces 탭에서 보임. 요청·응답은 TRACE_BODY_MAX 자에서 자름 (Codex 는 호출마다 컨텍스트 전체를 보냄)
+#   - 실행 하나 = trace 하나: 끝날 때 root span (AGENT, 실행 설정·결과) 을 씀. LLM span 은 하네스와 상관없이 늘 그 아래
+#     (meta.json 의 trace_id). 하네스가 traceparent 를 보냈으면 그 id 를 fab.harness_trace_id·fab.harness_parent_span_id 로 남김.
+#     작업이 통째로 죽어 finally 가 안 돌면 root 가 없어 UI 에는 안 보이고 표에만 남음
+#   - Claude Code 의 OTLP trace (interaction·llm_request·tool 실행 span) 도 프록시의 /otel/v1/traces 로 받아 같은 표로 넘김
+#     (ug 의 otel-proxy 와 같은 방식: 하네스 설정에 고정 토큰을 넣으면 1시간 실행 중에 만료됨). 넘길 때 resource 에 fab.run
+#     (실행 키) 을 붙임. Codex 는 끔 (2026-11-11 시험: 6분에 내부 Rust span 약 2.6만 개·작은 trace 수백 개, 도구·명령 내용은
+#     없음 → 명령은 codex.jsonl, 요청·응답은 프록시 LLM span). AIDE 는 OTLP 를 안 내보냄
+#   - 전송 기록은 otel.jsonl (proxy.jsonl 과 따로: 사후 검사가 proxy.jsonl 줄 수를 LLM 호출 수로 셈). 표에 쓰기 실패는 실행을 막지 않음
+# gateway=true (선택): 같은 요청을 FM API 대신 Unity Gateway 로 보냄 → system.ai_gateway.usage 에 남음 (메타스토어에 Gateway
+#   trace 표가 설정돼 있으면 거기에도). 모델은 model service 이름(system.ai.*, run.json 의 upstream_model). 요청마다
+#   Databricks-Ai-Gateway-Request-Tags (실행 키·하네스·모델) 와 traceparent 를 붙임. x-databricks-use-coding-agent-mode 헤더는
+#   일부러 안 넣음 (Smart Routing·코딩 에이전트 전용 처리가 붙을 수 있어 FM API 실행과 조건이 달라짐)
+GATEWAY = bool(CFG.get("gateway"))
+TRACES_TABLE = CFG.get("traces_table") or None
+UPSTREAM_MODEL = CFG.get("upstream_model") or CFG["model"]  # 프록시가 고정하는 모델 (gateway 면 system.ai.*)
+TRACE_ID, ROOT_SPAN_ID = os.urandom(16).hex(), os.urandom(8).hex()  # 이 실행의 trace·root span
+REQUEST_TAGS = json.dumps({"fab_run": CFG["key"], "fab_harness": CFG["harness"], "fab_model": CFG["model"]})
+OTEL_PATH, OTEL_TARGET = "/otel/v1/traces", "/api/2.0/otel/v1/traces"
+TRACE_BODY_MAX = 1_000_000  # span 의 요청·응답 글자 수 상한
+TRACE_FLUSH_SECS = 15
+TRACE_BATCH_BYTES = 4_000_000
+
+ROUTES = {  # 프록시 경로 → FM API 경로 (gateway 면 Unity Gateway 경로)
     "/anthropic/v1/messages": "/serving-endpoints/anthropic/v1/messages",
     "/openai/v1/chat/completions": "/serving-endpoints/chat/completions",
     "/openai/v1/responses": "/serving-endpoints/responses",
+} if not GATEWAY else {
+    "/anthropic/v1/messages": "/ai-gateway/anthropic/v1/messages",  # Anthropic 네이티브 (Claude 전용)
+    "/openai/v1/chat/completions": "/ai-gateway/mlflow/v1/chat/completions",  # 통합 API (AIDE: Claude·GPT 둘 다)
+    "/openai/v1/responses": "/ai-gateway/openai/v1/responses",  # OpenAI 네이티브 (GPT 전용)
 }
+
+
+def span_context(headers) -> tuple[str, str, str, dict]:
+    """LLM 호출 span 의 (trace id, 부모 span id, 이 span id, 하네스 trace 속성). 늘 이 실행의 root 아래.
+    하네스가 traceparent 를 보냈으면 (Claude Code) 그 trace·span id 를 속성으로 (하네스 span 과 맞춰 볼 때)."""
+    tp = next((v for k, v in headers.items() if k.lower() == "traceparent"), "")
+    m = re.fullmatch(r"[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}", tp.strip().lower())
+    harness = {"harness_trace_id": m.group(1), "harness_parent_span_id": m.group(2)} if m else {}
+    return TRACE_ID, ROOT_SPAN_ID, os.urandom(8).hex(), harness
+
+
+def upstream_headers(headers, ctx) -> dict:
+    """LLM 요청에 붙일 헤더 (gateway 일 때만): 요청 태그, (하네스가 안 보냈으면) 이 호출 span 의 traceparent."""
+    if not GATEWAY:
+        return {}
+    extra = {"Databricks-Ai-Gateway-Request-Tags": REQUEST_TAGS}
+    if not any(k.lower() == "traceparent" for k in headers):
+        extra["traceparent"] = f"00-{ctx[0]}-{ctx[2]}-01"
+    return extra
+
+
+# OTLP protobuf (ExportTraceServiceRequest) 를 직접 씀: 실행기는 패키지 설치 없이 돌아야 하고 (에이전트 환경에 안 섞이게),
+# 필요한 필드가 몇 개뿐. 필드 번호는 opentelemetry-proto trace/v1, common/v1, resource/v1
+def _varint(n: int) -> bytes:
+    out = bytearray()
+    while True:
+        b, n = n & 0x7F, n >> 7
+        out.append(b | (0x80 if n else 0))
+        if not n:
+            return bytes(out)
+
+
+def _ld(field: int, data: bytes) -> bytes:  # length-delimited (문자열·바이트·메시지)
+    return _varint(field << 3 | 2) + _varint(len(data)) + data
+
+
+def _anyvalue(v) -> bytes:
+    """AnyValue. dict → kvlist, list → array: UC 표의 attributes(variant) 에 객체·배열로 들어감 (MLflow 가 쓰는 모양)."""
+    if v is None:
+        return b""
+    if isinstance(v, dict):
+        return _ld(6, b"".join(_ld(1, _ld(1, str(k).encode()) + _ld(2, _anyvalue(x))) for k, x in v.items()))
+    if isinstance(v, (list, tuple)):
+        return _ld(5, b"".join(_ld(1, _anyvalue(x)) for x in v))
+    if isinstance(v, bool):
+        return _varint(2 << 3) + _varint(int(v))
+    if isinstance(v, int):
+        return _varint(3 << 3) + _varint(v & (2 ** 64 - 1))
+    if isinstance(v, float):
+        return _varint(4 << 3 | 1) + struct.pack("<d", v)
+    return _ld(1, str(v).encode())
+
+
+def _attrs(field: int, attrs: dict) -> bytes:
+    return b"".join(_ld(field, _ld(1, k.encode()) + _ld(2, _anyvalue(v))) for k, v in attrs.items() if v is not None)
+
+
+def otlp_span(trace_id, parent_id, span_id, name, start, end, attrs, error=None, kind=1) -> bytes:
+    """Span 하나 (시각은 time.time() 초). kind 1=INTERNAL, 3=CLIENT. error 가 있으면 status ERROR."""
+    status = _ld(2, error.encode()) + _varint(3 << 3) + _varint(2) if error else _varint(3 << 3) + _varint(1)
+    return (_ld(1, bytes.fromhex(trace_id)) + _ld(2, bytes.fromhex(span_id))
+            + (_ld(4, bytes.fromhex(parent_id)) if parent_id else b"") + _ld(5, name.encode())
+            + _varint(6 << 3) + _varint(kind)
+            + _varint(7 << 3 | 1) + struct.pack("<Q", int(start * 1e9))
+            + _varint(8 << 3 | 1) + struct.pack("<Q", int(end * 1e9)) + _attrs(9, attrs) + _ld(15, status))
+
+
+def _read_varint(data: bytes, i: int) -> tuple[int, int]:
+    n = shift = 0
+    while True:
+        b = data[i]
+        i += 1
+        n |= (b & 0x7F) << shift
+        shift += 7
+        if not b & 0x80:
+            return n, i
+
+
+def tag_resource(body: bytes) -> bytes:
+    """하네스 OTLP (ExportTraceServiceRequest) 의 ResourceSpans 마다 resource 에 fab.run 을 더함. protobuf 는 단일 메시지
+    필드가 두 번 나오면 합치므로 (attributes 가 이어짐) ResourceSpans 끝에 resource(필드 1) 를 하나 더 붙이면 됨.
+    최상위 필드만 훑음 (resource_spans 외 필드는 그대로)."""
+    tag, out, i = _ld(1, _attrs(1, {"fab.run": CFG["key"]})), [], 0
+    while i < len(body):
+        start = i
+        key, i = _read_varint(body, i)
+        wire = key & 7
+        if wire == 2:
+            n, j = _read_varint(body, i)
+            i = j + n
+            if key >> 3 == 1:
+                out.append(_ld(1, body[j:i] + tag))
+                continue
+        elif wire == 0:
+            _, i = _read_varint(body, i)
+        elif wire in (1, 5):
+            i += 8 if wire == 1 else 4
+        else:
+            raise ValueError(f"unsupported protobuf wire type {wire}")
+        out.append(body[start:i])
+    return b"".join(out)
+
+
+def otlp_request(spans: list[bytes]) -> bytes:
+    resource = _attrs(1, {"service.name": "fab-mleb-agent", "fab.run": CFG["key"]})
+    scope_spans = _ld(1, _ld(1, b"fab.agent.runner")) + b"".join(_ld(2, sp) for sp in spans)
+    return _ld(1, _ld(1, resource) + _ld(2, scope_spans))
+
+
+# MLflow 가 UC 표에 쓰는 모양에 맞춤 (2026-11-11, mlflow 3.18 SDK 로 쓴 span 과 비교): mlflow.spanType 등은 그냥 문자열,
+# spanInputs·spanOutputs·tokenUsage 는 객체. JSON 문자열로 보내면 따옴표째 문자열로 남아 MLflow 가 span 종류를 못 읽음
+TRACE_LOCATION = TRACES_TABLE.removesuffix("_otel_spans") if TRACES_TABLE else None  # <catalog>.<schema>.<prefix>
+
+
+def body_value(text: str):
+    """요청·응답 본문 → span 값. JSON 이고 TRACE_BODY_MAX 자 안이면 객체, 아니면 (스트리밍 SSE·잘린 본문) 문자열."""
+    if len(text) <= TRACE_BODY_MAX:
+        try:
+            return json.loads(text)
+        except ValueError:
+            return text
+    return text[:TRACE_BODY_MAX] + f"... [fab: {len(text) - TRACE_BODY_MAX} chars clipped]"
+
+
+def mlflow_attrs(span_type: str, trace_id: str, inputs, outputs) -> dict:
+    return {"mlflow.spanType": span_type, "mlflow.spanInputs": inputs, "mlflow.spanOutputs": outputs,
+            "mlflow.traceRequestId": f"trace:/{TRACE_LOCATION}/{trace_id}"}
+
+
+class Tracer:
+    """프록시 LLM span 을 모아 TRACE_FLUSH_SECS 마다 traces_table 로 보냄. 실패해도 실행은 계속 (otel.jsonl 에 남김)."""
+
+    def __init__(self, ws):
+        self.ws, self.host = ws, urllib.parse.urlparse(ws.config.host).netloc
+        self.spans, self.lock, self.stop = [], threading.Lock(), threading.Event()
+        threading.Thread(target=self._loop, daemon=True).start()
+
+    def add(self, span: bytes):
+        with self.lock:
+            self.spans.append(span)
+
+    def _loop(self):
+        while not self.stop.wait(TRACE_FLUSH_SECS):
+            self.flush()
+
+    def flush(self):
+        with self.lock:
+            spans, self.spans = self.spans, []
+        batch, size = [], 0
+        for sp in spans + [None]:
+            if sp is None or (batch and size + len(sp) > TRACE_BATCH_BYTES):
+                if batch:
+                    self._post(batch)
+                batch, size = [], 0
+            if sp is not None:
+                batch.append(sp)
+                size += len(sp)
+
+    def _post(self, batch: list[bytes]):
+        body, t, status, err = otlp_request(batch), time.time(), None, None
+        for attempt in range(3):
+            conn = http.client.HTTPSConnection(self.host, timeout=120)
+            try:
+                conn.request("POST", OTEL_TARGET, body, {"Content-Type": "application/x-protobuf",
+                                                         "X-Databricks-UC-Table-Name": TRACES_TABLE,
+                                                         **self.ws.config.authenticate()})
+                resp = conn.getresponse()
+                status, data = resp.status, resp.read()
+                err = data.decode("utf-8", "replace")[:300] if status >= 400 else None
+            except Exception as e:  # noqa: BLE001 - trace 전송 실패는 실행을 막지 않음
+                status, err = None, repr(e)[:300]
+            finally:
+                conn.close()
+            if status is not None and status < 500 and status != 429:
+                break
+            time.sleep(2 * (attempt + 1))
+        with LOG_LOCK, open(OUT / "otel.jsonl", "a") as f:
+            f.write(json.dumps(dict(t=round(time.time() - T0, 1), source="fab", status=status, spans=len(batch),
+                                    bytes=len(body), secs=round(time.time() - t, 1),
+                                    **({"error": err} if err else {}))) + "\n")
+
+    def close(self):
+        self.stop.set()
+        self.flush()
+
+
+TRACER: Tracer | None = None  # run() 이 만듦 (traces_table 이 있을 때)
+
+
+def trace_llm(ctx, path, t, req, text, status, asked, usage, extra):
+    """LLM 호출 하나를 span 으로 (TRACER 가 있을 때). ctx = span_context()."""
+    if TRACER is None:
+        return
+    fmt = "anthropic" if path.startswith("/anthropic") else "openai"
+    tokens = {"input_tokens": sum(usage.get(k, 0) for k in ("input_tokens", "prompt_tokens", "cache_read_input_tokens",
+                                                           "cache_creation_input_tokens")),
+              "output_tokens": sum(usage.get(k, 0) for k in ("output_tokens", "completion_tokens"))}
+    tokens["total_tokens"] = tokens["input_tokens"] + tokens["output_tokens"]
+    attrs = {**mlflow_attrs("LLM", ctx[0], body_value(json.dumps(req, ensure_ascii=False)), body_value(text)),
+             "mlflow.llm.model": UPSTREAM_MODEL, "mlflow.message.format": fmt, "mlflow.chat.tokenUsage": tokens,
+             "session.id": CFG["key"], "gen_ai.request.model": UPSTREAM_MODEL,
+             "gen_ai.usage.input_tokens": tokens["input_tokens"], "gen_ai.usage.output_tokens": tokens["output_tokens"],
+             "http.response.status_code": status, "fab.path": path, "fab.asked_model": asked,
+             "fab.route": "gateway" if GATEWAY else "fm_api", **{f"fab.{k}": v for k, v in {**ctx[3], **extra}.items()}}
+    error = f"HTTP {status}" if not status or status >= 400 else None
+    TRACER.add(otlp_span(ctx[0], ctx[1], ctx[2], f"llm {path}", t, time.time(), attrs, error, kind=3))
+
+
+def trace_root(meta: dict):
+    """실행 전체 span (끝날 때 한 번). LLM span 의 부모."""
+    if TRACER is None:
+        return
+    keys = ("cid", "harness", "model", "alias", "hours", "continue", "gateway", "upstream_model")
+    outs = ("timed_out", "harness_seconds", "format_ok", "format_msg", "submission_from", "continues", "runner_error")
+    attrs = {**mlflow_attrs("AGENT", TRACE_ID, {k: CFG.get(k) for k in keys}, {k: meta.get(k) for k in outs}),
+             "session.id": CFG["key"],
+             "fab.run": CFG["key"], **{f"fab.{k}": CFG.get(k) for k in keys if not isinstance(CFG.get(k), (dict, list))}}
+    TRACER.add(otlp_span(TRACE_ID, None, ROOT_SPAN_ID, f"mleb {CFG['harness']} {CFG['cid']}", T0, time.time(), attrs,
+                         meta.get("runner_error")))
+
+
 USAGE_KEYS = ["input_tokens", "output_tokens", "prompt_tokens", "completion_tokens", "cache_read_input_tokens",
               "cache_creation_input_tokens"]
 LOG_LOCK = threading.Lock()
@@ -235,12 +491,14 @@ def make_proxy(ws):
             self.record(dict(path=self.path, status=404))
 
         def do_POST(self):
+            otel = bool(TRACES_TABLE) and self.path.split("?")[0] == OTEL_PATH
             try:
-                self.forward()
+                self.relay_otel() if otel else self.forward()
             except (BrokenPipeError, ConnectionResetError):
                 pass
             except Exception as e:  # noqa: BLE001 - 처리기가 죽으면 하네스는 연결 끊김만 보고 같은 요청을 끝없이 재시도함
-                self.record(dict(path=self.path, status=502, proxy_error=repr(e)[:500]))
+                self.record(dict(path=self.path, status=502, proxy_error=repr(e)[:500]),
+                            "otel.jsonl" if otel else "proxy.jsonl")
                 try:
                     body = json.dumps({"error": {"message": f"fab proxy error: {e!r}"[:500]}}).encode()
                     self.send_response(502)
@@ -276,18 +534,19 @@ def make_proxy(ws):
             # FM API 가 거부할 수 있는 요청 옵션을 확인할 수 있게 기록 (kaggle-master#40): anthropic-beta 값, 도구 수
             sent = {k: v for k, v in (("beta", self.headers.get("anthropic-beta")),
                                       ("n_tools", len(req.get("tools") or []) or None)) if v}
-            req["model"] = CFG["model"]  # 다른 엔드포인트로 못 가게 고정
+            req["model"] = UPSTREAM_MODEL  # 다른 엔드포인트로 못 가게 고정
             dropped = [k for k in DROP_PARAMS if req.pop(k, None) is not None]
             body = json.dumps(req).encode()
+            ctx = span_context(self.headers)
             if path == "/openai/v1/chat/completions" and (conv := tools_as_json_prompt(req)):
-                return self.tool_call(target, *conv, asked, dropped, t)
+                return self.tool_call(target, *conv, asked, dropped, t, ctx)
             # accept-encoding 도 뺌: 넘기면 FM API 가 gzip 으로 답하는데 프록시는 content-encoding 헤더를 지우고
             # 본문만 넘겨서 하네스가 못 읽음 (에러 응답이 깨지고, 사용량·에러 기록도 gzip 바이트가 됨).
             # content-encoding 도 뺌: 본문은 위에서 풀어 다시 쓴 JSON
             headers = {k: v for k, v in self.headers.items()
                        if k.lower() not in ("host", "authorization", "x-api-key", "content-length", "connection",
                                             "accept-encoding", "content-encoding")}
-            headers["Content-Length"] = str(len(body))
+            headers |= {"Content-Length": str(len(body)), **upstream_headers(headers, ctx)}
             tail, status, waited, retries, conn = b"", None, 0, 0, None
             try:
                 conn, resp, retries, waited = self.send(target, body, headers)
@@ -312,6 +571,8 @@ def make_proxy(ws):
             self.record(dict(path=path, asked=asked, status=status, secs=round(time.time() - t, 1), **usage, **sent,
                              **({"error": err} if err else {}), **({"dropped": dropped} if dropped else {}),
                              **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})))
+            trace_llm(ctx, path, t, req, text, status, asked, usage,
+                      dict(sent, retries_429=retries, waited_429=round(waited, 1), dropped=",".join(dropped) or None))
 
         def reject(self, status: int, path: str, message: str):
             body = json.dumps({"error": {"message": message[:500]}}).encode()
@@ -342,21 +603,21 @@ def make_proxy(ws):
                 waited, retries = waited + wait, retries + 1
             raise AssertionError("unreachable")
 
-        def upstream(self, target: str, body: bytes) -> tuple[int, bytes, int, float]:
+        def upstream(self, target: str, body: bytes, ctx) -> tuple[int, bytes, int, float]:
             """비스트리밍 요청 (429 재시도 포함) → (상태, 본문, 재시도 수, 기다린 초)."""
-            conn, resp, retries, waited = self.send(
-                target, body, {"Content-Type": "application/json", "Content-Length": str(len(body))})
+            headers = {"Content-Type": "application/json", "Content-Length": str(len(body))}
+            conn, resp, retries, waited = self.send(target, body, headers | upstream_headers(headers, ctx))
             try:
                 return resp.status, resp.read(), retries, waited
             finally:
                 conn.close()
 
-        def tool_call(self, target, req, fn, asked, dropped, t):
+        def tool_call(self, target, req, fn, asked, dropped, t, ctx):
             """tools_as_json_prompt 참고. 응답은 OpenAI 함수 호출 형식 (finish_reason=tool_calls)."""
             usage, status, data, obj, tries, retries, waited = {}, None, b"", None, 0, 0, 0
             body = json.dumps(req).encode()
             for tries in range(1, TOOL_TRIES + 1):
-                status, data, r, w = self.upstream(target, body)
+                status, data, r, w = self.upstream(target, body, ctx)
                 retries, waited = retries + r, waited + w
                 if status != 200:
                     break
@@ -388,9 +649,42 @@ def make_proxy(ws):
                              **{k: v for k, v in usage.items() if k in USAGE_KEYS},
                              **({"error": err} if err else {}), **({"dropped": dropped} if dropped else {}),
                              **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})))
+            trace_llm(ctx, self.path, t, req, data.decode("utf-8", "replace"), status, asked, usage,
+                      dict(tool_json=fn["name"], tool_tries=tries, tool_ok=obj is not None, retries_429=retries,
+                           waited_429=round(waited, 1), dropped=",".join(dropped) or None))
 
-        def record(self, row):
-            with LOG_LOCK, open(OUT / "proxy.jsonl", "a") as f:
+        def relay_otel(self):
+            """하네스의 OTLP trace (http/protobuf) → /api/2.0/otel/v1/traces 의 traces_table, SP 토큰을 붙여 그대로 넘김.
+            압축 본문은 풀어서 보냄 (Databricks OTLP 수집은 비압축 protobuf 기준). 응답(ExportTraceServiceResponse)도 그대로 돌려줌."""
+            t = time.time()
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            encoding = self.headers.get("Content-Encoding", "identity").lower()
+            if encoding in ("gzip", "x-gzip", "deflate"):
+                body = zlib.decompress(body, 16 + zlib.MAX_WBITS if "gzip" in encoding else zlib.MAX_WBITS)
+            try:
+                body = tag_resource(body)
+            except (ValueError, IndexError):  # protobuf 가 아니거나 깨짐 → 그대로 넘김 (서버가 거부하면 otel.jsonl 에 남음)
+                pass
+            headers = {"Content-Type": self.headers.get("Content-Type", "application/x-protobuf"),
+                       "Content-Length": str(len(body)), "X-Databricks-UC-Table-Name": TRACES_TABLE}
+            conn, resp, retries, waited = self.send(OTEL_TARGET, body, headers)
+            try:
+                data = resp.read()
+            finally:
+                conn.close()
+            self.send_response(resp.status)
+            self.send_header("Content-Type", resp.getheader("Content-Type") or "application/x-protobuf")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            # 200 이어도 일부 span 이 거부될 수 있음 (partial_success, protobuf) → 응답 크기만 남기고 내용은 안 풂
+            self.record(dict(source="harness", status=resp.status, bytes=len(body), resp_bytes=len(data),
+                             secs=round(time.time() - t, 1),
+                             **({"error": data.decode("utf-8", "replace")[:300]} if resp.status >= 400 else {}),
+                             **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})), "otel.jsonl")
+
+        def record(self, row, name="proxy.jsonl"):
+            with LOG_LOCK, open(OUT / name, "a") as f:
                 f.write(json.dumps(dict(t=round(time.time() - T0, 1), **row)) + "\n")
 
     return Proxy
@@ -508,6 +802,13 @@ def harness_command(prompt_file: Path) -> tuple[list[str], dict, Path]:
                 # advanced-tool-use-2025-11-20 을 FM API 가 400 으로 거부함. 프록시에서 헤더만 빼면 본문의 지연 로드 도구가
                 # 검색 없이 남을 수 있어서, 기능 자체를 끄고 처음부터 모든 도구를 넘김
                 "ENABLE_TOOL_SEARCH": "false"}
+        if TRACES_TABLE:  # ug 가 Claude Code 에 넣는 trace 설정 (unity-gateway agents/claude.py), 받는 곳만 로컬 프록시.
+            # 토큰은 프록시가 붙임 → otelHeadersHelper 불필요. PROPAGATE_TRACEPARENT: LLM 요청에 traceparent 를 붙여
+            # (trace linking 이 켜져 있으면) Gateway span 이 Claude Code 의 trace 에 묶임
+            env |= {"CLAUDE_CODE_ENABLE_TELEMETRY": "1", "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+                    "OTEL_TRACES_EXPORTER": "otlp", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL": "http/protobuf",
+                    "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": f"{proxy}{OTEL_PATH}",
+                    "CLAUDE_CODE_PROPAGATE_TRACEPARENT": "1"}
         cmd = ["claude", "-p", prompt, *claude_flags()]
     else:  # codex
         codex_home = WORK / ".codex"
@@ -516,6 +817,8 @@ def harness_command(prompt_file: Path) -> tuple[list[str], dict, Path]:
             f'model = "{model}"\nmodel_provider = "fab"\n\n[model_providers.fab]\n'
             f'name = "Databricks FM API (fab proxy)"\nbase_url = "{proxy}/openai/v1"\n'
             f'env_key = "FAB_PROXY_KEY"\nwire_api = "responses"\n')
+        # Codex 의 OTLP trace 는 안 켬 (위 'trace': 내부 span 만 많고 도구·명령 내용 없음). 켜려면 ug 처럼
+        # [otel.trace_exporter.otlp-http] endpoint = "{proxy}{OTEL_PATH}", protocol = "binary"
         env |= {"CODEX_HOME": str(codex_home), "FAB_PROXY_KEY": "local-proxy"}
         cmd = ["codex", "exec", *CODEX_FLAGS, prompt]
     return cmd, env, OUT / f"{h}.jsonl"
@@ -655,6 +958,12 @@ def main():
         raise
     finally:
         meta["finished"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        if TRACER is not None:  # root span + 남은 LLM span 을 회수 전에 보냄 (otel.jsonl 도 회수됨)
+            try:
+                trace_root(meta)
+                TRACER.close()
+            except Exception as e:  # noqa: BLE001 - trace 실패로 회수를 막지 않음
+                meta["trace_error"] = repr(e)[:500]
         (OUT / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
         dst = Path(CFG["out"])
         dst.mkdir(parents=True, exist_ok=True)
@@ -681,6 +990,7 @@ def sync_progress(stop: threading.Event):
 
 
 def run(meta: dict):
+    global TRACER
     with tarfile.open(CFG["data_tgz"]) as tar:
         tar.extractall(HOME / "data", filter="data")
     shutil.copy(SRC / "validate_submission.sh", HOME / "validate_submission.sh")
@@ -696,6 +1006,9 @@ def run(meta: dict):
 
     ws = WorkspaceClient()
     meta["identity"] = ws.current_user.me().user_name
+    if TRACES_TABLE:  # 표에서 이 실행 찾기: trace_id (프록시 LLM span·root), session.id = 실행 키 (하네스 trace 포함)
+        TRACER = Tracer(ws)
+        meta["trace_id"] = TRACE_ID
     serve(make_proxy(ws), PROXY_PORT)
     serve(Validate, VALIDATE_PORT)
     prompt = HOME / "instructions.txt"

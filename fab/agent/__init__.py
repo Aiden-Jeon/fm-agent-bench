@@ -19,6 +19,10 @@ databricks.local.yaml 의 mleb_agent 블록 (git 제외):
       run_as: <SP application id>
       volume: /Volumes/<catalog>/<schema>/<volume>     # SP 가 읽고 쓰는 scratch Volume
       experiment: <MLflow experiment 이름>             # 선택. 기본 fab-mleb-agent
+      traces_table: <catalog>.<schema>.<prefix>_otel_spans  # 선택. LLM 호출·하네스 trace 를 이 UC 표로 (README 'trace')
+      gateway: true          # 선택. LLM 요청을 FM API 대신 Unity Gateway 로 → system.ai_gateway.usage 에 남음
+  gateway 는 실행 조건(분당 한도·경로)이 바뀔 수 있어 run.json·runs.json·결과 표(llm_route)에 남김. 자세한 건 runner.py 의
+  'trace'. traces_table 은 기록만 더함 (요청 경로·내용은 그대로)
 """
 
 from __future__ import annotations
@@ -73,7 +77,18 @@ def settings() -> dict:
     if not (cfg.get("profile") and agent.get("run_as") and agent.get("volume")):
         raise SystemExit(f"{LOCAL_CONFIG.name} 에 profile 과 mleb_agent.run_as / mleb_agent.volume 필요 (fab/agent/__init__.py 설명)")
     return dict(profile=cfg["profile"], run_as=agent["run_as"], volume=agent["volume"].rstrip("/"),
-                experiment=agent.get("experiment", "fab-mleb-agent"))
+                experiment=agent.get("experiment", "fab-mleb-agent"), gateway=bool(agent.get("gateway")),
+                traces_table=agent.get("traces_table"))
+
+
+def gateway_model(endpoint: str) -> str:
+    """FM API 엔드포인트 이름 → Unity Gateway model service 이름 (databricks-claude-sonnet-5-5 → system.ai.claude-sonnet-5-5)."""
+    return f"system.ai.{endpoint.removeprefix('databricks-')}"
+
+
+def llm_route(info: dict) -> str:
+    """실행의 LLM 경로. gateway 설정 이전 실행(runs.json 에 없음)은 FM API."""
+    return "gateway" if info.get("gateway") else "fm_api"
 
 
 def dbx(cfg, *args, capture=True, check=True, timeout=1200):
@@ -153,7 +168,8 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
     key = f"{cid}__{label.replace('+', '-')}__r{rep}__{datetime.now():%Y%m%d-%H%M%S}"
     out = f"{cfg['volume']}/runs/{key}"
     run = dict(key=key, cid=cid, harness=harness, model=model, alias=alias, hours=hours, data_tgz=data, out=out,
-               harness_versions=HARNESS_VERSIONS, **{"continue": cont})
+               harness_versions=HARNESS_VERSIONS, **{"continue": cont}, gateway=cfg["gateway"],
+               upstream_model=gateway_model(model) if cfg["gateway"] else model, traces_table=cfg["traces_table"])
     with tempfile.TemporaryDirectory() as d:
         code = Path(d) / "code"
         code.mkdir()
@@ -192,7 +208,8 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
         res = dbx(cfg, "jobs", "submit", "--no-wait", "--json", f"@{Path(d) / 'job.json'}", "-o", "json")
     run_id = json.loads(res.stdout[res.stdout.index("{"):])["run_id"]
     record(key, dict(run, run_id=run_id, config=label, rep=rep, submitted=datetime.now(timezone.utc).isoformat()))
-    print(f"제출: {key} (run_id {run_id})")
+    print(f"제출: {key} (run_id {run_id})" + (f" · LLM 경로 Unity Gateway ({run['upstream_model']})" if cfg["gateway"] else "")
+          + (f" · trace → {cfg['traces_table']}" if cfg["traces_table"] else ""))
     return key
 
 
@@ -206,7 +223,7 @@ def posthoc(d: Path) -> dict:
             for m in tar.getmembers():
                 if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")):
                     code.append(tar.extractfile(m).read().decode("utf-8", "replace"))
-    logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl") if p.name != "proxy.jsonl"]
+    logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl") if p.name not in ("proxy.jsonl", "otel.jsonl")]
     code_blob, blob = "\n".join(code), "\n".join(code + logs)
     before = set((d / "pip_before.txt").read_text().splitlines()) if (d / "pip_before.txt").exists() else set()
     after = set((d / "pip_after.txt").read_text().splitlines()) if (d / "pip_after.txt").exists() else set()
@@ -252,7 +269,7 @@ def grade_run(key: str, info: dict) -> dict:
     meta = json.loads((d / "meta.json").read_text()) if (d / "meta.json").exists() else {}
     row = dict(timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
                mlebench=info["cid"], config=info["config"], harness=info["harness"], model=info["model"],
-               rep=info["rep"], hours=info["hours"], key=key, timed_out=meta.get("timed_out"),
+               rep=info["rep"], hours=info["hours"], key=key, llm_route=llm_route(info), timed_out=meta.get("timed_out"),
                harness_seconds=meta.get("harness_seconds"), format_ok=meta.get("format_ok"), **node_columns(meta),
                # 이어 가기: 횟수와 첫 종료 시각. 이 기능 이전 실행(meta 에 없음)은 이어 가지 않았으므로 0 과 harness_seconds
                continues=meta.get("continues", 0),
@@ -318,7 +335,13 @@ def peek(keys: list[str] | None = None):
             for c in calls:
                 status[c.get("status")] = status.get(c.get("status"), 0) + 1
             errs = [c.get("proxy_error") or c.get("error") for c in calls if (c.get("status") or 0) >= 400]
+            # trace 전송 (traces_table): 출처(fab = 프록시 LLM span, harness = 하네스 OTLP)별 상태 수. 403 = SP 표 권한 없음
+            otel = {}
+            for c in read_jsonl(Path(d) / "otel.jsonl"):
+                k = f"{c.get('source', '?')}:{c.get('status')}"
+                otel[k] = otel.get(k, 0) + 1
             print(f"{key}: {elapsed}s, LLM {len(calls)}회 {status}, 429 대기 {round(sum(c.get('waited', 0) for c in calls), 1)}s"
+                  + (f", trace 전달 {otel}" if otel else "")
                   + (f"\n  마지막 오류: {str(errs[-1])[:300]}" if errs else ""))
 
 
@@ -354,6 +377,8 @@ def main(argv: list[str]):
             checks = pd.DataFrame([{k: " ".join(v) if isinstance(v, list) else v
                                     for k, v in posthoc(LOCAL_RUNS / key).items()} for key in t.key], index=t.index)
             t = pd.concat([t.drop(columns=[c for c in checks if c in t]), checks], axis=1)
+            if "llm_route" in t:  # 이 열 이전 행은 모두 FM API (grade_run 의 llm_route 와 같은 규칙)
+                t["llm_route"] = t["llm_route"].fillna("fm_api")
             if "continues" in t:  # 이어 가기 열 이전 행: 이어 가지 않았으므로 0 과 harness_seconds (grade_run 과 같은 규칙)
                 t["continues"] = t["continues"].fillna(0).astype(int)
                 t["first_exit_seconds"] = t["first_exit_seconds"].fillna(t["harness_seconds"])
