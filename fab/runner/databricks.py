@@ -151,16 +151,16 @@ if code:  # serverless(CPU) 작업은 IPython 위에서 돌아 sys.exit(0) 도 �
 
 
 def settings(args) -> dict:
+    """profile·volume 은 databricks.local.yaml 에서만 (fab.remote.settings 와 같은 값). 제출 기록·결과·정리 작업이
+    모두 그 Volume 을 보므로 명령마다 바꾸지 않음. accelerator·image 는 명령에서 덮어쓸 수 있음."""
+    from fab.remote import settings as remote_settings
+
     cfg = yaml.safe_load(LOCAL_CONFIG.read_text()) if LOCAL_CONFIG.exists() else {}
-    cfg.update({k: v for k, v in dict(profile=args.profile, volume=args.volume, accelerator=args.accelerator,
-                                      image=args.image).items() if v})
+    cfg.update({k: v for k, v in dict(accelerator=args.accelerator, image=args.image).items() if v})
+    cfg.update(remote_settings())  # profile·volume 이 없으면 여기서 멈춤 (아무것도 제출하기 전에)
     cfg.setdefault("accelerator", DEFAULT_ACCELERATOR)
     if str(cfg.get("image")).lower() == "none":  # --image none / YAML 의 None·null
         cfg["image"] = None
-    missing = [k for k in ("profile", "volume") if not cfg.get(k)]
-    if missing:
-        raise SystemExit(f"{', '.join(missing)} 설정 없음: {LOCAL_CONFIG.name} 에 적거나 --{missing[0]} 로 지정")
-    cfg["volume"] = cfg["volume"].rstrip("/")
     return cfg
 
 
@@ -248,11 +248,11 @@ def submit(cfg: dict, comp: str, data: str, run_args: list[str], models: list[st
 
 
 def record(cfg: dict, run: dict):
-    """제출 기록을 Volume 에 (fab remote kick 으로 정리 작업을 돌리면 처리)."""
-    from fab.remote import settings as remote_settings
+    """제출 기록을 Volume 에 (fab remote kick 으로 정리 작업을 돌리면 처리). 실행마다 제출 직후 바로 부름
+    → 뒤 제출이 실패해도 앞서 낸 실행은 기록이 남음."""
     from fab.remote import submit_item
 
-    submit_item(remote_settings() | {"profile": cfg["profile"], "volume": cfg["volume"]}, "fm", run["key"], run)
+    submit_item(cfg, "fm", run["key"], run)
     print(f"제출 완료: {run['key']} (run_id {run['run_id']})\n  {run['url']}")
 
 
@@ -372,8 +372,6 @@ def main(argv: list[str] | None = None):
                                     "덮어씀). none 이면 기본 환경에서 pip 설치")
     ap.add_argument("--timeout", type=int, default=720, help="실행 시간 제한 (분)")
     ap.add_argument("--tag", default="", help="실행 이름 태그 (MLflow run 이름·결과 폴더에 붙음)")
-    ap.add_argument("--profile", help=f"databricks 프로필 ({LOCAL_CONFIG.name} 값을 덮어씀)")
-    ap.add_argument("--volume", help=f"UC Volume 경로 ({LOCAL_CONFIG.name} 값을 덮어씀)")
     ap.add_argument("--split-folds", action="store_true",
                     help="GPU 모델을 fold 마다 작업 하나로 나눠 동시에 제출 (GPU 작업이 fold 수만큼). 다 끝나면 원격 정리 작업이 "
                          "fold 를 합쳐 results.csv 에 기록. 벽시계 시간은 줄지만 GPU 시간은 작업마다 준비 시간만큼 늘어남")
@@ -395,21 +393,34 @@ def main(argv: list[str] | None = None):
             ap.error(f"--split-folds 는 GPU 1장 작업으로 (지금 {cfg['accelerator']} × fold {comp.cv['n_splits']}개)")
     data = ensure_data(comp, cfg["profile"], cfg["volume"])
     runs = []
+
+    def add(run):  # 제출 직후 바로 기록
+        record(cfg, run)
+        runs.append(run)
+
     if gpu and args.split_folds:
         batch = f"{args.tag + '-' if args.tag else ''}{comp.name}-{datetime.now():%Y%m%d-%H%M%S}"
         print(f"GPU 작업 {comp.cv['n_splits']}개 제출 (fold 마다 {cfg['accelerator']}, 묶음 {batch}) — 워크스페이스 GPU 쿼터 확인")
-        for k in range(comp.cv["n_splits"]):  # 같은 초에 제출해도 실행 이름이 겹치지 않게 태그에 fold 번호
-            fold_args = copy.copy(args)
-            fold_args.fold, fold_args.fold_batch = k, batch
-            run = submit(cfg, comp.name, data, run_argv(fold_args, gpu), gpu, cfg["accelerator"], args.timeout,
-                         f"{args.tag + '-' if args.tag else ''}fold{k}")
-            runs.append(dict(run, batch=batch, fold=k))
+        try:
+            for k in range(comp.cv["n_splits"]):  # 같은 초에 제출해도 실행 이름이 겹치지 않게 태그에 fold 번호
+                fold_args = copy.copy(args)
+                fold_args.fold, fold_args.fold_batch = k, batch
+                run = submit(cfg, comp.name, data, run_argv(fold_args, gpu), gpu, cfg["accelerator"], args.timeout,
+                             f"{args.tag + '-' if args.tag else ''}fold{k}")
+                add(dict(run, batch=batch, fold=k))
+        except BaseException:
+            # fold 가 다 모이지 않는 묶음 → 합치지 않음으로 표시 (채점 요청이 이 묶음을 계속 기다리지 않게).
+            # 이미 낸 fold 실행은 기록이 있어 정리 작업이 Workspace 코드 정리 등은 그대로 함
+            from fab.remote import now, put_json
+
+            put_json(cfg, f"state/batch/{batch}.done.json",
+                     dict(status="aborted", submitted_folds=[r["fold"] for r in runs], at=now()))
+            print(f"묶음 {batch} 제출 중단 → 합치지 않음으로 기록 (제출된 fold: {[r['fold'] for r in runs]})")
+            raise
     elif gpu:
-        runs.append(submit(cfg, comp.name, data, run_argv(args, gpu), gpu, cfg["accelerator"], args.timeout, args.tag))
+        add(submit(cfg, comp.name, data, run_argv(args, gpu), gpu, cfg["accelerator"], args.timeout, args.tag))
     if cpu:
-        runs.append(submit_cpu(cfg, comp.name, data, run_argv(args, cpu), cpu, args.timeout, args.tag))
-    for run in runs:
-        record(cfg, run)
+        add(submit_cpu(cfg, comp.name, data, run_argv(args, cpu), cpu, args.timeout, args.tag))
     print("끝난 뒤 fab remote kick → 정리 작업이 결과를 합침, fab sync 로 결과표 받기 (진행 확인: fab remote status)")
     if args.watch:
         try:

@@ -81,8 +81,8 @@ def list_names(cfg, rel: str) -> list[str]:
 def items(cfg, kind: str) -> dict[str, bool]:
     """{key: 처리됨 여부} (state/<kind>/<key>.json 과 <key>.done.json)."""
     names = set(list_names(cfg, f"state/{kind}"))
-    keys = sorted(n.removesuffix(".json") for n in names if n.endswith(".json") and not n.endswith((".done.json",
-                                                                                                    ".attempts.json")))
+    keys = sorted(n.removesuffix(".json") for n in names
+                  if n.endswith(".json") and not n.endswith((".done.json", ".attempts.json", ".progress.json")))
     return {k: f"{k}.done.json" in names for k in keys}
 
 

@@ -162,18 +162,22 @@ def make_submission(cid: str, models: list[str]) -> Path:
     return path
 
 
-def grade(cid: str, groups: list[list[str]], note: str, grade_fn) -> list[dict]:
+def grade(cid: str, groups: list[list[str]], note: str, grade_fn) -> tuple[list[dict], dict[str, str]]:
     """모델 묶음마다 제출 파일을 만들어 (예측 평균) grade_fn(cid, csv) 로 채점 → results/mlebench.csv.
-    원격 정리 작업이 부름 (grade_fn = remote.Grader.grade). 예측이 없거나 채점에 실패한 묶음은 표에 쓰지 않고 오류만 출력."""
+    원격 정리 작업이 부름 (grade_fn = remote.Grader.grade). 돌려주는 것: (표에 쓴 행, {묶음: 실패 이유}).
+    예측이 없거나 채점에 실패한 묶음은 표에 쓰지 않음 (정리 작업이 다시 시도할지 정함)."""
     comps = bench_comps(cid)
-    rows = []
+    rows, errors = [], {}
     for models in groups:
+        name = "+".join(models)
         if missing := [f"{c.name}/{m}" for c in comps for m in models if test_info(c.name, m) is None]:
-            print(f"{cid} {'+'.join(models)}: test 예측 없음 ({', '.join(missing)}) → 채점 안 함")
+            errors[name] = f"test 예측 없음 ({', '.join(missing)})"
+            print(f"{cid} {name}: {errors[name]} → 채점 안 함")
             continue
         report = grade_fn(cid, make_submission(cid, models))
         if report.get("error"):
-            print(f"{cid} {'+'.join(models)}: 채점 실패\n{report['error']}")
+            errors[name] = f"채점 실패\n{report['error']}"
+            print(f"{cid} {name}: {errors[name]}")
             continue
         infos = [test_info(c.name, m) or {} for c in comps for m in models]
         rows.append(dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"),
@@ -189,7 +193,7 @@ def grade(cid: str, groups: list[list[str]], note: str, grade_fn) -> list[dict]:
               f"(금 {r['gold_threshold']}, 중앙값 {r['median_threshold']})")
     if rows:
         append_rows(pd.DataFrame(rows), GRADES)
-    return rows
+    return rows, errors
 
 
 def request_grade(cid: str, groups: list[list[str]], note: str = ""):

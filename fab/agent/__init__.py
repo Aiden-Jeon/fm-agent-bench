@@ -129,13 +129,11 @@ def check_continue(configs: list[str], cont: bool):
 
 def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) -> str:
     from fab.bench.mlebench import MLEBENCH_DIR
-    from fab.bench.mlebench.remote import prepare_grading
 
     harness, model, alias = CONFIGS[config]
     check_continue([config], cont)
     cfg, main_cfg = settings(), remote_settings()
     label = f"{config}{CONTINUE_SUFFIX if cont else ''}"
-    prepare_grading(main_cfg, [cid])  # 끝난 뒤 원격에서 채점할 재료 (리더보드·정답·채점 코드)
     data = upload_data(cfg, cid)
     # 키는 Volume 경로·command_path 에 들어감 → '+' 불가 (jobs submit 이 거부, 2026-11-10). 설정 이름(label)은 +cont 그대로
     key = f"{cid}__{label.replace('+', '-')}__r{rep}__{datetime.now():%Y%m%d-%H%M%S}"
@@ -275,14 +273,22 @@ def recheck_table():
 
 
 def runs(main_cfg) -> dict[str, dict]:
-    """Volume 의 제출 기록 {key: manifest + 처리 표시}."""
-    from fab.remote import items, read_json
+    """Volume 의 제출 기록 {key: manifest + 처리 표시}. state/agent/ 를 한 번에 받아 읽음 (기록마다 CLI 를 부르지 않게)."""
+    from fab.remote import dbx
 
-    out = {}
-    for key, done in items(main_cfg, "agent").items():
-        m = read_json(main_cfg, f"state/agent/{key}.json") or {}
-        out[key] = dict(m, done=read_json(main_cfg, f"state/agent/{key}.done.json") if done else None)
-    return out
+    with tempfile.TemporaryDirectory() as d:
+        res = dbx(main_cfg, "fs", "cp", "-r", f"dbfs:{main_cfg['volume']}/state/agent", d, check=False, timeout=600)
+        if res.returncode:
+            return {}
+        files = {p.name: p for p in Path(d).glob("*.json")}
+        out = {}
+        for name, p in sorted(files.items()):
+            if name.endswith((".done.json", ".attempts.json", ".progress.json")):
+                continue
+            key = name.removesuffix(".json")
+            done = files.get(f"{key}.done.json")
+            out[key] = dict(json.loads(p.read_text()), done=json.loads(done.read_text()) if done else None)
+        return out
 
 
 def peek(keys: list[str] | None = None):
@@ -324,7 +330,11 @@ def main(argv: list[str]):
     x.add_argument("--reason", required=True)
     args = ap.parse_args(argv)
     if args.cmd == "run":
+        from fab.bench.mlebench.remote import prepare_grading
+
         check_continue(args.configs, args.cont)
+        settings()  # 제출 전에 설정 확인 (SP·scratch Volume)
+        prepare_grading(remote_settings(), [args.cid])  # 끝난 뒤 원격에서 채점할 재료 (리더보드·정답·채점 코드), 설정 수와 무관하게 한 번
         for c in args.configs:
             submit(args.cid, c, args.rep, args.hours, args.cont)
     elif args.cmd == "recheck":
@@ -334,7 +344,8 @@ def main(argv: list[str]):
         peek(args.keys or None)
     elif args.cmd == "exclude":
         main_cfg = remote_settings()
-        if unknown := [k for k in args.keys if k not in items(main_cfg, "agent")]:
+        known = items(main_cfg, "agent")  # 한 번만 조회
+        if unknown := [k for k in args.keys if k not in known]:
             raise SystemExit(f"제출 기록에 없는 실행: {', '.join(unknown)} (fab mleb agent list)")
         submit_item(main_cfg, "exclude", f"{datetime.now():%Y%m%d-%H%M%S}", dict(keys=args.keys, reason=args.reason))
         print(f"제외 요청: {', '.join(args.keys)} ({args.reason}) → fab remote kick")
