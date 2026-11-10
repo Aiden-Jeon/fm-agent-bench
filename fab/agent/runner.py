@@ -1,4 +1,4 @@
-"""MLE-bench 에이전트 1회 실행 (Databricks 서버리스 GPU 작업 안에서, km-mleb-agent SP 신원으로 돎).
+"""MLE-bench 에이전트 1회 실행 (Databricks 서버리스 GPU 작업 안에서, 전용 SP 신원으로 돎).
 
 fab 을 import 하지 않음. 같은 디렉터리의 run.json 이 설정 (fab/agent/__init__.py 가 만듦):
   {key, cid, harness, model, alias, hours, continue, data_tgz, out, harness_versions}

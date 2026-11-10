@@ -7,7 +7,7 @@
     uv run fab mleb agent list
 
 실행 환경 (docs/plans/mle-bench.md, 2026-11-09 결정):
-  - 작업은 전용 SP(km-mleb-agent) 신원으로 돎 (run_as). SP 권한은 scratch Volume 읽기·쓰기 + (모든 사용자처럼) FM API 조회.
+  - 작업은 전용 SP 신원으로 돎 (run_as). SP 권한은 scratch Volume 읽기·쓰기 + (모든 사용자처럼) FM API 조회.
     FM API 시스템 엔드포인트에는 ACL 을 걸 수 없어서, 실행기 프록시가 모델을 설정값으로 고정하고 요청을 기록함
   - 정답(private)은 로컬 mlebench 캐시에만 있음 → Volume 에는 public 만 올림
   - A10 1장, 벽시계 hours 시간. 원격 쪽은 fab/agent/runner.py
@@ -18,6 +18,7 @@ databricks.local.yaml 의 mleb_agent 블록 (git 제외):
     mleb_agent:
       run_as: <SP application id>
       volume: /Volumes/<catalog>/<schema>/<volume>     # SP 가 읽고 쓰는 scratch Volume
+      experiment: <MLflow experiment 이름>             # 선택. 기본 fab-mleb-agent
 """
 
 from __future__ import annotations
@@ -71,7 +72,8 @@ def settings() -> dict:
     agent = cfg.get("mleb_agent") or {}
     if not (cfg.get("profile") and agent.get("run_as") and agent.get("volume")):
         raise SystemExit(f"{LOCAL_CONFIG.name} 에 profile 과 mleb_agent.run_as / mleb_agent.volume 필요 (fab/agent/__init__.py 설명)")
-    return dict(profile=cfg["profile"], run_as=agent["run_as"], volume=agent["volume"].rstrip("/"))
+    return dict(profile=cfg["profile"], run_as=agent["run_as"], volume=agent["volume"].rstrip("/"),
+                experiment=agent.get("experiment", "fab-mleb-agent"))
 
 
 def dbx(cfg, *args, capture=True, check=True, timeout=1200):
@@ -180,7 +182,7 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
             "timeout_seconds": int(hours * 3600) + 45 * 60,  # 하네스 시간 + 설치·회수 여유
             "tasks": [{"task_key": "agent", "environment_key": "default", "max_retries": 0,
                        "ai_runtime_task": {
-                           "experiment": "km-mleb-agent", "mlflow_run": key[:100],
+                           "experiment": cfg["experiment"], "mlflow_run": key[:100],
                            "deployments": [{"command_path": f"{remote}/{cmd.name}",
                                             "compute": {"accelerator_type": ACCELERATOR, "accelerator_count": 1}}],
                            "code_source_path": f"{remote}/{tgz.name}"}}],

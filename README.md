@@ -89,6 +89,7 @@ image: <catalog>.<schema>.<image>:<tag>         # 선택. docker/air 로 만든 
 mleb_agent:
   run_as: <서비스 프린시펄 application id>      # 에이전트는 전용 SP 로 실행
   volume: /Volumes/<catalog>/<schema>/<volume>  # SP 가 읽고 쓰는 scratch Volume
+  experiment: <MLflow experiment 이름>          # 선택. 기본 fab-mleb-agent
 ```
 
 ## 사용

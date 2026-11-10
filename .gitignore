@@ -8,3 +8,9 @@ results/.*.lock
 .isaac/
 databricks.local.yaml
 competitions/*/__pycache__/
+
+# Local tool state (minipfn 과 같은 기준)
+.env.local
+.databricks/
+.vscode/
+.DS_Store
