@@ -1,19 +1,21 @@
-"""Databricks AI Runtime(서버리스 GPU)에서 `fab run` 을 실행하고 결과를 로컬 results/ 로 받아옴.
+"""Databricks 에서 `fab run` 을 실행 (제출만). TFM 은 AI Runtime(서버리스 GPU, `databricks air run`),
+GBDT(lgbm·xgb·catboost)는 GPU 를 안 쓰므로 CPU serverless 일회성 작업(`databricks jobs submit`)으로 따로.
 
-예: uv run fab databricks spaceship-titanic lgbm catboost tabpfn_v2 tabicl
-    uv run fab databricks playground-series-s6e10 tabpfn_v2 --no-wait
-    uv run fab databricks playground-series-s6e10 --fetch <run_id>
-    uv run fab databricks allstate-claims-severity mitra_ft --split-folds   # fold 마다 GPU 작업 하나씩 동시에
+예: uv run --frozen fab databricks spaceship-titanic lgbm catboost tabpfn_v2 tabicl
+    uv run --frozen fab databricks allstate-claims-severity mitra_ft --split-folds   # fold 마다 GPU 작업 하나씩 동시에
+    uv run --frozen fab databricks spaceship-titanic tabpfn_v2 --watch               # 제출 뒤 로그 보기 (끊어도 실행은 계속)
 
-준비: databricks CLI 로그인 + databricks.local.yaml (환경별 설정이라 git 에서 제외)
+제출하면 Volume 의 state/fm/<key>.json 에 기록 → 원격 정리 작업(fab/remote/reconcile.py)이 끝난 실행의 예측·OOF 를
+Volume 의 outputs/ 로 옮기고 results.csv 에 행을 추가 (--split-folds 는 묶음이 다 끝나면 합침). 결과표는 fab sync 로 받음.
+→ 제출한 뒤 맥북을 꺼도 됨. 예측 배열은 로컬로 내려오지 않음.
+
+준비: databricks CLI 로그인 + databricks.local.yaml (환경별 설정이라 git 에서 제외) + fab remote deploy (정리 작업)
     profile: <~/.databrickscfg 프로필>
-    volume: /Volumes/<catalog>/<schema>/<volume>   # 대회 데이터와 실행 결과를 둘 UC Volume
+    volume: /Volumes/<catalog>/<schema>/<volume>   # 대회 데이터·실행 결과·원격 상태를 둘 UC Volume
     accelerator: GPU_1xH100                         # 선택. 기본 GPU 종류 (--accelerator 가 우선)
     image: <catalog>.<schema>.km-air:v4             # 선택. 패키지를 미리 설치한 이미지 (docker/air). 없으면 실행마다 pip 설치
 
-동작: 대회 데이터를 Volume 에 한 번 올려 두고 (없으면 로컬에서 kaggle 로 받아 업로드),
-     코드 스냅샷과 함께 `databricks air run` 으로 제출 → 로그 스트리밍 → Volume 의 results/ 를 받아 병합.
-     GBDT(lgbm·xgb·catboost)는 GPU 를 안 쓰므로 CPU serverless 일회성 작업(`databricks jobs submit`)으로 따로 제출.
+동작: 대회 데이터를 Volume 에 한 번 올려 두고 (없으면 로컬에서 kaggle 로 받아 업로드), 코드 스냅샷과 함께 제출.
      모델 가중치는 Volume 의 cache/models.tar 에 모아 두고 실행마다 다시 받지 않음.
      Kaggle·HF 토큰은 워크스페이스로 보내지 않음 (HF gated 가중치는 로컬에서 받아 Volume 의 weights/ 에 올림).
 """
@@ -22,14 +24,11 @@ from __future__ import annotations
 
 import argparse
 import copy
-import fcntl
 import json
-import os
 import re
 import shutil
 import subprocess
 import tempfile
-import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -38,13 +37,11 @@ import yaml
 
 from fab.core.competition import ROOT, load_competition
 from fab.core.download import download
-from fab.core.results import OUTPUTS, merge_results
 from fab.models import GATED, base_name
 from fab.runner.common import CODE_PATHS, add_run_args, check_fold_args, pip_args, run_argv
 
 LOCAL_CONFIG = ROOT / "databricks.local.yaml"
 DEFAULT_ACCELERATOR = "GPU_1xH100"  # A10G(24GB)는 TFM 이 OOM 재시도를 반복해 느림
-RUNS = OUTPUTS / "_air" / "runs.json"  # run_id → 결과 위치 (나중에 --fetch 용, 어느 worktree 에서 제출했든 수집 가능)
 BASE_PIP = [["scikit-learn", "lightgbm", "xgboost", "catboost"]]  # AI Runtime 기본 환경에는 없음
 
 # GPU 를 안 쓰는 모델 → CPU serverless 작업으로 따로 실행. GPU 노드에서 TFM 과 같이 돌리면 CPU 를 나눠 쓰느라
@@ -126,7 +123,8 @@ step(f"모델 캐시 복원 ({len(before)}개 파일)")
 if shutil.which("nvidia-smi"):
     subprocess.run(["nvidia-smi"])
 env = {**os.environ, "XDG_CACHE_HOME": str(cache),
-       "FAB_WEIGHTS": WEIGHTS}  # gated 가중치 위치 (fab/models/tfm.py gated_file)
+       "FAB_WEIGHTS": WEIGHTS,  # gated 가중치 위치 (fab/models/tfm.py gated_file)
+       "FAB_REMOTE": "1"}  # fab run 은 원격에서만 (fab/runner/run.py)
 code = subprocess.run([sys.executable, "-u", "-m", "fab", "run", COMP, *ARGS], cwd=SRC, env=env).returncode
 step("fab run 종료")
 if (SRC / "results").exists():
@@ -246,42 +244,35 @@ def submit(cfg: dict, comp: str, data: str, run_args: list[str], models: list[st
     finally:
         shutil.rmtree(work)
     info = json.loads(res.stdout[res.stdout.index("{"):])["data"]  # 앞에 업로드 진행 메시지가 섞임
-
-    record(info["run_id"], dict(key=key, comp=comp, models=models, out=out, url=info["dashboard_url"]))
-    return info["run_id"]
+    return dict(key=key, run_id=info["run_id"], comp=comp, models=models, out=out, url=info["dashboard_url"])
 
 
-def record(run_id: str, run: dict):
-    """runs.json 은 메인 체크아웃 하나를 모든 worktree 가 같이 씀 (OUTPUTS) → 잠금을 걸고 읽은 뒤 씀.
-    임시 파일 → 교체로 써서 잠금 없이 읽는 fetch 가 쓰다 만 파일을 보지 않음."""
-    RUNS.parent.mkdir(parents=True, exist_ok=True)
-    with open(RUNS.parent / ".runs.lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        runs = json.loads(RUNS.read_text()) if RUNS.exists() else {}
-        runs[run_id] = run
-        tmp = RUNS.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(runs, indent=2))
-        os.replace(tmp, RUNS)
-    print(f"제출 완료: run_id={run_id}\n  {run['url']}")
+def record(cfg: dict, run: dict):
+    """제출 기록을 Volume 에 (fab remote kick 으로 정리 작업을 돌리면 처리)."""
+    from fab.remote import settings as remote_settings
+    from fab.remote import submit_item
+
+    submit_item(remote_settings() | {"profile": cfg["profile"], "volume": cfg["volume"]}, "fm", run["key"], run)
+    print(f"제출 완료: {run['key']} (run_id {run['run_id']})\n  {run['url']}")
 
 
-def cpu_dependencies() -> list[str]:
-    """CPU 작업 환경 패키지: GPU 이미지(docker/air/requirements.txt)와 같은 줄(같은 버전). 하나라도 없으면 중단."""
+def requirement_lines(names: set[str]) -> list[str]:
+    """docker/air/requirements.txt 에서 names 패키지 줄 (GPU 이미지와 같은 버전). 하나라도 없으면 중단."""
     found = {}
     for line in (ROOT / "docker" / "air" / "requirements.txt").read_text().splitlines():
         line = line.split("#")[0].strip()
         name = re.sub(r"[-_.]+", "-", re.split(r"[\s\[<>=!~@;]", line, maxsplit=1)[0]).lower()
-        if name in CPU_PACKAGES:
+        if name in names:
             found[name] = line
-    if missing := CPU_PACKAGES - found.keys():
-        raise SystemExit(f"docker/air/requirements.txt 에 CPU 작업 패키지 없음: {', '.join(sorted(missing))}")
+    if missing := names - found.keys():
+        raise SystemExit(f"docker/air/requirements.txt 에 패키지 없음: {', '.join(sorted(missing))}")
     return list(found.values())
 
 
 def submit_cpu(cfg: dict, comp: str, data: str, run_args: list[str], models: list[str], timeout: int,
                tag: str) -> str:
     """CPU serverless 일회성 작업으로 제출. 같은 러너를 쓰고 패키지는 작업 환경이 설치 (러너는 설치를 건너뜀).
-    코드는 Workspace 에 올림 (`spark_python_task` 는 Workspace 파일 실행) → fetch 에서 지움."""
+    코드는 Workspace 에 올림 (`spark_python_task` 는 Workspace 파일 실행) → 끝난 뒤 정리 작업이 지움."""
     key = run_key(comp, tag, "cpu")
     out = f"{cfg['volume']}/runs/{key}"
     me = json.loads(databricks(cfg["profile"], "current-user", "me", "-o", "json", capture=True).stdout)["userName"]
@@ -295,7 +286,7 @@ def submit_cpu(cfg: dict, comp: str, data: str, run_args: list[str], models: lis
             "tasks": [{"task_key": "fab", "environment_key": "fab",
                        "spark_python_task": {"python_file": f"{remote}/air_runner.py"}}],
             "environments": [{"environment_key": "fab",
-                              "spec": {"environment_version": CPU_ENV, "dependencies": cpu_dependencies()}}],
+                              "spec": {"environment_version": CPU_ENV, "dependencies": requirement_lines(CPU_PACKAGES)}}],
         }))
         res = databricks(cfg["profile"], "jobs", "submit", "--no-wait", "--json", f"@{work / 'job.json'}", "-o",
                          "json", capture=True)
@@ -306,9 +297,8 @@ def submit_cpu(cfg: dict, comp: str, data: str, run_args: list[str], models: lis
         shutil.rmtree(work)
     run_id = str(json.loads(res.stdout)["run_id"])
     run = cli_json(cfg["profile"], "jobs", "get-run", run_id)
-    record(run_id, dict(key=key, comp=comp, models=models, out=out, url=run["run_page_url"], kind="cpu",
-                        code=remote))
-    return run_id
+    return dict(key=key, run_id=run_id, comp=comp, models=models, out=out, url=run["run_page_url"], cpu=True,
+                code=remote)  # code: 정리 작업이 끝난 뒤 지움
 
 
 def cli_json(profile: str, *args, tries: int = 10, poll: int = 30) -> dict:
@@ -363,45 +353,19 @@ def wait_cpu(profile: str, run_id: str, poll: int = 30) -> str:
     return state.get("result_state", last)
 
 
-def fetch(profile: str, run_id: str):
-    runs = json.loads(RUNS.read_text()) if RUNS.exists() else {}
-    if run_id not in runs:
-        raise SystemExit(f"{RUNS} 에 run_id {run_id} 기록 없음")
-    dl = Path(tempfile.mkdtemp())
-    res = databricks(profile, "fs", "cp", "-r", f"dbfs:{runs[run_id]['out']}/results", str(dl / "results"),
-                     capture=True, check=False, timeout=3600)
-    run = runs[run_id]
-    if run.get("code"):  # CPU 작업 코드 (Workspace). 끝난 작업에만 fetch 하므로 더는 필요 없음
-        databricks(profile, "workspace", "delete", "--recursive", run["code"], capture=True, check=False)
-    # --fold 실행은 results.csv 없이 <대회>/<모델>/folds/<k>/ 만 옴
-    folds = list((dl / "results").glob("*/*/folds/*/meta.json"))
-    if res.returncode != 0 or not ((dl / "results" / "results.csv").exists() or folds):
-        logs = (f"{run['url']} 또는 databricks jobs get-run {run_id} -p {profile}" if run.get("kind") == "cpu"
-                else f"databricks air logs {run_id} -p {profile}")
-        print(f"results 없음. 로그 확인: {logs}\n{res.stderr.strip()}")
-        shutil.rmtree(dl)
-        return
-    merge_results(dl / "results", "databricks-cpu" if run.get("kind") == "cpu" else "databricks")
-    if folds:  # 모델 하나가 실패해도 다른 모델의 fold 는 옴 → 빠진 fold 는 합칠 때 알림. 그때 볼 로그 위치
-        print(f"fold 결과 {len(folds)}개 수집. 로그: databricks air logs {run_id} -p {profile}")
-    shutil.rmtree(dl)
-
-
-def finish(profile: str, comp: str, run_id: str, is_cpu: bool):
-    """끝날 때까지 기다린 뒤 결과 수집. 실패해도 다른 작업 수집은 계속되도록 예외는 안내만 출력."""
-    kind = "CPU" if is_cpu else "GPU"
-    try:
-        print(f"최종 상태 ({kind}): {wait_cpu(profile, run_id) if is_cpu else wait(profile, run_id)}")
-        fetch(profile, run_id)
-    except Exception as e:
-        print(f"{kind} 작업 {run_id} 수집 실패: {e!r}\n  나중에: fab databricks {comp} --fetch {run_id}")
+def watch(profile: str, run: dict):
+    """로그 보기 (결과 처리는 원격 정리 작업). 끊어도 실행은 계속."""
+    if run.get("cpu"):
+        print(f"최종 상태 (CPU): {wait_cpu(profile, run['run_id'])}")
+    else:
+        print(f"최종 상태 (GPU): {wait(profile, run['run_id'])}")
 
 
 def main(argv: list[str] | None = None):
     ap = argparse.ArgumentParser(prog="fab databricks")
-    add_run_args(ap, models_nargs="*")  # --fetch 일 때는 models 생략
-    ap.add_argument("--no-wait", action="store_true", help="제출만 하고 종료 (나중에 --fetch 로 수집)")
-    ap.add_argument("--fetch", metavar="RUN_ID", help="이미 끝난 run 의 결과만 받아오기")
+    add_run_args(ap)
+    ap.add_argument("--watch", action="store_true",
+                    help="제출 뒤 로그를 봄 (끝날 때까지). 결과 처리는 어차피 원격 정리 작업이 함 → 끊어도 됨")
     ap.add_argument("--accelerator", help=f"GPU 종류 (GPU_1xA10, GPU_8xH100 등). 기본: {LOCAL_CONFIG.name} 의 "
                                           f"accelerator, 없으면 {DEFAULT_ACCELERATOR}")
     ap.add_argument("--image", help=f"실행 이미지 <catalog>.<schema>.<image>:<tag> ({LOCAL_CONFIG.name} 의 image 를 "
@@ -411,23 +375,17 @@ def main(argv: list[str] | None = None):
     ap.add_argument("--profile", help=f"databricks 프로필 ({LOCAL_CONFIG.name} 값을 덮어씀)")
     ap.add_argument("--volume", help=f"UC Volume 경로 ({LOCAL_CONFIG.name} 값을 덮어씀)")
     ap.add_argument("--split-folds", action="store_true",
-                    help="GPU 모델을 fold 마다 작업 하나로 나눠 동시에 제출 (GPU 작업이 fold 수만큼). 다 끝나면 fold 를 합쳐 "
-                         "results.csv 에 기록. 벽시계 시간은 줄지만 GPU 시간은 작업마다 준비 시간만큼 늘어남")
+                    help="GPU 모델을 fold 마다 작업 하나로 나눠 동시에 제출 (GPU 작업이 fold 수만큼). 다 끝나면 원격 정리 작업이 "
+                         "fold 를 합쳐 results.csv 에 기록. 벽시계 시간은 줄지만 GPU 시간은 작업마다 준비 시간만큼 늘어남")
     args = ap.parse_args(argv)
     check_fold_args(ap, args)
     if args.split_folds and (args.fold is not None or args.max_folds or args.fold_batch):
         ap.error("--split-folds 는 --fold·--max-folds·--fold-batch 와 같이 쓸 수 없음")
+    if args.fold is not None and not args.split_folds:
+        ap.error("--fold 만 따로 내면 합칠 묶음이 없음 → --split-folds 사용")
 
     cfg = settings(args)
     comp = load_competition(args.comp)  # 설정 존재 확인
-    from fab.runner.run import merge_ready  # fab.models 까지 불러오므로 필요할 때만
-
-    if args.fetch:
-        fetch(cfg["profile"], args.fetch)
-        merge_ready(comp, "databricks")  # fold 작업이면 마지막 fold 를 받을 때 합쳐짐
-        return
-    if not args.models:
-        ap.error("models 가 필요함 (--fetch 가 아닐 때)")
     cpu = [m for m in args.models if base_name(m) in CPU_MODELS]
     gpu = [m for m in args.models if m not in cpu]
     if args.split_folds:
@@ -435,51 +393,27 @@ def main(argv: list[str] | None = None):
             ap.error("--split-folds 는 GPU 모델용 (GBDT 는 CPU 작업 하나로 충분히 빠름)")
         if int(re.match(r"GPU_(\d+)x", cfg["accelerator"])[1]) > 1:  # fold 작업 수 × 장수만큼 GPU 를 잡음
             ap.error(f"--split-folds 는 GPU 1장 작업으로 (지금 {cfg['accelerator']} × fold {comp.cv['n_splits']}개)")
-        if not (comp.data_dir / comp.train_file).exists():  # 다 끝난 뒤 합칠 때 로컬 타깃이 필요 → 미리 받아 둠
-            download(comp)
-        # 예전 시도에서 남은 fold 가 이번 묶음과 섞이지 않게 (합칠 때 batch 로도 확인).
-        # folds/ 는 모든 worktree 가 같이 씀 (OUTPUTS) → 다른 세션이 같은 대회·모델을 --split-folds 로 돌리는 중이면 그 fold 도 지워짐
-        for name in gpu:
-            if (stale := OUTPUTS / comp.name / name / "folds").exists():
-                print(f"예전 fold 결과 삭제: {stale}")
-                shutil.rmtree(stale)
     data = ensure_data(comp, cfg["profile"], cfg["volume"])
-    runs = []  # (run_id, CPU 작업 여부)
+    runs = []
     if gpu and args.split_folds:
-        batch = f"{args.tag + '-' if args.tag else ''}{datetime.now():%Y%m%d-%H%M%S}"
+        batch = f"{args.tag + '-' if args.tag else ''}{comp.name}-{datetime.now():%Y%m%d-%H%M%S}"
         print(f"GPU 작업 {comp.cv['n_splits']}개 제출 (fold 마다 {cfg['accelerator']}, 묶음 {batch}) — 워크스페이스 GPU 쿼터 확인")
         for k in range(comp.cv["n_splits"]):  # 같은 초에 제출해도 실행 이름이 겹치지 않게 태그에 fold 번호
             fold_args = copy.copy(args)
             fold_args.fold, fold_args.fold_batch = k, batch
-            runs.append((submit(cfg, comp.name, data, run_argv(fold_args, gpu), gpu, cfg["accelerator"], args.timeout,
-                                f"{args.tag + '-' if args.tag else ''}fold{k}"), False))
+            run = submit(cfg, comp.name, data, run_argv(fold_args, gpu), gpu, cfg["accelerator"], args.timeout,
+                         f"{args.tag + '-' if args.tag else ''}fold{k}")
+            runs.append(dict(run, batch=batch, fold=k))
     elif gpu:
-        runs.append((submit(cfg, comp.name, data, run_argv(args, gpu), gpu, cfg["accelerator"], args.timeout,
-                            args.tag), False))
+        runs.append(submit(cfg, comp.name, data, run_argv(args, gpu), gpu, cfg["accelerator"], args.timeout, args.tag))
     if cpu:
-        runs.append((submit_cpu(cfg, comp.name, data, run_argv(args, cpu), cpu, args.timeout, args.tag), True))
-    if args.no_wait:
-        if args.split_folds:
-            print(f"끝난 뒤 작업마다 fab databricks {comp.name} --fetch <run_id> → 마지막 fold 를 받을 때 자동으로 합쳐짐")
-        return
-    # CPU 작업은 상태만 폴링 → 스레드에서 기다리다 끝나는 대로 수집. GPU 작업은 여기서 로그를 스트리밍
-    threads = [threading.Thread(target=finish, args=(cfg["profile"], comp.name, rid, True), daemon=True)
-               for rid, is_cpu in runs if is_cpu]
-    try:
-        for t in threads:
-            t.start()
-        for rid, is_cpu in runs:
-            if not is_cpu:
-                finish(cfg["profile"], comp.name, rid, False)
-        for t in threads:
-            t.join()
-    except KeyboardInterrupt:  # 작업은 Databricks 에서 계속 돎
-        print("\n중단. 작업은 계속 실행 중 → 끝난 뒤 수집:")
-        for rid, _ in runs:
-            print(f"  fab databricks {comp.name} --fetch {rid}")
-        if args.split_folds:
-            print("  (fold 작업은 마지막 fold 를 받을 때 자동으로 합쳐짐)")
-        raise SystemExit(130)
-    if args.split_folds:
-        merge_ready(comp, "databricks", gpu)
-
+        runs.append(submit_cpu(cfg, comp.name, data, run_argv(args, cpu), cpu, args.timeout, args.tag))
+    for run in runs:
+        record(cfg, run)
+    print("끝난 뒤 fab remote kick → 정리 작업이 결과를 합침, fab sync 로 결과표 받기 (진행 확인: fab remote status)")
+    if args.watch:
+        try:
+            for run in runs:
+                watch(cfg["profile"], run)
+        except KeyboardInterrupt:  # 작업은 Databricks 에서 계속 돎
+            raise SystemExit("\n로그 보기 중단 (작업과 결과 처리는 원격에서 계속)")

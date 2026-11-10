@@ -1,7 +1,8 @@
 """고정 CV fold 로 모델을 돌려 OOF/테스트 예측과 점수를 저장.
 
-예: uv run fab run spaceship-titanic lgbm catboost tabpfn_v2 tabicl
-fold 나눠 실행: 같은 명령에 --fold 0 … --fold 4 (따로따로 실행) → --merge-folds 로 합쳐 results.csv 에 한 줄
+원격 전용: `fab databricks` 가 Databricks(AI Runtime GPU·serverless CPU) 안에서 부름 (FAB_REMOTE=1).
+로컬에서는 학습을 돌리지 않음 → `fab databricks <대회> <모델>...` 로 제출하고 `fab sync` 로 결과표를 받아 분석.
+--fold 로 나눠 돌린 결과는 원격 정리 작업(fab/remote/reconcile.py)이 merge_folds 로 합침.
 """
 
 from __future__ import annotations
@@ -10,7 +11,6 @@ import argparse
 import json
 import os
 import queue
-import shutil
 import subprocess
 import sys
 import threading
@@ -24,7 +24,6 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 from fab.core.competition import TRANSFORMS, get_folds, load_competition, load_data, load_features
-from fab.core.download import download
 from fab.core.metrics import EXTRA, score
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, warn_overwrite, write_test_info
 from fab.models import make_model
@@ -185,81 +184,64 @@ def save_fold(comp, name, fold, oof, test_pred, fold_score, secs, classes, note,
     print(f"=> {name}: fold {fold} {comp.metric}={fold_score:.5f}  ({secs:.0f}s) → {out}\n")
 
 
-def merge_folds(comp, name, y, where=None) -> bool:
-    """folds/<k>/ 가 전부 있으면 합쳐 save_run (OOF 는 fold 별로 채우고 test 는 평균 = 한 번에 돌린 것과 같음).
-    seconds 는 fold 시간 합. 모델 로드가 fold 마다 들어가 한 번에 돌린 것보다 길 수 있어 note 에 `(fold 분할)` 표시.
-    합친 뒤 folds/ 는 지움. 빠진 fold 가 있거나 fold 끼리 조건(묶음·no_test·classes·note)이 다르면 False."""
-    d = OUTPUTS / comp.name / name / "folds"
+def merge_folds(comp, name, y, fold_dirs: dict[int, Path], where=None) -> str | None:
+    """fold 별 결과 폴더(fold_dirs[k] = <실행 결과>/<대회>/<모델>/folds/<k>/)를 합쳐 save_run.
+    OOF 는 fold 별로 채우고 test 는 평균 = 한 번에 돌린 것과 같음. seconds 는 fold 시간 합 (모델 로드가 fold 마다 들어가
+    한 번에 돌린 것보다 길 수 있어 note 에 `(fold 분할)` 표시). 원격 정리 작업(fab/remote/reconcile.py)이 부름.
+    메모리: 전체 OOF 1개 + fold 파일 1개 + test 합 1개 (fold 수에 비례하지 않음).
+    합치지 못하면 이유 문자열 (빠진 fold, fold 끼리 조건이 다름, OOF 빈 행)."""
     n = comp.cv["n_splits"]
-    metas = {k: json.loads((d / str(k) / "meta.json").read_text())
-             for k in range(n) if (d / str(k) / "meta.json").exists()}
-    if missing := [k for k in range(n) if k not in metas]:
-        print(f"{name}: fold {missing} 없음 → 합치지 않음 (--fold k 로 채운 뒤 --merge-folds)")
-        return False
-    # batch: 같은 제출 묶음인지 (예전 시도에서 남은 fold 와 섞이지 않게). 묶음 없이 손으로 돌린 fold 는 None 끼리 같음
+    if missing := [k for k in range(n) if k not in fold_dirs or not (fold_dirs[k] / "meta.json").exists()]:
+        return f"fold {missing} 결과 없음"
+    metas = {k: json.loads((fold_dirs[k] / "meta.json").read_text()) for k in range(n)}
+    # batch: 같은 제출 묶음인지. no_test·classes·note 가 다르면 한 실행으로 볼 수 없음
     for key in ("batch", "no_test", "classes", "note"):
         if len({json.dumps(m.get(key)) for m in metas.values()}) > 1:
-            print(f"{name}: fold 마다 {key} 가 다름 → 합치지 않음. 남길 fold 만 두고 나머지는 지운 뒤 다시 실행 ({d})")
-            return False
+            return f"fold 마다 {key} 가 다름"
     first = metas[0]
     folds = get_folds(comp, y)
-    oof = np.full(np.load(d / "0" / "oof.npy").shape, np.nan)
+    oof, test_sum = None, None
     for k in range(n):  # fold k 파일에서는 fold k 행만 씀 → 다른 folds.csv 로 만든 파일이면 아래에서 빈 행으로 걸림
-        oof[folds == k] = np.load(d / str(k) / "oof.npy")[folds == k]
+        part = np.load(fold_dirs[k] / "oof.npy")
+        if oof is None:
+            oof = np.full(part.shape, np.nan)
+        oof[folds == k] = part[folds == k]
+        del part
+        if not first["no_test"]:
+            test = np.load(fold_dirs[k] / "test.npy")
+            if test_sum is None:
+                test_sum = test.astype(float, copy=True)
+            else:
+                test_sum += test
+            del test
     if (empty := int(np.isnan(oof).reshape(len(y), -1).any(1).sum())):
-        print(f"{name}: OOF 에 예측 없는 행 {empty}개 (fold 파일이 지금 folds.csv 와 다름?) → 합치지 않음 ({d})")
-        return False
-    test_pred = None if first["no_test"] else np.mean([np.load(d / str(k) / "test.npy") for k in range(n)], axis=0)
+        return f"OOF 에 예측 없는 행 {empty}개 (fold 파일이 지금 folds.csv 와 다름?)"
+    test_pred = None if first["no_test"] else test_sum / n
     save_run(comp, name, oof, test_pred, cv_scores(comp, y, oof), [metas[k]["fold_score"] for k in range(n)],
              sum(m["seconds"] for m in metas.values()), first["classes"], f"{first['note']} (fold 분할)".strip(),
              first["no_test"], where)
-    shutil.rmtree(d)
-    return True
+    return None
 
 
-def merge_ready(comp, where=None, models=None) -> list[str]:
-    """folds/ 가 있는 모델(models 를 주면 그 중에서)을 합침. 원격 수집 뒤에 부름 → 마지막 fold 가 오면 자동으로 합쳐짐.
-    합치지 못한 모델 목록을 돌려줌 (한 모델이 실패해도 나머지는 계속)."""
-    names = [p.parent.name for p in sorted((OUTPUTS / comp.name).glob("*/folds"))]
-    names = [m for m in names if models is None or m in models]
-    if not names:
-        return []
-    if not (comp.data_dir / comp.train_file).exists():  # 타깃이 필요 (원격 실행만 했으면 로컬에 데이터가 없을 수 있음)
-        download(comp)
-    y, _ = target(comp, load_data(comp)[0])
-    failed = []
-    for name in names:
-        try:
-            ok = merge_folds(comp, name, y, where)
-        except Exception:
-            traceback.print_exc()
-            ok = False
-        if not ok:
-            failed.append(name)
-    if failed:
-        print(f"합치지 못한 모델: {', '.join(failed)} → 빠진 fold 를 채운 뒤 "
-              f"fab run {comp.name} {' '.join(failed)} --merge-folds{f' --where {where}' if where else ''}")
-    return failed
+def load_target(comp):
+    """학습 타깃만 (train 의 타깃 열 하나만 읽음). fold 합치기용."""
+    train = pd.read_csv(comp.data_dir / comp.train_file, usecols=[comp.target])
+    return target(comp, train)
 
 
 def main(argv: list[str] | None = None):
     ap = argparse.ArgumentParser(prog="fab run")
     add_run_args(ap)
     ap.add_argument("--gpus", type=int, default=None, help="동시에 쓸 GPU 수 (기본: 감지된 전부)")
-    ap.add_argument("--merge-folds", action="store_true",
-                    help="실행하지 않고 --fold 로 저장한 fold 들을 합쳐 results.csv 에 기록")
-    ap.add_argument("--where", help="--merge-folds 로 쓰는 행의 실행 위치 (예: databricks)")
     args = ap.parse_args(argv)
     check_fold_args(ap, args)
+    if not os.environ.get("FAB_REMOTE"):
+        sys.exit(f"fab run 은 원격 전용 (로컬은 제출·동기화·분석만). 대신: fab databricks {args.comp} "
+                 f"{' '.join(args.models)}")
 
     comp = load_competition(args.comp)
     train, test = load_data(comp)
     y, classes = target(comp, train)
-    if args.merge_folds:
-        failed = [name for name in args.models if not merge_folds(comp, name, y, args.where)]
-        if failed:
-            sys.exit(f"합치지 못한 모델: {', '.join(failed)}")
-        return
     X, X_test, cat_cols = load_features(comp).build(train, test)
     folds = get_folds(comp, y)  # 병렬 실행 전에 만들어 두어 모든 작업자가 같은 fold 사용
     print(f"{comp.name}: train {X.shape}, test {X_test.shape}, cats={cat_cols}")
