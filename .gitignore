@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+competitions/*/data
+results/*/
+!results/results.csv
+competitions/*/folds.csv
+results/.*.lock
+.isaac/
+databricks.local.yaml
+competitions/*/__pycache__/

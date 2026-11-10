@@ -1,0 +1,10 @@
+name: mleb-spaceship-titanic
+mlebench: spaceship-titanic   # MLE-bench 분할 (원래 train 의 90%/10%). 채점: fab mleb grade spaceship-titanic <모델>
+task: binary
+target: Transported
+id_col: PassengerId
+metric: accuracy
+cv:
+  n_splits: 5
+  seed: 42
+  stratify: true

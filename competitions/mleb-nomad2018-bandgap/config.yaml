@@ -1,0 +1,12 @@
+name: mleb-nomad2018-bandgap
+# MLE-bench nomad2018 은 타깃 2개 (열별 RMSLE 평균) → 타깃마다 fab 대회 하나. fab mleb grade 가 두 대회의 예측을 한 제출로 합침
+mlebench: nomad2018-predict-transparent-conductors
+task: regression
+target: bandgap_energy_ev
+id_col: id
+metric: rmse              # log1p 스케일 RMSE = RMSLE
+target_transform: log1p
+cv:
+  n_splits: 5
+  seed: 42
+  stratify: false
