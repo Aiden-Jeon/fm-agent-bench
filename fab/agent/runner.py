@@ -159,13 +159,16 @@ def node_spec() -> dict:
 #   - 프록시가 LLM 호출마다 span 하나를 만들어 /api/2.0/otel/v1/traces 로 그 표에 씀 (SP 토큰, X-Databricks-UC-Table-Name).
 #     MLflow 형식 속성 (mlflow.spanType=LLM, spanInputs=프록시가 바꾼 뒤의 요청, spanOutputs=응답, 토큰) → experiment 의
 #     Traces 탭에서 보임. 요청·응답은 TRACE_BODY_MAX 자에서 자름 (Codex 는 호출마다 컨텍스트 전체를 보냄)
-#   - 실행 하나 = trace 하나: 끝날 때 root span (AGENT, 실행 설정·결과) 을 씀. LLM span 은 하네스와 상관없이 늘 그 아래
-#     (meta.json 의 trace_id). 하네스가 traceparent 를 보냈으면 그 id 를 fab.harness_trace_id·fab.harness_parent_span_id 로 남김.
+#   - 실행 하나 = trace 하나 (meta.json 의 trace_id): 끝날 때 root span (AGENT) 을 씀. 입력 = 에이전트가 받은 지시문,
+#     출력 = 한 줄 요약 (제출·종료 방식·LLM 호출 수·토큰), 설정·결과 값은 fab.* 속성. LLM span 은 root 아래 (Claude Code 는
+#     아래처럼 자기 llm_request span 아래). 하네스가 보낸 traceparent 는 fab.harness_trace_id·fab.harness_parent_span_id 로 남김.
 #     작업이 통째로 죽어 finally 가 안 돌면 root 가 없어 UI 에는 안 보이고 표에만 남음
 #   - Claude Code 의 OTLP trace (interaction·llm_request·tool 실행 span) 도 프록시의 /otel/v1/traces 로 받아 같은 표로 넘김
-#     (ug 의 otel-proxy 와 같은 방식: 하네스 설정에 고정 토큰을 넣으면 1시간 실행 중에 만료됨). 넘길 때 resource 에 fab.run
-#     (실행 키) 을 붙임. Codex 는 끔 (2026-11-11 시험: 6분에 내부 Rust span 약 2.6만 개·작은 trace 수백 개, 도구·명령 내용은
-#     없음 → 명령은 codex.jsonl, 요청·응답은 프록시 LLM span). AIDE 는 OTLP 를 안 내보냄
+#     (ug 의 otel-proxy 와 같은 방식: 하네스 설정에 고정 토큰을 넣으면 1시간 실행 중에 만료됨). 넘길 때 span 을 이 실행의
+#     trace 로 옮기고 (부모 없는 interaction 은 root 아래, 원래 trace id 는 fab.harness_trace_id), resource 에 fab.run 을 붙임
+#     → UI 에서 root > interaction > llm_request > 프록시 LLM span, interaction > tool.
+#     Codex 는 끔 (2026-11-11 시험: 6분에 내부 Rust span 약 2.6만 개·작은 trace 수백 개, 도구·명령 내용은 없음 → 명령은
+#     codex.jsonl, 요청·응답은 프록시 LLM span). AIDE 는 OTLP 를 안 내보냄
 #   - 전송 기록은 otel.jsonl (proxy.jsonl 과 따로: 사후 검사가 proxy.jsonl 줄 수를 LLM 호출 수로 셈). 표에 쓰기 실패는 실행을 막지 않음
 # gateway=true (선택): 같은 요청을 FM API 대신 Unity Gateway 로 보냄 → system.ai_gateway.usage 에 남음 (메타스토어에 Gateway
 #   trace 표가 설정돼 있으면 거기에도). 모델은 model service 이름(system.ai.*, run.json 의 upstream_model). 요청마다
@@ -175,6 +178,7 @@ GATEWAY = bool(CFG.get("gateway"))
 TRACES_TABLE = CFG.get("traces_table") or None
 UPSTREAM_MODEL = CFG.get("upstream_model") or CFG["model"]  # 프록시가 고정하는 모델 (gateway 면 system.ai.*)
 TRACE_ID, ROOT_SPAN_ID = os.urandom(16).hex(), os.urandom(8).hex()  # 이 실행의 trace·root span
+HARNESS_OTLP = bool(TRACES_TABLE) and CFG["harness"] == "claude-code"  # 하네스 OTLP 를 받아 이 실행의 trace 로 합침
 REQUEST_TAGS = json.dumps({"fab_run": CFG["key"], "fab_harness": CFG["harness"], "fab_model": CFG["model"]})
 OTEL_PATH, OTEL_TARGET = "/otel/v1/traces", "/api/2.0/otel/v1/traces"
 TRACE_BODY_MAX = 1_000_000  # span 의 요청·응답 글자 수 상한
@@ -193,12 +197,14 @@ ROUTES = {  # 프록시 경로 → FM API 경로 (gateway 면 Unity Gateway 경�
 
 
 def span_context(headers) -> tuple[str, str, str, dict]:
-    """LLM 호출 span 의 (trace id, 부모 span id, 이 span id, 하네스 trace 속성). 늘 이 실행의 root 아래.
-    하네스가 traceparent 를 보냈으면 (Claude Code) 그 trace·span id 를 속성으로 (하네스 span 과 맞춰 볼 때)."""
+    """LLM 호출 span 의 (trace id, 부모 span id, 이 span id, 하네스 trace 속성). trace 는 늘 이 실행의 것.
+    Claude Code 는 LLM 요청에 traceparent (자기 llm_request span) 를 붙이고 그 span 도 이 실행의 trace 로 옮겨 오므로
+    (rewrite_harness_otlp) 그 span 아래에 둠 → root > interaction > llm_request > 프록시 LLM span. 그 밖에는 root 아래."""
     tp = next((v for k, v in headers.items() if k.lower() == "traceparent"), "")
     m = re.fullmatch(r"[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}", tp.strip().lower())
     harness = {"harness_trace_id": m.group(1), "harness_parent_span_id": m.group(2)} if m else {}
-    return TRACE_ID, ROOT_SPAN_ID, os.urandom(8).hex(), harness
+    parent = m.group(2) if m and HARNESS_OTLP else ROOT_SPAN_ID
+    return TRACE_ID, parent, os.urandom(8).hex(), harness
 
 
 def upstream_headers(headers, ctx) -> dict:
@@ -268,29 +274,51 @@ def _read_varint(data: bytes, i: int) -> tuple[int, int]:
             return n, i
 
 
-def tag_resource(body: bytes) -> bytes:
-    """하네스 OTLP (ExportTraceServiceRequest) 의 ResourceSpans 마다 resource 에 fab.run 을 더함. protobuf 는 단일 메시지
-    필드가 두 번 나오면 합치므로 (attributes 가 이어짐) ResourceSpans 끝에 resource(필드 1) 를 하나 더 붙이면 됨.
-    최상위 필드만 훑음 (resource_spans 외 필드는 그대로)."""
-    tag, out, i = _ld(1, _attrs(1, {"fab.run": CFG["key"]})), [], 0
-    while i < len(body):
+def _pb_fields(msg: bytes):
+    """protobuf 메시지의 필드 → (번호, wire type, 내용 (length-delimited 면 길이 뒤의 바이트, 아니면 None), 원래 바이트)."""
+    i = 0
+    while i < len(msg):
         start = i
-        key, i = _read_varint(body, i)
-        wire = key & 7
+        key, i = _read_varint(msg, i)
+        wire, content = key & 7, None
         if wire == 2:
-            n, j = _read_varint(body, i)
-            i = j + n
-            if key >> 3 == 1:
-                out.append(_ld(1, body[j:i] + tag))
-                continue
+            n, j = _read_varint(msg, i)
+            i, content = j + n, msg[j:j + n]
         elif wire == 0:
-            _, i = _read_varint(body, i)
+            _, i = _read_varint(msg, i)
         elif wire in (1, 5):
             i += 8 if wire == 1 else 4
         else:
             raise ValueError(f"unsupported protobuf wire type {wire}")
-        out.append(body[start:i])
-    return b"".join(out)
+        if i > len(msg):
+            raise ValueError("truncated protobuf")
+        yield key >> 3, wire, content, msg[start:i]
+
+
+def _rewrite(msg: bytes, field: int, fn) -> bytes:
+    """msg 의 length-delimited 필드 field 내용을 fn 으로 바꿈 (나머지 필드는 그대로)."""
+    return b"".join(_ld(num, fn(c)) if num == field and wire == 2 else raw for num, wire, c, raw in _pb_fields(msg))
+
+
+def _harness_span(span: bytes) -> bytes:
+    """하네스 span 을 이 실행의 trace 로: trace_id(1) 를 바꾸고, 부모(4)가 없으면 root 아래로. 원래 trace id 는 속성으로."""
+    fields = list(_pb_fields(span))
+    orig = next((c for num, wire, c, _ in fields if num == 1 and wire == 2), b"")
+    parent = next((c for num, wire, c, _ in fields if num == 4 and wire == 2 and c), None)
+    rest = b"".join(raw for num, _, _, raw in fields if num not in (1, 4))
+    return (_ld(1, bytes.fromhex(TRACE_ID)) + _ld(4, parent or bytes.fromhex(ROOT_SPAN_ID)) + rest
+            + _attrs(9, {"fab.harness_trace_id": orig.hex()}))
+
+
+def rewrite_harness_otlp(body: bytes) -> bytes:
+    """하네스 OTLP (ExportTraceServiceRequest) → resource 에 fab.run 을 더하고, span 을 모두 이 실행의 trace 로 옮김
+    (UI 에서 실행 하나가 trace 하나). resource 는 단일 메시지 필드라 ResourceSpans 끝에 하나 더 붙이면 protobuf 가 합침."""
+    tag = _ld(1, _attrs(1, {"fab.run": CFG["key"]}))
+
+    def resource_spans(rs: bytes) -> bytes:
+        return _rewrite(rs, 2, lambda ss: _rewrite(ss, 2, _harness_span)) + tag
+
+    return _rewrite(body, 1, resource_spans)
 
 
 def otlp_request(spans: list[bytes]) -> bytes:
@@ -398,15 +426,43 @@ def trace_llm(ctx, path, t, req, text, status, asked, usage, extra):
     TRACER.add(otlp_span(ctx[0], ctx[1], ctx[2], f"llm {path}", t, time.time(), attrs, error, kind=3))
 
 
+def run_summary(meta: dict) -> tuple[str, dict, dict]:
+    """root span 출력: 한 줄 요약 (UI 목록의 Output), 결과 속성, 토큰 합 (proxy.jsonl 에서, 사후 검사와 같은 셈)."""
+    calls = []
+    for line in (OUT / "proxy.jsonl").read_text().splitlines() if (OUT / "proxy.jsonl").exists() else []:
+        try:
+            calls.append(json.loads(line))
+        except ValueError:
+            continue
+    tok = {"input_tokens": sum(c.get(k, 0) for c in calls for k in ("input_tokens", "prompt_tokens",
+                                                                      "cache_read_input_tokens", "cache_creation_input_tokens")),
+           "output_tokens": sum(c.get(k, 0) for c in calls for k in ("output_tokens", "completion_tokens"))}
+    tok["total_tokens"] = tok["input_tokens"] + tok["output_tokens"]
+    result = {k: meta.get(k) for k in ("format_ok", "format_msg", "timed_out", "harness_seconds", "continues",
+                                       "runner_error") if meta.get(k) is not None}
+    result |= {"llm_calls": len(calls), "llm_errors": sum(1 for c in calls if (c.get("status") or 0) >= 400),
+               "waited_429": round(sum(c.get("waited", 0) for c in calls), 1)}
+    sub = (meta.get("format_msg") or "submission ok") if meta.get("format_ok") else \
+        f"invalid submission: {meta['format_msg']}" if meta.get("format_msg") else "no submission"
+    end = "error" if meta.get("runner_error") else "time limit" if meta.get("timed_out") else "exited"
+    text = (f"{sub} | {end} after {meta.get('harness_seconds') or 0:.0f}s | {len(calls)} LLM calls, "
+            f"{tok['input_tokens']:,} in / {tok['output_tokens']:,} out tokens")
+    return text, result, tok
+
+
 def trace_root(meta: dict):
-    """실행 전체 span (끝날 때 한 번). LLM span 의 부모."""
+    """실행 전체 span (끝날 때 한 번). 입력 = 에이전트가 받은 지시문 (대화 형식), 출력 = 결과 한 줄 요약 (토큰 합 포함).
+    설정·결과 값은 fab.* 속성. root 에 mlflow.chat.tokenUsage 는 안 넣음 (LLM span 의 값과 겹쳐 셈).
+    trace 단위 mlflow.trace.tokenUsage 는 OTLP 로는 안 채워짐 (resource 속성으로 보내도 trace metadata 에 안 들어감, 2026-11-11)"""
     if TRACER is None:
         return
     keys = ("cid", "harness", "model", "alias", "hours", "continue", "gateway", "upstream_model")
-    outs = ("timed_out", "harness_seconds", "format_ok", "format_msg", "submission_from", "continues", "runner_error")
-    attrs = {**mlflow_attrs("AGENT", TRACE_ID, {k: CFG.get(k) for k in keys}, {k: meta.get(k) for k in outs}),
+    prompt = (HOME / "instructions.txt").read_text() if (HOME / "instructions.txt").exists() else ""
+    text, result, tok = run_summary(meta)
+    attrs = {**mlflow_attrs("AGENT", TRACE_ID, {"messages": [{"role": "user", "content": body_value(prompt)}]}, text),
              "session.id": CFG["key"],
-             "fab.run": CFG["key"], **{f"fab.{k}": CFG.get(k) for k in keys if not isinstance(CFG.get(k), (dict, list))}}
+             "fab.run": CFG["key"], **{f"fab.{k}": CFG.get(k) for k in keys if not isinstance(CFG.get(k), (dict, list))},
+             **{f"fab.result.{k}": v for k, v in result.items()}}
     TRACER.add(otlp_span(TRACE_ID, None, ROOT_SPAN_ID, f"mleb {CFG['harness']} {CFG['cid']}", T0, time.time(), attrs,
                          meta.get("runner_error")))
 
@@ -662,7 +718,7 @@ def make_proxy(ws):
             if encoding in ("gzip", "x-gzip", "deflate"):
                 body = zlib.decompress(body, 16 + zlib.MAX_WBITS if "gzip" in encoding else zlib.MAX_WBITS)
             try:
-                body = tag_resource(body)
+                body = rewrite_harness_otlp(body)
             except (ValueError, IndexError):  # protobuf 가 아니거나 깨짐 → 그대로 넘김 (서버가 거부하면 otel.jsonl 에 남음)
                 pass
             headers = {"Content-Type": self.headers.get("Content-Type", "application/x-protobuf"),
