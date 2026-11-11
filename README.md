@@ -174,9 +174,9 @@ uv run --frozen fab mleb agent list                    # 처리 상태 (회수·
 | 이름 | 모델 | 비고 |
 |---|---|---|
 | `lgbm` / `xgb` / `catboost` | GBDT 기준선 | 고정 파라미터, early stopping 없음 |
-| `tabpfn_v2` | TabPFN v2 | 라이선스 동의 없이 사용 가능 |
+| `tabpfn_v2` | TabPFN v2 | 라이선스 동의 없이 사용 가능, 분류는 10 클래스까지 (leaf-classification 은 못 씀) |
 | `tabpfn` / `tabpfn35` | TabPFN 최신 / 3.5 | 브라우저 라이선스 동의 필요 |
-| `tabicl` | TabICL v2 | |
+| `tabicl` | TabICL v2 | 10 클래스를 넘으면 계층 분류 |
 | `kumo` / `kumo_e4` | NVIDIA Kumo-Tabular (large) / estimator 4개 | 회귀는 999 분위수 평균 (지표가 MAE 면 중앙값) |
 | `exaone` | EXAONE-Tabular (LG) | 가중치 비상업 라이선스 |
 | `limix2m` | LimiX-2M | 비상업 라이선스 |

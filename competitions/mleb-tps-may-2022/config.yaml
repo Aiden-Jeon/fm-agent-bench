@@ -1,0 +1,12 @@
+name: mleb-tps-may-2022
+mlebench: tabular-playground-series-may-2022   # MLE-bench 분할 (원래 train 90만 행 → train 80만 / test 10만). 채점: fab mleb grade
+task: binary
+target: target
+id_col: id
+metric: auc
+submit_proba: true        # 제출은 양성 확률 (AUC)
+tfm_max_rows: 10000       # 학습 64만 행/fold → TFM 컨텍스트는 1만 행 무작위 (kaggle-master 관례). 큰 컨텍스트는 @rand200000
+cv:
+  n_splits: 5
+  seed: 42
+  stratify: true

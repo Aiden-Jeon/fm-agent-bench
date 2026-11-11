@@ -22,9 +22,9 @@ kaggle-master 의 `docs/plans/mle-bench.md` 를 옮긴 것 (2026-11-10 까지의
 | playground-series-s3e18 | dev | 다중 타깃(2개) |
 | nomad2018-predict-transparent-conductors | low | 작음(약 2.4천 행), 타깃 2개 (RMSLE 평균) → 파일럿 |
 | tabular-playground-series-dec-2021 | low | 큼(수백만 행), 리더보드가 촘촘해 메달 판정이 민감 |
-| tabular-playground-series-may-2022 | low | 큼, 위와 같음 |
+| tabular-playground-series-may-2022 | low | train 80만 행 (MLE-bench 분할), 금~동 폭 AUC 0.00005 → P3 (아래 "P3 준비") |
 | new-york-city-taxi-fare-prediction | low | 아주 큼 → 컨텍스트 샘플링 필수 |
-| leaf-classification | low | 99 클래스 → TFM 클래스 수 제한 확인 필요 |
+| leaf-classification | low | 99 클래스 → TabPFN v2 는 못 씀 (10 클래스), TabICL 은 됨 → P3 (아래 "P3 준비") |
 
 dev 세트 대회는 공개 리더보드 채점 결과에 없음 → 트랙 B 로만 비교.
 
@@ -240,6 +240,50 @@ CV (같은 fold 5개, formation / bandgap): F0 → F2s → F2
   사람이 읽을 수 있는 물리 피처(RDF·이웃 통계·대칭)만으로 대부분이 나옴
 - 해석 주의: test 에 train 과 같은 구조가 있음 (Codex 가 정답을 섞던 행). SOAP 같은 기술자를 받은 TFM 은 비슷한 행을 보고 예측하므로
   그 효과를 피처로 정당하게 얻을 수 있음 → kumo × F2 의 추가 이득이 여기서 왔을 수 있음 (확인 안 함)
+
+## P3 준비: tps-may-2022 · leaf-classification (2026-11-12)
+
+fab 대회 2개를 더함. 분할은 MLE-bench 그대로 (`fab download`, 체크섬 일치), 결과는 아직 없음.
+
+| fab 대회 | MLE-bench | train / test | 지표 | 메달 기준선 (원래 LB) | 공개 에이전트 (실험별 시드 중앙값) |
+|---|---|---|---|---|---|
+| `mleb-tps-may-2022` | tabular-playground-series-may-2022 | 800,000 / 100,000, 31열 | AUC ↑ | 금 0.99823 · 은 0.99822 · 동 0.99818 · 중앙값 0.97268 (1,152팀) | 31개 실험, 금은 Disarray 0.99825 하나. 다음 MLEvolve 0.99771 · MARS 0.99760 |
+| `mleb-leaf-classification` | leaf-classification | 891 / 99, 192열, 99 클래스 | logloss ↓ | 금 0.0 · 은 0.00791 · 동 0.01526 · 중앙값 0.10835 (1,596팀) | 33개 실험 중 17개가 메달 선 (중앙값 기준), MARS·MARS+·Famou-2.0 gemini-2.5-pro 는 0.0 (금) |
+
+- 피처
+  - leaf F0: margin·shape·texture 192개 (대회가 이미지에서 미리 뽑은 수치). 잎 이미지(`images/`, 990장)는 안 씀 — nomad 의
+    `geometry.xyz` 처럼 에이전트만 씀
+  - tps F0: 원본 31열. `f_27` (10글자 문자열, 80만 행에 고유값 67만 개, test 값의 28% 만 train 에 있음)은 범주형 하나로 둠
+    → TFM 에는 정수 코드(사전순)라 거의 정보가 없음
+  - tps `~f1` (사람 피처): `f_27` 을 글자 위치별 10열 + 서로 다른 글자 수로 바꿈 (41열). 대회 당시 공개 노트북에서 널리 쓴 처리.
+    F0 만으로는 FM 이 이 한 가지 처리를 못 해서 지는 비교가 되므로 같이 둠. C1 의 F2 (에이전트 피처) 와는 다름
+- 클래스 수 (leaf): TabPFN v2 는 10 클래스까지라 fit 에서 거부 (`TabPFNValidationError`, tabpfn 9.2) → 표에서 뺌.
+  TabICL 은 10 을 넘으면 계층 분류로 자동 전환 (`support_many_classes` 기본값). Kumo 는 확인 안 함 (로컬에 패키지 없음, 첫 실행에서 봄).
+  클래스당 train 이 최소 6행이라 층화 5-fold 의 학습 쪽에 99 클래스가 모두 들어감
+- 제출: 다중 분류 확률은 행 합을 다시 1 로 맞춤 (`fab/submission.py`). leaf 채점기는 행 합이 1 ± 1e-6 이 아니면 무효인데
+  TFM 의 float32 확률을 fold·모델 평균하면 벗어날 수 있음
+- TFM 컨텍스트 (tps): 대회 설정 `tfm_max_rows: 10000` (kaggle-master 관례), 큰 컨텍스트는 `@rand200000`. kaggle-master 의 비슷한 크기
+  (S6E1·S6E10, 60~70만 행, H100) 에서 kumo@rand200000 약 33분, tabicl@rand200000 약 42분, catboost 약 35분 (5-fold 합)
+- xgb 는 tps F0 에서 뺌: `f_27` 범주 67만 개 때문에 로컬 8코어 64만 행 20트리 28초 → 800트리 5-fold 면 CPU 4코어에서 몇 시간.
+  lgbm 은 50트리 1.3초 (범주 분할 상한이 있음). `~f1` 은 범주가 없어 xgb 도 됨
+- Agent 노드 (A10G, 12코어, 메모리 51GB, `/tmp` 500GB, P0·P1 실행 기록) 에서 tps (CSV 283MB) 는 문제없음
+- 로컬 확인: 피처 모양 (leaf 891×192, tps F0 800,000×31 · `~f1` ×41), 합성 예측으로 제출 파일 → 로컬 mle-bench 채점이 두 대회 모두
+  `valid_submission=True` (leaf 는 두 모델 평균까지)
+
+실행 (FM: H100 1장 + serverless CPU, Agent: 같은 엔드포인트끼리는 한 번에 하나)
+
+```bash
+# FM
+uv run --frozen fab databricks mleb-leaf-classification lgbm xgb catboost tabicl kumo
+uv run --frozen fab mleb grade leaf-classification lgbm xgb catboost tabicl kumo --each
+T=(lgbm catboost tabpfn_v2 tabicl kumo lgbm~f1 xgb~f1 catboost~f1 tabpfn_v2~f1 tabicl~f1 kumo~f1 kumo@rand200000~f1 tabicl@rand200000~f1)
+uv run --frozen fab databricks mleb-tps-may-2022 "${T[@]}"
+uv run --frozen fab mleb grade tabular-playground-series-may-2022 "${T[@]}" --each
+
+# Agent (Sonnet 줄과 GPT 줄을 하나씩 동시에, 대회마다)
+uv run --frozen fab mleb agent run leaf-classification aide-sonnet      # → claude-code-sonnet → claude-code-sonnet --continue
+uv run --frozen fab mleb agent run leaf-classification codex-gpt        # → aide-gpt
+```
 
 ## 트랙 B 실행 환경 (2026-11-09 결정)
 

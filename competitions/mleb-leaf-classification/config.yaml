@@ -1,0 +1,11 @@
+name: mleb-leaf-classification
+mlebench: leaf-classification   # MLE-bench 분할 (원래 train 990행 → train 891 / test 99). 채점: fab mleb grade
+task: multiclass
+target: species           # 99 클래스, 클래스당 train 약 9행
+id_col: id
+metric: logloss
+submit_proba: true        # 제출은 id + 클래스(종 이름)별 확률 열 99개
+cv:
+  n_splits: 5
+  seed: 42
+  stratify: true
