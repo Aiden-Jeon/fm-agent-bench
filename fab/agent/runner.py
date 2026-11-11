@@ -966,7 +966,8 @@ CODEX_FLAGS = ["--json", "--dangerously-bypass-approvals-and-sandbox", "--skip-g
 # 세 하네스에 같은 규칙. AIDE 는 자기 time_limit 까지 돌아 일찍 끝나지 않고 이어 갈 세션도 없어서 해당 없음.
 # 상한 (2026-11-11 결정, P0 +cont 2회의 구간별 기록으로): 도구를 하나도 안 쓰고 끝난 구간(무작업)이 연속
 # CONTINUE_IDLE_MAX 번이면 멈춤. 무작업 한 번 뒤 다시 작업하는 경우가 있어 1 은 너무 짧고 (nomad 개선 3번을 놓침),
-# 2·3 은 두 실행 모두 최종 제출이 같았음 → 여유를 하나 둔 3. "제출이 안 바뀜" 은 실험 뒤 일부러 안 바꾼 구간까지 세서 쓰지 않음.
+# 2·3·5 는 두 실행 모두 최종 제출이 같았음 → 여유를 하나 둔 3 (5 는 거절 뒤 호출만 늘림). "제출이 안 바뀜" 은 실험 뒤 일부러
+# 안 바꾼 구간까지 세서 쓰지 않음. 근거 표는 docs/mle-bench.md 의 P0 +cont.
 # CONTINUE_MAX 는 매번 사소한 도구 호출을 하나씩 해서 무작업으로 안 잡히는 경우를 막는 안전장치.
 CONTINUE_MIN_LEFT = 120  # 초
 CONTINUE_IDLE_MAX = 3
@@ -1001,13 +1002,14 @@ def session_id(log: Path) -> str | None:
 def tool_calls(log: Path, offset: int) -> int | None:
     """하네스 출력(jsonl)의 offset 바이트부터 (= 구간 하나) 도구 호출 수. 셀 수 없는 하네스면 None.
     Claude Code: assistant 메시지의 tool_use 블록. Codex: 생각·답·오류·할 일 목록이 아닌 item (명령 실행·파일 수정 등,
-    item.started/completed 가 같은 id 로 둘 다 나오니 id 로 셈. 새 item 종류는 도구로 쳐서 일찍 멈추지 않는 쪽으로)."""
+    item.started/completed 가 같은 id 로 둘 다 나오니 id 로 셈, id 가 없는 item 은 completed 만 하나씩.
+    새 item 종류는 도구로 쳐서 일찍 멈추지 않는 쪽으로)."""
     if CFG["harness"] not in SESSION_KEYS or not log.exists():
         return None
     n, items = 0, set()
     with open(log, "rb") as f:
         f.seek(offset)
-        for line in f:
+        for k, line in enumerate(f):
             try:
                 ev = json.loads(line)
             except ValueError:
@@ -1021,7 +1023,10 @@ def tool_calls(log: Path, offset: int) -> int | None:
             elif CFG["harness"] == "codex" and ev.get("type") in ("item.started", "item.completed"):
                 item = ev.get("item")
                 if isinstance(item, dict) and item.get("type") not in CODEX_NON_TOOL_ITEMS:
-                    items.add(item.get("id"))
+                    if item.get("id") is not None:
+                        items.add(item["id"])
+                    elif ev["type"] == "item.completed":  # id 가 없으면 started·completed 를 짝지을 수 없음 → 끝난 것만
+                        items.add(("line", k))
     return n + len(items)
 
 
