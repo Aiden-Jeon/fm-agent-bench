@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
+from fab.core.competition import load_competition, load_features
 
-_spec = importlib.util.spec_from_file_location(
-    "features_mleb_nomad2018_formation", Path(__file__).parents[1] / "mleb-nomad2018-formation" / "features.py")
-_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_mod)
-build = _mod.build
+build = load_features(load_competition("mleb-nomad2018-formation")).build

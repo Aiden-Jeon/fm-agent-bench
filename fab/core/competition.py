@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
@@ -62,12 +65,59 @@ def load_data(comp: Competition) -> tuple[pd.DataFrame, pd.DataFrame]:
     return pd.read_csv(comp.data_dir / comp.train_file), pd.read_csv(comp.data_dir / comp.test_file)
 
 
-def load_features(comp: Competition) -> ModuleType:
-    """competitions/<name>/features.py 를 모듈로 로드. build(train, test) 를 제공해야 함."""
-    spec = importlib.util.spec_from_file_location(f"features_{comp.name}", comp.dir / "features.py")
+VARIANT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")  # `_` 로 시작하는 파일은 변형이 쓰는 도우미 (예: nomad 의 _geo.py)
+
+
+def features_path(comp: Competition, variant: str | None = None) -> Path:
+    """기본 피처 competitions/<대회>/features.py, 변형은 competitions/<대회>/features/<variant>.py."""
+    if variant is None:
+        return comp.dir / "features.py"
+    if not VARIANT_NAME.fullmatch(variant):
+        raise ValueError(f"피처 변형 이름 '{variant}': 영문·숫자로 시작하고 영문·숫자·_·- 만 (도우미 _*.py·경로는 안 됨)")
+    path = comp.dir / "features" / f"{variant}.py"
+    if not path.exists():
+        have = sorted(p.stem for p in (comp.dir / "features").glob("*.py") if not p.stem.startswith("_"))
+        raise FileNotFoundError(f"피처 변형 '{variant}' 없음: {path} (있는 것: {', '.join(have) or '없음'})")
+    return path
+
+
+def load_module(path: Path, name: str) -> ModuleType:
+    """파이썬 파일 하나를 모듈로 (competitions/ 는 패키지가 아님). 피처 파일끼리 서로 가져다 쓸 때도 이것."""
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_features(comp: Competition, variant: str | None = None) -> ModuleType:
+    """피처 모듈 로드 (features_path). build(train, test) 를 제공해야 함.
+    build 가 data_dir 인자를 받으면 대회 데이터 폴더를 넘김 (표 밖 파일을 읽는 변형용, 예: nomad 의 geometry.xyz)."""
+    module = load_module(features_path(comp, variant), f"features_{comp.name}_{variant or 'base'}")
+    if not callable(getattr(module, "build", None)):
+        raise AttributeError(f"{features_path(comp, variant)} 에 build(train, test) 가 없음")
+    return module
+
+
+class Features(NamedTuple):
+    X: pd.DataFrame
+    X_test: pd.DataFrame
+    cat_cols: list[str]
+    max_features: int | None  # TFM 피처 상한: 변형 모듈의 TFM_MAX_FEATURES (None = 상한 없음), 없으면 대회 설정
+
+
+def build_features(comp: Competition, train: pd.DataFrame, test: pd.DataFrame, variant: str | None = None) -> Features:
+    """load_features 의 build 를 부름. 변형 모듈은 TFM_MAX_FEATURES 로 TFM 피처 상한을, PIP 로 원격 설치 패키지를 정할 수 있음."""
+    mod = load_features(comp, variant)
+    if "data_dir" in inspect.signature(mod.build).parameters:
+        X, X_test, cat_cols = mod.build(train, test, data_dir=comp.data_dir)
+    else:
+        X, X_test, cat_cols = mod.build(train, test)
+    return Features(X, X_test, cat_cols, getattr(mod, "TFM_MAX_FEATURES", comp.tfm_max_features))
+
+
+def feature_pip(comp: Competition, variant: str | None) -> list[list[str]]:
+    """피처 변형이 원격에서 더 설치할 pip 인자 목록 (변형 모듈의 PIP). 무거운 import 는 build 안에 두어 로컬에서 읽을 수 있게."""
+    return list(getattr(load_features(comp, variant), "PIP", [])) if variant else []
 
 
 def get_folds(comp: Competition, y: np.ndarray) -> np.ndarray:

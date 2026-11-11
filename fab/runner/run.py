@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 import traceback
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,11 +24,11 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
-from fab.core.competition import TRANSFORMS, get_folds, load_competition, load_data, load_features
+from fab.core.competition import TRANSFORMS, build_features, get_folds, load_competition, load_data
 from fab.core.metrics import EXTRA, score
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, warn_overwrite, write_test_info
-from fab.models import make_model
-from fab.runner.common import add_run_args, check_fold_args, run_argv
+from fab.models import make_model, split_features
+from fab.runner.common import add_run_args, check_run_args, cpu_count, run_argv
 
 
 def predict(model, X, task):
@@ -40,18 +41,6 @@ def gpu_count() -> int:
     except (OSError, subprocess.CalledProcessError):
         return 0
     return sum(line.startswith("GPU ") for line in out.splitlines())
-
-
-def cpu_count() -> int:
-    """이 프로세스가 쓸 수 있는 CPU 수 (affinity, cgroup v2 할당량 반영)."""
-    n = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
-    try:
-        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
-        if quota != "max":
-            n = min(n, max(1, int(quota) // int(period)))
-    except (OSError, ValueError):
-        pass
-    return n
 
 
 def run_parallel(args: argparse.Namespace, n_gpus: int) -> list[str]:
@@ -96,7 +85,9 @@ def run_parallel(args: argparse.Namespace, n_gpus: int) -> list[str]:
     return failed
 
 
-def run_model(name, comp, X, y, X_test, cat_cols, folds, max_folds=None, no_test=False, classes=None, fold=None):
+def run_model(name, comp, X, y, X_test, cat_cols, folds, max_folds=None, no_test=False, classes=None, fold=None,
+              max_features=None):
+    """max_features: TFM 피처 상한 (build_features 가 정함: 피처 변형의 TFM_MAX_FEATURES 또는 대회 설정)."""
     n_splits = folds.max() + 1
     run_folds = [fold] if fold is not None else range(n_splits if max_folds is None else max_folds)
     n_out = () if comp.task == "regression" else (len(np.unique(y)),)
@@ -107,7 +98,7 @@ def run_model(name, comp, X, y, X_test, cat_cols, folds, max_folds=None, no_test
     for f in run_folds:
         tr, va = folds != f, folds == f
         model = make_model(name, comp.task, cat_cols, seed=comp.cv["seed"], max_rows=comp.tfm_max_rows,
-                           max_features=comp.tfm_max_features, metric=comp.metric)
+                           max_features=max_features, metric=comp.metric)
         t_fit = time.time()
         model.fit(X[tr], y[tr])
         t_pred = time.time()
@@ -149,13 +140,18 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
 
 
-def save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, note, no_test, where=None):
-    """전체 실행 결과: results/<대회>/<모델>/{oof,test}.npy·meta.json·test.json + results.csv 한 줄."""
+def save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, note, no_test, where=None,
+             n_features=None):
+    """전체 실행 결과: results/<대회>/<실행 이름>/{oof,test}.npy·meta.json·test.json + results.csv 한 줄.
+    features = 피처 변형 (실행 이름의 ~<variant>, 없으면 base = 대회의 features.py), n_features = 모델에 넣은 열 수
+    (tfm_max_features 로 줄이기 전)."""
     out = OUTPUTS / comp.name / name
     out.mkdir(parents=True, exist_ok=True)
     np.save(out / "oof.npy", oof)
+    features = split_features(name)[1] or "base"
     meta = dict(comp=comp.name, model=name, metric=comp.metric, scores=scores, fold_scores=fold_scores,
-                seconds=round(secs, 1), classes=classes, n_folds=len(fold_scores), note=note, timestamp=utc_now())
+                seconds=round(secs, 1), classes=classes, n_folds=len(fold_scores), note=note, features=features,
+                n_features=n_features, timestamp=utc_now())
     (out / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
     if not no_test:  # 예측과 그 출처(test.json)는 함께만 씀
         warn_overwrite(out)
@@ -166,12 +162,13 @@ def save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, not
     row = dict(timestamp=meta["timestamp"], comp=comp.name, model=name, metric=comp.metric,
                cv=scores[comp.metric], cv_std=float(np.std(fold_scores)), n_folds=len(fold_scores),
                seconds=meta["seconds"], **{f"cv_{k}": v for k, v in scores.items() if k != comp.metric},
-               note=note, test=not no_test, **({"where": where} if where else {}))
+               note=note, test=not no_test, features=features, n_features=n_features,
+               **({"where": where} if where else {}))
     append_rows(pd.DataFrame([row]))
     print(f"=> {name}: {comp.metric}={scores[comp.metric]:.5f} ± {row['cv_std']:.5f}  ({secs:.0f}s)\n")
 
 
-def save_fold(comp, name, fold, oof, test_pred, fold_score, secs, classes, note, no_test, batch):
+def save_fold(comp, name, fold, oof, test_pred, fold_score, secs, classes, note, no_test, batch, n_features=None):
     """--fold 실행 결과: results/<대회>/<모델>/folds/<k>/ (results.csv 에는 merge_folds 가 합친 뒤 씀)."""
     out = OUTPUTS / comp.name / name / "folds" / str(fold)
     out.mkdir(parents=True, exist_ok=True)
@@ -179,7 +176,7 @@ def save_fold(comp, name, fold, oof, test_pred, fold_score, secs, classes, note,
     if not no_test:
         np.save(out / "test.npy", test_pred)
     meta = dict(fold=fold, fold_score=fold_score, seconds=round(secs, 1), classes=classes, note=note,
-                no_test=no_test, batch=batch, timestamp=utc_now())
+                no_test=no_test, batch=batch, n_features=n_features, timestamp=utc_now())
     (out / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
     print(f"=> {name}: fold {fold} {comp.metric}={fold_score:.5f}  ({secs:.0f}s) → {out}\n")
 
@@ -219,7 +216,7 @@ def merge_folds(comp, name, y, fold_dirs: dict[int, Path], where=None) -> str | 
     test_pred = None if first["no_test"] else test_sum / n
     save_run(comp, name, oof, test_pred, cv_scores(comp, y, oof), [metas[k]["fold_score"] for k in range(n)],
              sum(m["seconds"] for m in metas.values()), first["classes"], f"{first['note']} (fold 분할)".strip(),
-             first["no_test"], where)
+             first["no_test"], where, first.get("n_features"))
     return None
 
 
@@ -234,7 +231,7 @@ def main(argv: list[str] | None = None):
     add_run_args(ap)
     ap.add_argument("--gpus", type=int, default=None, help="동시에 쓸 GPU 수 (기본: 감지된 전부)")
     args = ap.parse_args(argv)
-    check_fold_args(ap, args)
+    check_run_args(ap, args)
     if not os.environ.get("FAB_REMOTE"):
         sys.exit(f"fab run 은 원격 전용 (로컬은 제출·동기화·분석만). 대신: fab databricks {args.comp} "
                  f"{' '.join(args.models)}")
@@ -242,9 +239,7 @@ def main(argv: list[str] | None = None):
     comp = load_competition(args.comp)
     train, test = load_data(comp)
     y, classes = target(comp, train)
-    X, X_test, cat_cols = load_features(comp).build(train, test)
     folds = get_folds(comp, y)  # 병렬 실행 전에 만들어 두어 모든 작업자가 같은 fold 사용
-    print(f"{comp.name}: train {X.shape}, test {X_test.shape}, cats={cat_cols}")
 
     n_gpus = gpu_count() if args.gpus is None else args.gpus
     # GPU 가 있으면 GPU 1장이어도 모델마다 새 프로세스 → 앞 모델의 GPU/RAM 이 다음 모델에 남지 않음.
@@ -258,21 +253,47 @@ def main(argv: list[str] | None = None):
             print(f"실패한 모델: {', '.join(failed)}")
         return
 
+    # 피처 변형마다 한 번만 만듦 (~<variant>, None = 기본 features.py). 만들다 실패하면 기억해 같은 변형의 다음 모델은
+    # 다시 만들지 않고 바로 실패, 그 변형의 마지막 모델이 끝나면 피처를 놓음 (큰 변형 여럿을 한 프로세스에서 돌 때 메모리)
+    features, broken = {}, {}
+    left = Counter(split_features(m)[1] for m in args.models)
     failed = []
     for name in args.models:
+        variant = split_features(name)[1]
+        left[variant] -= 1
         try:
+            if variant in broken:
+                raise RuntimeError(f"피처 {variant or 'base'} 만들기가 앞 모델에서 실패해 건너뜀: {broken[variant]}")
+            if variant not in features:
+                t_feat = time.time()
+                try:
+                    features[variant] = build_features(comp, train, test, variant)
+                except Exception as e:
+                    broken[variant] = repr(e)
+                    raise
+                X, X_test, cat_cols, max_features = features[variant]
+                print(f"{comp.name} [피처 {variant or 'base'}]: train {X.shape}, test {X_test.shape}, cats={cat_cols}, "
+                      f"TFM 피처 상한 {max_features} ({time.time() - t_feat:.0f}s)")
+            X, X_test, cat_cols, max_features = features[variant]
+            n_features = X.shape[1]
             oof, test_pred, scores, fold_scores, secs = run_model(name, comp, X, y, X_test, cat_cols, folds,
-                                                                  args.max_folds, args.no_test, classes, args.fold)
+                                                                  args.max_folds, args.no_test, classes, args.fold,
+                                                                  max_features)
         except Exception:  # 한 모델이 실패해도 나머지는 계속 실행
             traceback.print_exc()
             failed.append(name)
             print(f"=> {name}: 실패\n")
             continue
+        finally:
+            X = X_test = None
+            if not left[variant]:
+                features.pop(variant, None)
         if args.fold is not None:
             save_fold(comp, name, args.fold, oof, test_pred, fold_scores[0], secs, classes, args.note, args.no_test,
-                      args.fold_batch)
+                      args.fold_batch, n_features)
         else:
-            save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, args.note, args.no_test)
+            save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, args.note, args.no_test,
+                     n_features=n_features)
 
     if failed:
         print(f"실패한 모델: {', '.join(failed)}")
