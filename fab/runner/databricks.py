@@ -53,7 +53,7 @@ CPU_PACKAGES = {"numpy", "pandas", "scipy", "scikit-learn", "pyyaml", "lightgbm"
 MODEL_CACHE = "cache/models.tar"  # Volume 안의 모델 가중치 캐시 (Hugging Face·TabPFN)
 
 RUNNER = '''\
-import contextlib, importlib.metadata, os, re, shutil, subprocess, sys, tarfile, time, uuid
+import contextlib, importlib.metadata, json, os, re, shutil, subprocess, sys, tarfile, time, uuid
 from pathlib import Path
 
 T0 = time.time()
@@ -81,31 +81,86 @@ def dist_name(spec):  # "pkg[extra]>=1", "pkg @ git+...", "git+https://.../Repo.
     return re.split(r"[\\s\\[<>=!~@;]", spec, maxsplit=1)[0]
 
 
+def find_uv():
+    """uv 위치: PATH, 이 파이썬 옆, 흔한 설치 위치 (이미지에 따라 작업 프로세스의 PATH 밖일 수 있음)."""
+    home = Path.home()
+    cands = [shutil.which("uv"), str(Path(sys.executable).parent / "uv"), "/usr/local/bin/uv", "/usr/bin/uv",
+             str(home / ".local" / "bin" / "uv"), str(home / ".cargo" / "bin" / "uv")]
+    return next((c for c in cands if c and os.path.isfile(c) and os.access(c, os.X_OK)), None)
+
+
 def installer():
-    """이 파이썬에 패키지를 까는 명령. UC 이미지(/opt/venv)는 uv 로 만든 venv 라 pip 가 없음 (2026-11-11, ase 설치가
-    'No module named pip' 로 실패) → pip 가 없으면 이미지에 있는 uv 로 이 파이썬에 설치."""
+    """(종류, 명령 앞부분) 또는 None. pip 가 있으면 pip: 워크스페이스의 패키지 저장소 설정(pip.conf·PIP_*)을 그대로 따름.
+    UC 이미지(/opt/venv)는 uv 로 만든 venv 라 pip 가 없음 (2026-11-11, ase 설치가 'No module named pip' 로 실패)
+    → 이미지에 있는 uv 로 이 파이썬에 설치."""
     if subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True).returncode == 0:
-        return [sys.executable, "-m", "pip", "install", "-q"]
-    if uv := shutil.which("uv"):
-        return [uv, "pip", "install", "-q", "--python", sys.executable]
+        return "pip", [sys.executable, "-m", "pip", "install", "-q"]
+    if uv := find_uv():
+        cmd = [uv, "pip", "install", "-q", "--python", sys.executable]
+        if sys.prefix == sys.base_prefix:  # venv 가 아니면 PEP 668 로 막힌 시스템 파이썬일 수 있음. 일회용 작업이라 허용
+            cmd.append("--break-system-packages")
+        return "uv", cmd
     return None
+
+
+def uv_env():
+    """uv 가 pip 의 패키지 저장소 설정을 따르게: PIP_* 환경 변수와 pip.conf 의 index-url·extra-index-url·trusted-host
+    (워크스페이스 기본 패키지 저장소 등). 없으면 uv 기본값."""
+    import configparser
+    conf = {}
+    for p in ["/etc/pip.conf", "/etc/xdg/pip/pip.conf", str(Path.home() / ".pip" / "pip.conf"),
+              str(Path.home() / ".config" / "pip" / "pip.conf"), os.environ.get("PIP_CONFIG_FILE", "")]:
+        if not (p and os.path.isfile(p)):
+            continue
+        c = configparser.ConfigParser()
+        try:
+            c.read(p)
+        except configparser.Error:
+            continue
+        for sec in ("global", "install"):
+            for k in ("index-url", "extra-index-url", "trusted-host"):
+                if c.has_option(sec, k):
+                    conf[k] = c.get(sec, k)
+    env = dict(os.environ)
+    for pip_key, uv_key, conf_key in (("PIP_INDEX_URL", "UV_INDEX_URL", "index-url"),
+                                      ("PIP_EXTRA_INDEX_URL", "UV_EXTRA_INDEX_URL", "extra-index-url"),
+                                      ("PIP_TRUSTED_HOST", "UV_INSECURE_HOST", "trusted-host")):
+        if value := os.environ.get(pip_key) or conf.get(conf_key):
+            env.setdefault(uv_key, " ".join(value.split()))  # pip 는 줄바꿈, uv 는 공백으로 여러 개
+    return env
+
+
+def uv_args(args):
+    """pip 인자를 uv 로. pip 의 -U 는 필요한 것만 올리지만 uv 의 -U 는 의존성까지 다 올림 (numpy 가 오르면 kditransform 이
+    깨짐, _LIMIX) → 이름 붙은 패키지만 올림 (--upgrade-package)."""
+    if not any(a in ("-U", "--upgrade") for a in args):
+        return list(args)
+    names = [dist_name(a) for a in args if not a.startswith("-")]
+    return [a for a in args if a not in ("-U", "--upgrade")] + [x for n in names for x in ("--upgrade-package", n)]
 
 
 INSTALLED = {canon(d.metadata["Name"]) for d in importlib.metadata.distributions()}
 out = Path(OUT)
 out.mkdir(parents=True, exist_ok=True)
-INSTALL = None
-for args in PIP:  # 모델별 설치 실패는 해당 모델만 실패하도록 계속 진행 (실패는 크게 출력)
+INSTALL, INSTALL_FAILED = ..., []  # ... = 아직 안 찾음 (찾아도 없으면 None, 한 번만 찾음)
+for args in PIP:  # 모델별 설치 실패는 해당 모델만 실패하도록 계속 진행. 실패는 크게 출력 + out/install_failed.json
     # 이미지에서는 이미 설치된 패키지는 건너뜀 (이미지를 다시 빌드하지 않고 추가한 모델만 설치).
     # 기본 환경에서는 -U 업그레이드 등 지정한 그대로 설치
     if IMAGE and all(canon(dist_name(a)) in INSTALLED for a in args if not a.startswith("-")):
         continue
-    INSTALL = INSTALL or installer()
+    if INSTALL is ...:
+        INSTALL = installer()
     if INSTALL is None:
-        print(f"[runner] 설치 실패: pip·uv 둘 다 없음 → {args} 를 쓰는 모델은 실패함", flush=True)
-        continue
-    if subprocess.run([*INSTALL, *args]).returncode != 0:
-        print(f"[runner] 설치 실패: {' '.join(INSTALL[:3])} ... {args} → 이 패키지를 쓰는 모델은 실패함", flush=True)
+        reason = "pip·uv 둘 다 없음"
+    else:
+        kind, cmd = INSTALL
+        res = subprocess.run([*cmd, *(uv_args(args) if kind == "uv" else args)], env=uv_env() if kind == "uv" else None)
+        reason = None if res.returncode == 0 else f"{kind} 종료 코드 {res.returncode}"
+    if reason:
+        INSTALL_FAILED.append(dict(args=args, reason=reason))
+        print(f"[runner] 설치 실패 ({reason}): {args} → 이 패키지를 쓰는 모델은 실패함", flush=True)
+if INSTALL_FAILED:  # 정리 작업이 결과가 없을 때 이 파일을 보고 까닭을 남김 (작업은 SUCCESS 로 끝나도)
+    (out / "install_failed.json").write_text(json.dumps(INSTALL_FAILED, ensure_ascii=False, indent=1))
 (out / "pip_list.txt").write_text("\\n".join(sorted(f"{d.metadata['Name']}=={d.version}"
                                                    for d in importlib.metadata.distributions())) + "\\n")
 step("패키지 준비")

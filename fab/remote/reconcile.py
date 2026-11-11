@@ -163,12 +163,17 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             except Exception as e:  # 이미 지워졌으면 그대로
                 print(f"  {key}: Workspace 코드 삭제 실패 (무시): {e!r}")
         res = Path(m["out"]) / "results"
+        install_failed = None  # 실행기가 설치에 실패한 패키지 (모델이 실패해도 작업은 SUCCESS 라 여기서 드러냄)
+        if (f := Path(m["out"]) / "install_failed.json").exists():
+            install_failed = json.loads(f.read_text())
+            print(f"  {key}: 설치 실패 {install_failed}")
         if m.get("batch"):  # fold 실행: 묶음이 다 끝나면 batch 단계에서 합침
             state.done("fm", key, result=st["result"], has_results=res.is_dir())
             return
         if not (res / "results.csv").exists():
             print(f"  {key}: {st['result']} — 결과 없음 ({st['message'][:200]})")
-            state.done("fm", key, status="no_results", result=st["result"], message=st["message"][:500])
+            state.done("fm", key, status="no_results", result=st["result"], message=st["message"][:500],
+                       install_failed=install_failed)
             return
         merge_results(res, "databricks-cpu" if m.get("cpu") else "databricks")
         tables.flush()
