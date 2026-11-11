@@ -38,7 +38,7 @@ TabArena 연동 전에 확인할 것
 | 단계 | 내용 | 완료 기준 |
 |---|---|---|
 | P0 ✓ | MLE-bench spaceship·nomad: FM 채점, Agent 4설정 × 1회 (+cont 2회) | [docs/mle-bench.md](../mle-bench.md) |
-| P1 | 신뢰도: Agent 2회째, FM 시드 반복 (같은 기준으로 비교) | 대회별 설정마다 시드 2, FM 시드 분산 |
+| P1 | 신뢰도: Agent 2회째 (FM 시드 반복·부트스트랩은 안 함, 아래 "P1 범위") | 대회별 Agent 설정마다 2회, 해석 기준 명시 |
 | P2 | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost} | 향상폭 차이 표, 추출 피처 값이 에이전트 배열과 같음 |
 | P3 | MLE-bench 표 형식 대회 확장 (tps-may-2022, leaf-classification 먼저, 큰 대회는 노드 사양 확인 후) | 대회별 FM × Agent 표, 메달 |
 | P4 | TabArena 연동 (위 확인 → `fab/bench/tabarena/`) | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
@@ -47,6 +47,17 @@ TabArena 연동 전에 확인할 것
 
 kaggle-master 에 열려 있던 이슈 (그쪽에 남김, 진행할 때 이 저장소에 새로 엶):
 P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 (트랙 A 확장).
+
+## P1 범위 (2026-11-11)
+
+- FM 시드 반복은 안 함: TFM 의 시드는 앙상블 전처리 순서 정도만 바꿔 test 크기에서 오는 흔들림보다 작을 것으로 봄 (재 보지는 않음).
+  C1 (F0 대 F2) 은 같은 모델·같은 fold 에서 피처만 바꾼 짝지은 비교라 fold 별 일관성과 `cv_std` 로 봄
+- test 점수 부트스트랩도 안 함: 지금 결론은 간단한 기준으로 갈림. spaceship 은 정확도 표준오차 √(0.82×0.18/870) ≈ 0.013 이
+  방식 사이 차이(0.006~0.013)와 비슷 → "뚜렷한 차이 없음". nomad 는 Codex 0.048 대 FM 0.057 (원래 리더보드 1위 대 17위)로 큼.
+  근소한 차이로 승패를 말해야 할 때만 그 비교에 붙임
+- 반복이 필요한 건 Agent: 1회 결과가 극단적으로 갈림 (nomad 에서 AIDE × GPT 제출 없음, Codex × GPT 1위)
+- 실행: 같은 LLM 엔드포인트끼리는 동시에 안 돌림 (분당 토큰 한도를 나눠 씀) → Sonnet 줄 (aide-sonnet, claude-code-sonnet,
+  claude-code-sonnet+cont) 과 GPT 줄 (aide-gpt, codex-gpt) 을 하나씩 동시에, 두 대회. +cont 는 새 상한 (연속 무작업 3번)
 
 ## C1 규칙 (kaggle-master 계획에서 가져옴)
 
