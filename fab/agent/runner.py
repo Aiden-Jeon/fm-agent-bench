@@ -964,9 +964,15 @@ CODEX_FLAGS = ["--json", "--dangerously-bypass-approvals-and-sandbox", "--skip-g
 # 기본(공식 설정)은 하네스가 스스로 끝나면 그대로 끝. run.json 의 continue=true 인 별도 설정(+cont)에서만:
 # 하네스가 정상 종료(exit 0)했는데 시간이 CONTINUE_MIN_LEFT 이상 남았으면 같은 세션에 CONTINUE_MESSAGE 를 보내 이어 감.
 # 세 하네스에 같은 규칙. AIDE 는 자기 time_limit 까지 돌아 일찍 끝나지 않고 이어 갈 세션도 없어서 해당 없음.
-# 모델이 매번 바로 끝내도 남은 시간 내내 호출하지 않도록 CONTINUE_MAX 번까지만.
+# 상한 (2026-11-11 결정, P0 +cont 2회의 구간별 기록으로): 도구를 하나도 안 쓰고 끝난 구간(무작업)이 연속
+# CONTINUE_IDLE_MAX 번이면 멈춤. 무작업 한 번 뒤 다시 작업하는 경우가 있어 1 은 너무 짧고 (nomad 개선 3번을 놓침),
+# 2·3·5 는 두 실행 모두 최종 제출이 같았음 → 여유를 하나 둔 3 (5 는 거절 뒤 호출만 늘림). "제출이 안 바뀜" 은 실험 뒤 일부러
+# 안 바꾼 구간까지 세서 쓰지 않음. 근거 표는 docs/mle-bench.md 의 P0 +cont.
+# CONTINUE_MAX 는 매번 사소한 도구 호출을 하나씩 해서 무작업으로 안 잡히는 경우를 막는 안전장치.
 CONTINUE_MIN_LEFT = 120  # 초
-CONTINUE_MAX = 20
+CONTINUE_IDLE_MAX = 3
+CONTINUE_MAX = 40
+CODEX_NON_TOOL_ITEMS = {"reasoning", "agent_message", "error", "todo_list"}  # 이 밖의 item 은 도구 사용으로 셈
 CONTINUE_MESSAGE = (
     "The time limit has not been reached yet: you still have {left} remaining. Keep working on the task and use the "
     "remaining time to improve your submission's score. Keep a valid submission saved at {submission} at all times; "
@@ -993,6 +999,37 @@ def session_id(log: Path) -> str | None:
     return None
 
 
+def tool_calls(log: Path, offset: int) -> int | None:
+    """하네스 출력(jsonl)의 offset 바이트부터 (= 구간 하나) 도구 호출 수. 셀 수 없는 하네스면 None.
+    Claude Code: assistant 메시지의 tool_use 블록. Codex: 생각·답·오류·할 일 목록이 아닌 item (명령 실행·파일 수정 등,
+    item.started/completed 가 같은 id 로 둘 다 나오니 id 로 셈, id 가 없는 item 은 completed 만 하나씩.
+    새 item 종류는 도구로 쳐서 일찍 멈추지 않는 쪽으로)."""
+    if CFG["harness"] not in SESSION_KEYS or not log.exists():
+        return None
+    n, items = 0, set()
+    with open(log, "rb") as f:
+        f.seek(offset)
+        for k, line in enumerate(f):
+            try:
+                ev = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(ev, dict):
+                continue
+            if CFG["harness"] == "claude-code" and ev.get("type") == "assistant":
+                content = (ev.get("message") or {}).get("content")
+                n += sum(1 for b in content if isinstance(b, dict) and b.get("type") == "tool_use") \
+                    if isinstance(content, list) else 0
+            elif CFG["harness"] == "codex" and ev.get("type") in ("item.started", "item.completed"):
+                item = ev.get("item")
+                if isinstance(item, dict) and item.get("type") not in CODEX_NON_TOOL_ITEMS:
+                    if item.get("id") is not None:
+                        items.add(item["id"])
+                    elif ev["type"] == "item.completed":  # id 가 없으면 started·completed 를 짝지을 수 없음 → 끝난 것만
+                        items.add(("line", k))
+    return n + len(items)
+
+
 def continue_command(sid: str | None, left: float) -> list[str] | None:
     """같은 세션을 이어 가는 명령. 이어 갈 수 없으면 None (AIDE, 또는 Codex 인데 세션 id 를 못 찾음)."""
     m, s = divmod(int(left), 60)
@@ -1008,16 +1045,16 @@ def continue_command(sid: str | None, left: float) -> list[str] | None:
 
 def run_harness(cmd: list[str], env: dict, log: Path, meta: dict):
     """벽시계 TIME_LIMIT 동안 하네스 실행 (넘으면 프로세스 그룹째 종료). continue 설정이면 스스로 끝날 때 이어 감.
-    이어 가기를 멈춘 까닭은 meta["continue_stop"] 에 남김."""
+    구간마다 도구 호출 수를 meta["segments"][i]["tools"] 에, 이어 가기를 멈춘 까닭은 meta["continue_stop"] 에 남김."""
     t = time.time()
     deadline = t + TIME_LIMIT
     stop = threading.Event()
     threading.Thread(target=sync_progress, args=(stop,), daemon=True).start()
-    cont, sid, meta["segments"] = bool(CFG.get("continue")), None, []
+    cont, sid, meta["segments"], idle = bool(CFG.get("continue")), None, [], 0
     # 이어 가기 구간도 같은 출력 파일에 덧붙임 → 사후 검사·토큰 집계가 전체를 봄
     with open(log, "w") as out, open(OUT / "harness_stderr.txt", "w") as err:
         while True:
-            seg_t = time.time()
+            seg_t, seg_off = time.time(), log.stat().st_size  # 구간 시작 바이트 (하네스가 이 파일 끝에 이어 씀)
             proc = subprocess.Popen(cmd, cwd=WORK, env={**os.environ, **env}, stdout=out, stderr=err,
                                     stdin=subprocess.DEVNULL, start_new_session=True)
             try:
@@ -1030,22 +1067,25 @@ def run_harness(cmd: list[str], env: dict, log: Path, meta: dict):
                 except subprocess.TimeoutExpired:
                     os.killpg(proc.pid, signal.SIGKILL)
                 meta["exit_code"], meta["timed_out"] = None, True
+            tools = tool_calls(log, seg_off)
             meta["segments"].append(dict(start=round(seg_t - t, 1), seconds=round(time.time() - seg_t, 1),
-                                         exit_code=meta["exit_code"], timed_out=meta["timed_out"]))
+                                         exit_code=meta["exit_code"], timed_out=meta["timed_out"], tools=tools))
+            idle = idle + 1 if tools == 0 else 0  # 셀 수 없으면(None) 무작업으로 치지 않음 → CONTINUE_MAX 만
             left = deadline - time.time()
             if len(meta["segments"]) == 1:  # 공식 설정이었다면 여기서 끝났을 시각 (+cont 와 비교용)
                 meta["first_exit_seconds"] = meta["segments"][0]["seconds"]
             if not cont:
                 break
             reason = ("timed_out" if meta["timed_out"] else f"exit {meta['exit_code']}" if meta["exit_code"] != 0
-                      else "min_left" if left < CONTINUE_MIN_LEFT else "max" if len(meta["segments"]) > CONTINUE_MAX
-                      else None)
+                      else "min_left" if left < CONTINUE_MIN_LEFT else "idle" if idle >= CONTINUE_IDLE_MAX
+                      else "max" if len(meta["segments"]) > CONTINUE_MAX else None)
             sid = sid or session_id(log)
             cmd = None if reason else continue_command(sid, left)
             if cmd is None:
                 meta["continue_stop"] = reason or "no_session"
                 break
-            step(f"하네스가 스스로 끝남 → 이어 가기 {len(meta['segments'])}회째 (남은 {left:.0f}s)")
+            step(f"하네스가 스스로 끝남 (도구 {tools}개, 연속 무작업 {idle}) → 이어 가기 {len(meta['segments'])}회째 "
+                 f"(남은 {left:.0f}s)")
     stop.set()
     meta["continues"] = len(meta["segments"]) - 1
     meta["harness_seconds"] = round(time.time() - t, 1)

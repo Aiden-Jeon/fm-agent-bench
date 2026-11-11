@@ -60,6 +60,7 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 
 ## 정해야 할 것
 
-- +cont 이어 가기 상한 (전체 20번 vs 연속 거절 N번): P1 의 Agent 2회째 전에 ([docs/mle-bench.md](../mle-bench.md) 의 +cont 결과)
+(정함) +cont 이어 가기 상한: 도구 0개 구간 연속 3번 + 전체 40번 (2026-11-11, [docs/mle-bench.md](../mle-bench.md) 의 +cont 결과)
+
 - C2 의 FM 목록과 안내 문구: 어떤 TFM 을 깔지 (라이선스·설치 시간), 지시문에 얼마나 알릴지 (이름만 / 사용 예까지)
 - 해석 주의: Agent 는 LLM 이 공개 Kaggle 풀이를 학습했을 수 있음 (FM 은 아님). TabArena 데이터셋도 같은 문제가 있는지
