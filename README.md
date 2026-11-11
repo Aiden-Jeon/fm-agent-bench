@@ -22,35 +22,41 @@
 
 계획과 단계는 [docs/plans/roadmap.md](docs/plans/roadmap.md), MLE-bench 실행 기록·결정은 [docs/mle-bench.md](docs/mle-bench.md).
 
-## 지금까지 (P0, 2026-11-09~10, 설정마다 1회)
+## 지금까지 (P0~P2, 2026-11-09~11)
 
-MLE-bench test 점수, 괄호는 원래 Kaggle 리더보드에서의 위치. FM 은 원본 열만 쓰고 튜닝 없음.
+MLE-bench test 점수, 괄호는 원래 Kaggle 리더보드에서의 위치. FM·GBDT 는 튜닝 없음. Agent 는 1회째 / 2회째.
+자세한 표·해석은 [docs/mle-bench.md](docs/mle-bench.md) 의 P0·P1·C1 결과.
 
 nomad2018-predict-transparent-conductors (열별 RMSLE 평균 ↓, 879팀, 금 0.05589)
 
 | 방식 | 점수 | 시간 |
 |---|---|---|
-| Agent: Codex × GPT | **0.04847 (1위)** | 59분 |
-| Agent: Claude Code × Sonnet +cont | 0.05267 (4위) | 5분 |
-| Agent: AIDE × Sonnet | 0.05494 (6위) | 60분 |
-| FM: kumo | 0.05734 (17위) | 22초 |
-| Agent: Claude Code × Sonnet | 0.06134 (42위) | 20초 (스스로 끝냄) |
-| Agent: AIDE × GPT | 제출 없음 | 60분 |
+| **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04523 (1위)** / 0.04803 (1위) | 15분 / 1분 (피처 계산 포함) |
+| Agent: Codex × GPT | 0.04847 (1위) / 0.04567 (1위) | 59분 / 57분 |
+| GBDT + Agent 피처 (C1): catboost~f2s | 0.04976 (1위) | 23분 |
+| Agent: Claude Code × Sonnet +cont | 0.05267 (4위) / 0.05157 (2위) | 5분 / 19분 |
+| Agent: AIDE × GPT | 제출 없음 / 0.05308 (5위) | 60분 |
+| Agent: AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | 60분 |
+| FM: kumo (원본 열) | 0.05734 (17위) | 22초 |
+| Agent: Claude Code × Sonnet | 0.06134 (42위) / 0.06253 (53위) | 20초 / 40초 (스스로 끝냄) |
 
 spaceship-titanic (accuracy ↑, 2288팀, test 870행)
 
 | 방식 | 점수 | 시간 |
 |---|---|---|
 | GBDT: catboost / FM: kumo / FM: tabpfn_v2 | **0.8241 (2위)** / 0.8218 (6위) / 0.8207 (11위) | 26초 / 47초 / 100초 |
-| Agent: Codex × GPT, AIDE × GPT | 0.8184 (41위) | 58~60분 |
-| Agent: Claude Code × Sonnet | 0.8161 (58위) | 18초 |
-| Agent: AIDE × Sonnet, Claude Code × Sonnet +cont | 0.8115 (199위) | 60분 / 3분 |
+| Agent: Codex × GPT | 0.8184 (41위) / 0.8241 (2위) | 58분 |
+| Agent: AIDE × GPT | 0.8184 (41위) / 0.8149 (77위) | 60분 |
+| Agent: Claude Code × Sonnet | 0.8161 (58위) / 0.8058 (375위) | 18초 / 16초 |
+| Agent: AIDE × Sonnet | 0.8115 (199위) / 0.8115 (199위) | 60분 |
+| Agent: Claude Code × Sonnet +cont | 0.8115 (199위) / 0.8103 (217위) | 3분 / 2분 |
 
-- 표 밖의 정보가 있는 nomad 는 에이전트가 앞섬: Codex 가 결정 구조 파일(`geometry.xyz`)로 대칭·SOAP·그래프 피처를 만듦.
-  FM 은 그 파일을 안 봄 → C1 의 첫 대상
-- 순수 표 형식인 spaceship 은 FM·GBDT 한 번이 에이전트 1시간보다 앞섬
-- 어느 에이전트도 FM 을 쓰지 않음 (환경에 미리 깔지 않음, C2 에서 바꿈)
-- 1회씩이라 시드 분산은 모름. 1시간 예산이라 공개 리더보드(24시간)와 섞어 순위 매기지 않음
+- 표 밖의 정보가 있는 nomad 는 원본 열만 쓴 FM 보다 에이전트가 앞섬: Codex 가 결정 구조 파일(`geometry.xyz`)로 피처를 만듦.
+  그 피처를 FM 에 넣으면 (C1) FM 한 번이 에이전트 1시간을 넘음 (kumo~f2 0.04523). 다만 GBDT 도 비슷하게 좋아져서
+  "FM 에 특히 도움" 은 kumo × 전체 피처 하나뿐
+- 순수 표 형식인 spaceship 은 방식 사이 차이가 test 크기에서 오는 흔들림(정확도 표준오차 약 0.013) 안 → 뚜렷한 차이 없음
+- 에이전트 2회째에도 설정 순위는 같음 (nomad). 어느 에이전트도 FM 을 쓰지 않음 (환경에 미리 깔지 않음, C2 에서 바꿈)
+- 1시간 예산이라 공개 리더보드(24시간)와 섞어 순위 매기지 않음
 
 결과 표: `results/mlebench.csv` (FM 채점), `results/mlebench_runs.csv` (에이전트 실행), `results/mlebench_agents.csv`
 (공개 리더보드 에이전트), `results/results.csv` (FM 의 CV). `mlebench_agents.csv` 를 뺀 셋은 원본이 Volume 의 `tables/` 이고
