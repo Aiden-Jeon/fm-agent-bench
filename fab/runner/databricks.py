@@ -81,15 +81,31 @@ def dist_name(spec):  # "pkg[extra]>=1", "pkg @ git+...", "git+https://.../Repo.
     return re.split(r"[\\s\\[<>=!~@;]", spec, maxsplit=1)[0]
 
 
+def installer():
+    """이 파이썬에 패키지를 까는 명령. UC 이미지(/opt/venv)는 uv 로 만든 venv 라 pip 가 없음 (2026-11-11, ase 설치가
+    'No module named pip' 로 실패) → pip 가 없으면 이미지에 있는 uv 로 이 파이썬에 설치."""
+    if subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True).returncode == 0:
+        return [sys.executable, "-m", "pip", "install", "-q"]
+    if uv := shutil.which("uv"):
+        return [uv, "pip", "install", "-q", "--python", sys.executable]
+    return None
+
+
 INSTALLED = {canon(d.metadata["Name"]) for d in importlib.metadata.distributions()}
 out = Path(OUT)
 out.mkdir(parents=True, exist_ok=True)
-for args in PIP:  # 모델별 설치 실패는 해당 모델만 실패하도록 계속 진행
+INSTALL = None
+for args in PIP:  # 모델별 설치 실패는 해당 모델만 실패하도록 계속 진행 (실패는 크게 출력)
     # 이미지에서는 이미 설치된 패키지는 건너뜀 (이미지를 다시 빌드하지 않고 추가한 모델만 설치).
     # 기본 환경에서는 -U 업그레이드 등 지정한 그대로 설치
     if IMAGE and all(canon(dist_name(a)) in INSTALLED for a in args if not a.startswith("-")):
         continue
-    subprocess.run([sys.executable, "-m", "pip", "install", "-q", *args])
+    INSTALL = INSTALL or installer()
+    if INSTALL is None:
+        print(f"[runner] 설치 실패: pip·uv 둘 다 없음 → {args} 를 쓰는 모델은 실패함", flush=True)
+        continue
+    if subprocess.run([*INSTALL, *args]).returncode != 0:
+        print(f"[runner] 설치 실패: {' '.join(INSTALL[:3])} ... {args} → 이 패키지를 쓰는 모델은 실패함", flush=True)
 (out / "pip_list.txt").write_text("\\n".join(sorted(f"{d.metadata['Name']}=={d.version}"
                                                    for d in importlib.metadata.distributions())) + "\\n")
 step("패키지 준비")
