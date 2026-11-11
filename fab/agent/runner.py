@@ -184,6 +184,13 @@ OTEL_PATH, OTEL_TARGET = "/otel/v1/traces", "/api/2.0/otel/v1/traces"
 TRACE_BODY_MAX = 1_000_000  # span 의 요청·응답 글자 수 상한
 TRACE_FLUSH_SECS = 15
 TRACE_BATCH_BYTES = 4_000_000
+TRACE_POST_TIMEOUT = 60  # 초. 프록시 span 전송 한 번
+TRACE_CLOSE_SECS = 120  # 끝날 때 남은 span 을 보내는 시간 상한 (회수·작업 시간 여유를 잡아먹지 않게, 넘으면 버리고 기록)
+RELAY_TIMEOUT = 20  # 초. 하네스 OTLP 중계: 한 번만, 짧게 (하네스 exporter 가 먼저 포기하고 다시 보내면 span 이 겹침)
+# 토큰 셈 (사후 검사 fab/agent/__init__.py 의 posthoc 과 같은 규칙. 실행기는 fab 을 import 못 해서 따로 둠):
+# Anthropic 의 input_tokens 는 캐시분을 뺀 값이라 캐시 읽기·쓰기를 더함 (OpenAI 는 캐시 포함해서 셈)
+INPUT_TOKEN_KEYS = ("input_tokens", "prompt_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+OUTPUT_TOKEN_KEYS = ("output_tokens", "completion_tokens")
 
 ROUTES = {  # 프록시 경로 → FM API 경로 (gateway 면 Unity Gateway 경로)
     "/anthropic/v1/messages": "/serving-endpoints/anthropic/v1/messages",
@@ -197,24 +204,21 @@ ROUTES = {  # 프록시 경로 → FM API 경로 (gateway 면 Unity Gateway 경�
 
 
 def span_context(headers) -> tuple[str, str, str, dict]:
-    """LLM 호출 span 의 (trace id, 부모 span id, 이 span id, 하네스 trace 속성). trace 는 늘 이 실행의 것.
-    Claude Code 는 LLM 요청에 traceparent (자기 llm_request span) 를 붙이고 그 span 도 이 실행의 trace 로 옮겨 오므로
-    (rewrite_harness_otlp) 그 span 아래에 둠 → root > interaction > llm_request > 프록시 LLM span. 그 밖에는 root 아래."""
+    """LLM 호출 span 의 (trace id, 기본 부모 = root, 이 span id, 하네스 trace 속성). trace 는 늘 이 실행의 것.
+    Claude Code 는 LLM 요청에 traceparent (자기 llm_request span) 를 붙임 → 그 span 이 실제로 넘어오면 그 아래로 옮김
+    (Tracer.add_llm), 끝까지 안 오면 root 아래 (시간 종료로 죽음·중계 실패)."""
     tp = next((v for k, v in headers.items() if k.lower() == "traceparent"), "")
     m = re.fullmatch(r"[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}", tp.strip().lower())
     harness = {"harness_trace_id": m.group(1), "harness_parent_span_id": m.group(2)} if m else {}
-    parent = m.group(2) if m and HARNESS_OTLP else ROOT_SPAN_ID
-    return TRACE_ID, parent, os.urandom(8).hex(), harness
+    return TRACE_ID, ROOT_SPAN_ID, os.urandom(8).hex(), harness
 
 
-def upstream_headers(headers, ctx) -> dict:
-    """LLM 요청에 붙일 헤더 (gateway 일 때만): 요청 태그, (하네스가 안 보냈으면) 이 호출 span 의 traceparent."""
+def upstream_headers(ctx) -> dict:
+    """LLM 요청에 붙일 헤더 (gateway 일 때만): 요청 태그, 이 호출 span 의 traceparent. 하네스가 보낸 traceparent 는
+    forward 에서 뺌: 하네스 span 은 이 실행의 trace 로 옮겨지므로 (rewrite_harness_otlp) 그 trace id 로는 이어지지 않음."""
     if not GATEWAY:
         return {}
-    extra = {"Databricks-Ai-Gateway-Request-Tags": REQUEST_TAGS}
-    if not any(k.lower() == "traceparent" for k in headers):
-        extra["traceparent"] = f"00-{ctx[0]}-{ctx[2]}-01"
-    return extra
+    return {"Databricks-Ai-Gateway-Request-Tags": REQUEST_TAGS, "traceparent": f"00-{ctx[0]}-{ctx[2]}-01"}
 
 
 # OTLP protobuf (ExportTraceServiceRequest) 를 직접 씀: 실행기는 패키지 설치 없이 돌아야 하고 (에이전트 환경에 안 섞이게),
@@ -300,11 +304,44 @@ def _rewrite(msg: bytes, field: int, fn) -> bytes:
     return b"".join(_ld(num, fn(c)) if num == field and wire == 2 else raw for num, wire, c, raw in _pb_fields(msg))
 
 
+class HarnessSpans:
+    """넘긴 하네스 span 의 id 와, 하네스 span 이 부모로 가리키는 id (아직 안 넘어왔을 수 있음) 의 시간 범위.
+    시간 종료로 하네스가 죽으면 세션 내내 열린 interaction span 은 안 넘어옴 → 그 자식들의 부모가 표에 없음.
+    끝날 때 placeholders() 가 빠진 부모 자리에 span 을 만들어 root 아래 붙임 (UI 트리가 끊기지 않게)."""
+
+    def __init__(self):
+        self.lock, self.seen, self.wanted = threading.Lock(), set(), {}
+
+    def record(self, span_id: str, parent_id: str | None, start: int, end: int):
+        with self.lock:
+            self.seen.add(span_id)
+            if parent_id and parent_id != ROOT_SPAN_ID:
+                lo, hi = self.wanted.get(parent_id, (start, end))
+                self.wanted[parent_id] = (min(lo, start), max(hi, end))
+
+    def has(self, span_id: str) -> bool:
+        with self.lock:
+            return span_id in self.seen
+
+    def placeholders(self) -> list[bytes]:
+        with self.lock:
+            missing = {k: v for k, v in self.wanted.items() if k not in self.seen}
+        return [otlp_span(TRACE_ID, ROOT_SPAN_ID, sid, f"{CFG['harness']} (span not exported)", lo / 1e9, hi / 1e9,
+                          {"fab.placeholder": True, "session.id": CFG["key"]}) for sid, (lo, hi) in missing.items()]
+
+
+HARNESS = HarnessSpans()
+
+
 def _harness_span(span: bytes) -> bytes:
     """하네스 span 을 이 실행의 trace 로: trace_id(1) 를 바꾸고, 부모(4)가 없으면 root 아래로. 원래 trace id 는 속성으로."""
     fields = list(_pb_fields(span))
     orig = next((c for num, wire, c, _ in fields if num == 1 and wire == 2), b"")
     parent = next((c for num, wire, c, _ in fields if num == 4 and wire == 2 and c), None)
+    sid = next((c for num, wire, c, _ in fields if num == 2 and wire == 2), b"")
+    times = {num: struct.unpack("<Q", raw[-8:])[0] for num, wire, _, raw in fields if num in (7, 8) and wire == 1}
+    if sid:
+        HARNESS.record(sid.hex(), parent.hex() if parent else None, times.get(7, 0), times.get(8, times.get(7, 0)))
     rest = b"".join(raw for num, _, _, raw in fields if num not in (1, 4))
     return (_ld(1, bytes.fromhex(TRACE_ID)) + _ld(4, parent or bytes.fromhex(ROOT_SPAN_ID)) + rest
             + _attrs(9, {"fab.harness_trace_id": orig.hex()}))
@@ -347,83 +384,130 @@ def mlflow_attrs(span_type: str, trace_id: str, inputs, outputs) -> dict:
             "mlflow.traceRequestId": f"trace:/{TRACE_LOCATION}/{trace_id}"}
 
 
+def otlp_post(ws, host: str, body: bytes, timeout: float) -> tuple[int | None, bytes, str | None]:
+    """OTLP protobuf 를 traces_table 로 한 번 보냄 → (상태, 응답 본문, 오류). 예외는 오류로 돌려줌."""
+    conn = http.client.HTTPSConnection(host, timeout=timeout)
+    try:
+        conn.request("POST", OTEL_TARGET, body, {"Content-Type": "application/x-protobuf",
+                                                 "X-Databricks-UC-Table-Name": TRACES_TABLE, **ws.config.authenticate()})
+        resp = conn.getresponse()
+        data = resp.read()
+        return resp.status, data, data.decode("utf-8", "replace")[:300] if resp.status >= 400 else None
+    except Exception as e:  # noqa: BLE001 - trace 전송 실패는 실행을 막지 않음
+        return None, b"", repr(e)[:300]
+    finally:
+        conn.close()
+
+
 class Tracer:
-    """프록시 LLM span 을 모아 TRACE_FLUSH_SECS 마다 traces_table 로 보냄. 실패해도 실행은 계속 (otel.jsonl 에 남김)."""
+    """프록시 span 을 모아 TRACE_FLUSH_SECS 마다 traces_table 로 보냄. 실패해도 실행은 계속 (otel.jsonl 에 남김).
+    flush 는 flush_lock 으로 한 번에 하나 (끝날 때 close 가 진행 중인 주기 flush 를 기다림)."""
 
     def __init__(self, ws):
         self.ws, self.host = ws, urllib.parse.urlparse(ws.config.host).netloc
-        self.spans, self.lock, self.stop = [], threading.Lock(), threading.Event()
-        threading.Thread(target=self._loop, daemon=True).start()
+        self.spans, self.pending = [], []  # pending: (하네스 부모 span id, build(parent) → span)
+        self.lock, self.flush_lock, self.stop = threading.Lock(), threading.Lock(), threading.Event()
+        self.thread = threading.Thread(target=self._loop, daemon=True)
+        self.thread.start()
 
     def add(self, span: bytes):
         with self.lock:
             self.spans.append(span)
 
+    def add_llm(self, harness_parent: str, build):
+        """하네스 span 아래에 둘 LLM span: 그 span 이 넘어온 뒤에 만듦 (flush 때 확인). 끝까지 안 오면 root 아래."""
+        with self.lock:
+            self.pending.append((harness_parent, build))
+
     def _loop(self):
         while not self.stop.wait(TRACE_FLUSH_SECS):
             self.flush()
 
-    def flush(self):
-        with self.lock:
-            spans, self.spans = self.spans, []
-        batch, size = [], 0
-        for sp in spans + [None]:
-            if sp is None or (batch and size + len(sp) > TRACE_BATCH_BYTES):
-                if batch:
-                    self._post(batch)
-                batch, size = [], 0
-            if sp is not None:
-                batch.append(sp)
-                size += len(sp)
+    def flush(self, final: bool = False, deadline: float | None = None):
+        with self.flush_lock:
+            with self.lock:
+                pending, self.pending = self.pending, []
+            ready = [build(parent if HARNESS.has(parent) else ROOT_SPAN_ID) for parent, build in pending
+                     if final or HARNESS.has(parent)]
+            with self.lock:
+                self.pending = [x for x in pending if not (final or HARNESS.has(x[0]))] + self.pending
+                spans, self.spans = self.spans + ready, []
+            batch, size, sent = [], 0, 0
+            for sp in spans + [None]:
+                if sp is None or (batch and size + len(sp) > TRACE_BATCH_BYTES):
+                    if batch:
+                        if deadline and time.time() > deadline:
+                            self._log(dict(status="dropped", spans=len(spans) - sent, error="close time limit"))
+                            return
+                        self._post(batch, deadline)
+                        sent += len(batch)
+                    batch, size = [], 0
+                if sp is not None:
+                    batch.append(sp)
+                    size += len(sp)
 
-    def _post(self, batch: list[bytes]):
+    def _post(self, batch: list[bytes], deadline: float | None = None):
         body, t, status, err = otlp_request(batch), time.time(), None, None
-        for attempt in range(3):
-            conn = http.client.HTTPSConnection(self.host, timeout=120)
-            try:
-                conn.request("POST", OTEL_TARGET, body, {"Content-Type": "application/x-protobuf",
-                                                         "X-Databricks-UC-Table-Name": TRACES_TABLE,
-                                                         **self.ws.config.authenticate()})
-                resp = conn.getresponse()
-                status, data = resp.status, resp.read()
-                err = data.decode("utf-8", "replace")[:300] if status >= 400 else None
-            except Exception as e:  # noqa: BLE001 - trace 전송 실패는 실행을 막지 않음
-                status, err = None, repr(e)[:300]
-            finally:
-                conn.close()
+        for attempt in range(3):  # 끝날 때는 남은 시간 안에서만 (deadline)
+            timeout = min(TRACE_POST_TIMEOUT, max(1.0, deadline - time.time())) if deadline else TRACE_POST_TIMEOUT
+            status, _, err = otlp_post(self.ws, self.host, body, timeout)
             if status is not None and status < 500 and status != 429:
                 break
-            time.sleep(2 * (attempt + 1))
+            if attempt < 2 and not (deadline and time.time() + 2 * (attempt + 1) > deadline):
+                time.sleep(2 * (attempt + 1))
+            else:
+                break
+        self._log(dict(status=status, spans=len(batch), bytes=len(body), secs=round(time.time() - t, 1),
+                       **({"error": err} if err else {})))
+
+    def _log(self, row: dict):
         with LOG_LOCK, open(OUT / "otel.jsonl", "a") as f:
-            f.write(json.dumps(dict(t=round(time.time() - T0, 1), source="fab", status=status, spans=len(batch),
-                                    bytes=len(body), secs=round(time.time() - t, 1),
-                                    **({"error": err} if err else {}))) + "\n")
+            f.write(json.dumps(dict(t=round(time.time() - T0, 1), source="fab", **row)) + "\n")
 
     def close(self):
+        """주기 flush 를 멈추고 (진행 중이면 기다림), 빠진 하네스 부모 자리 span 과 남은 span 을 TRACE_CLOSE_SECS 안에 보냄."""
+        deadline = time.time() + TRACE_CLOSE_SECS
         self.stop.set()
-        self.flush()
+        self.thread.join(timeout=TRACE_CLOSE_SECS)
+        for sp in HARNESS.placeholders():
+            self.add(sp)
+        self.flush(final=True, deadline=deadline)
 
 
 TRACER: Tracer | None = None  # run() 이 만듦 (traces_table 이 있을 때)
 
 
-def trace_llm(ctx, path, t, req, text, status, asked, usage, extra):
-    """LLM 호출 하나를 span 으로 (TRACER 가 있을 때). ctx = span_context()."""
+def token_totals(rows) -> dict:
+    """사용량 dict 들 → {input_tokens, output_tokens, total_tokens} (INPUT_TOKEN_KEYS·OUTPUT_TOKEN_KEYS 규칙)."""
+    tok = {"input_tokens": sum(r.get(k, 0) for r in rows for k in INPUT_TOKEN_KEYS),
+           "output_tokens": sum(r.get(k, 0) for r in rows for k in OUTPUT_TOKEN_KEYS)}
+    tok["total_tokens"] = tok["input_tokens"] + tok["output_tokens"]
+    return tok
+
+
+def trace_llm(ctx, path, t, req, req_size, text, status, asked, usage, extra):
+    """LLM 호출 하나를 span 으로 (TRACER 가 있을 때). ctx = span_context(), req_size = 보낸 본문 바이트 수
+    (req 를 다시 직렬화해 재지 않음: Codex 는 호출마다 1MB 가까이)."""
     if TRACER is None:
         return
     fmt = "anthropic" if path.startswith("/anthropic") else "openai"
-    tokens = {"input_tokens": sum(usage.get(k, 0) for k in ("input_tokens", "prompt_tokens", "cache_read_input_tokens",
-                                                           "cache_creation_input_tokens")),
-              "output_tokens": sum(usage.get(k, 0) for k in ("output_tokens", "completion_tokens"))}
-    tokens["total_tokens"] = tokens["input_tokens"] + tokens["output_tokens"]
-    attrs = {**mlflow_attrs("LLM", ctx[0], body_value(json.dumps(req, ensure_ascii=False)), body_value(text)),
+    tokens = token_totals([usage])
+    inputs = req if req_size <= TRACE_BODY_MAX else body_value(json.dumps(req, ensure_ascii=False))
+    attrs = {**mlflow_attrs("LLM", ctx[0], inputs, body_value(text)),
              "mlflow.llm.model": UPSTREAM_MODEL, "mlflow.message.format": fmt, "mlflow.chat.tokenUsage": tokens,
              "session.id": CFG["key"], "gen_ai.request.model": UPSTREAM_MODEL,
              "gen_ai.usage.input_tokens": tokens["input_tokens"], "gen_ai.usage.output_tokens": tokens["output_tokens"],
              "http.response.status_code": status, "fab.path": path, "fab.asked_model": asked,
              "fab.route": "gateway" if GATEWAY else "fm_api", **{f"fab.{k}": v for k, v in {**ctx[3], **extra}.items()}}
-    error = f"HTTP {status}" if not status or status >= 400 else None
-    TRACER.add(otlp_span(ctx[0], ctx[1], ctx[2], f"llm {path}", t, time.time(), attrs, error, kind=3))
+    error, end = (f"HTTP {status}" if not status or status >= 400 else None), time.time()
+
+    def build(parent):
+        return otlp_span(ctx[0], parent, ctx[2], f"llm {path}", t, end, attrs, error, kind=3)
+
+    if HARNESS_OTLP and (hp := ctx[3].get("harness_parent_span_id")):
+        TRACER.add_llm(hp, build)
+    else:
+        TRACER.add(build(ctx[1]))
 
 
 def run_summary(meta: dict) -> tuple[str, dict, dict]:
@@ -434,10 +518,7 @@ def run_summary(meta: dict) -> tuple[str, dict, dict]:
             calls.append(json.loads(line))
         except ValueError:
             continue
-    tok = {"input_tokens": sum(c.get(k, 0) for c in calls for k in ("input_tokens", "prompt_tokens",
-                                                                      "cache_read_input_tokens", "cache_creation_input_tokens")),
-           "output_tokens": sum(c.get(k, 0) for c in calls for k in ("output_tokens", "completion_tokens"))}
-    tok["total_tokens"] = tok["input_tokens"] + tok["output_tokens"]
+    tok = token_totals(calls)
     result = {k: meta.get(k) for k in ("format_ok", "format_msg", "timed_out", "harness_seconds", "continues",
                                        "runner_error") if meta.get(k) is not None}
     result |= {"llm_calls": len(calls), "llm_errors": sum(1 for c in calls if (c.get("status") or 0) >= 400),
@@ -601,8 +682,8 @@ def make_proxy(ws):
             # content-encoding 도 뺌: 본문은 위에서 풀어 다시 쓴 JSON
             headers = {k: v for k, v in self.headers.items()
                        if k.lower() not in ("host", "authorization", "x-api-key", "content-length", "connection",
-                                            "accept-encoding", "content-encoding")}
-            headers |= {"Content-Length": str(len(body)), **upstream_headers(headers, ctx)}
+                                            "accept-encoding", "content-encoding", "traceparent", "tracestate")}
+            headers |= {"Content-Length": str(len(body)), **upstream_headers(ctx)}
             tail, status, waited, retries, conn = b"", None, 0, 0, None
             try:
                 conn, resp, retries, waited = self.send(target, body, headers)
@@ -627,7 +708,7 @@ def make_proxy(ws):
             self.record(dict(path=path, asked=asked, status=status, secs=round(time.time() - t, 1), **usage, **sent,
                              **({"error": err} if err else {}), **({"dropped": dropped} if dropped else {}),
                              **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})))
-            trace_llm(ctx, path, t, req, text, status, asked, usage,
+            trace_llm(ctx, path, t, req, len(body), text, status, asked, usage,
                       dict(sent, retries_429=retries, waited_429=round(waited, 1), dropped=",".join(dropped) or None))
 
         def reject(self, status: int, path: str, message: str):
@@ -662,7 +743,7 @@ def make_proxy(ws):
         def upstream(self, target: str, body: bytes, ctx) -> tuple[int, bytes, int, float]:
             """비스트리밍 요청 (429 재시도 포함) → (상태, 본문, 재시도 수, 기다린 초)."""
             headers = {"Content-Type": "application/json", "Content-Length": str(len(body))}
-            conn, resp, retries, waited = self.send(target, body, headers | upstream_headers(headers, ctx))
+            conn, resp, retries, waited = self.send(target, body, headers | upstream_headers(ctx))
             try:
                 return resp.status, resp.read(), retries, waited
             finally:
@@ -705,7 +786,7 @@ def make_proxy(ws):
                              **{k: v for k, v in usage.items() if k in USAGE_KEYS},
                              **({"error": err} if err else {}), **({"dropped": dropped} if dropped else {}),
                              **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})))
-            trace_llm(ctx, self.path, t, req, data.decode("utf-8", "replace"), status, asked, usage,
+            trace_llm(ctx, self.path, t, req, len(body), data.decode("utf-8", "replace"), status, asked, usage,
                       dict(tool_json=fn["name"], tool_tries=tries, tool_ok=obj is not None, retries_429=retries,
                            waited_429=round(waited, 1), dropped=",".join(dropped) or None))
 
@@ -721,23 +802,16 @@ def make_proxy(ws):
                 body = rewrite_harness_otlp(body)
             except (ValueError, IndexError):  # protobuf 가 아니거나 깨짐 → 그대로 넘김 (서버가 거부하면 otel.jsonl 에 남음)
                 pass
-            headers = {"Content-Type": self.headers.get("Content-Type", "application/x-protobuf"),
-                       "Content-Length": str(len(body)), "X-Databricks-UC-Table-Name": TRACES_TABLE}
-            conn, resp, retries, waited = self.send(OTEL_TARGET, body, headers)
-            try:
-                data = resp.read()
-            finally:
-                conn.close()
-            self.send_response(resp.status)
-            self.send_header("Content-Type", resp.getheader("Content-Type") or "application/x-protobuf")
+            # 한 번만, RELAY_TIMEOUT 안에 (LLM 의 429 기다림·600초 제한을 쓰지 않음). 실패하면 503 → 하네스 exporter 가 판단
+            status, data, err = otlp_post(ws, host, body, RELAY_TIMEOUT)
+            self.send_response(status or 503)
+            self.send_header("Content-Type", "application/x-protobuf" if status and status < 400 else "text/plain")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
             # 200 이어도 일부 span 이 거부될 수 있음 (partial_success, protobuf) → 응답 크기만 남기고 내용은 안 풂
-            self.record(dict(source="harness", status=resp.status, bytes=len(body), resp_bytes=len(data),
-                             secs=round(time.time() - t, 1),
-                             **({"error": data.decode("utf-8", "replace")[:300]} if resp.status >= 400 else {}),
-                             **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})), "otel.jsonl")
+            self.record(dict(source="harness", status=status, bytes=len(body), resp_bytes=len(data),
+                             secs=round(time.time() - t, 1), **({"error": err} if err else {})), "otel.jsonl")
 
         def record(self, row, name="proxy.jsonl"):
             with LOG_LOCK, open(OUT / name, "a") as f:
@@ -859,8 +933,8 @@ def harness_command(prompt_file: Path) -> tuple[list[str], dict, Path]:
                 # 검색 없이 남을 수 있어서, 기능 자체를 끄고 처음부터 모든 도구를 넘김
                 "ENABLE_TOOL_SEARCH": "false"}
         if TRACES_TABLE:  # ug 가 Claude Code 에 넣는 trace 설정 (unity-gateway agents/claude.py), 받는 곳만 로컬 프록시.
-            # 토큰은 프록시가 붙임 → otelHeadersHelper 불필요. PROPAGATE_TRACEPARENT: LLM 요청에 traceparent 를 붙여
-            # (trace linking 이 켜져 있으면) Gateway span 이 Claude Code 의 trace 에 묶임
+            # 토큰은 프록시가 붙임 → otelHeadersHelper 불필요. PROPAGATE_TRACEPARENT: LLM 요청에 traceparent (자기
+            # llm_request span) 를 붙임 → 프록시 LLM span 을 그 아래에 둠 (span_context·Tracer.add_llm)
             env |= {"CLAUDE_CODE_ENABLE_TELEMETRY": "1", "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
                     "OTEL_TRACES_EXPORTER": "otlp", "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL": "http/protobuf",
                     "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT": f"{proxy}{OTEL_PATH}",
@@ -1014,12 +1088,15 @@ def main():
         raise
     finally:
         meta["finished"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        if TRACER is not None:  # root span + 남은 LLM span 을 회수 전에 보냄 (otel.jsonl 도 회수됨)
+        if TRACER is not None:  # root span + 남은 span 을 회수 전에 보냄 (otel.jsonl 도 회수됨). root 가 실패해도 나머지는 보냄
             try:
                 trace_root(meta)
-                TRACER.close()
             except Exception as e:  # noqa: BLE001 - trace 실패로 회수를 막지 않음
                 meta["trace_error"] = repr(e)[:500]
+            try:
+                TRACER.close()
+            except Exception as e:  # noqa: BLE001
+                meta["trace_error"] = (meta.get("trace_error", "") + f" close: {e!r}")[:1000]
         (OUT / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
         dst = Path(CFG["out"])
         dst.mkdir(parents=True, exist_ok=True)

@@ -115,7 +115,8 @@ Unity Gateway 의 unified trace 표는 쓰지 않음: 설정이 메타스토어 
 
 `gateway: true` 는 따로: LLM 요청을 Unity Gateway(`/ai-gateway/anthropic|mlflow|openai/...`, 모델 `system.ai.*`)로 보내
 `system.ai_gateway.usage` 에 남긴다 (요청마다 `Databricks-Ai-Gateway-Request-Tags` 에 실행 키). FM API 와 분당 한도·거부 조건이
-다를 수 있어 결과 표의 `llm_route` (`gateway` / `fm_api`)로 구분하고 섞어 비교하지 않는다.
+다를 수 있어 설정 이름에 `+gw` 를 붙이고 (`claude-code-sonnet+gw`) 결과 표의 `llm_route` (`gateway` / `fm_api`)로도
+구분한다. 섞어 비교하지 않는다.
 
 ## 사용
 

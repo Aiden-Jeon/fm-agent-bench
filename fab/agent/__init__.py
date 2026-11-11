@@ -41,7 +41,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fab.core.results import OUTPUTS, RESULTS, append_rows, table_lock
+from fab.core.results import OUTPUTS, RESULTS, table_lock
 
 # 설정 이름 → (하네스, FM API 엔드포인트, 하네스에 넘길 모델 이름). AIDE 는 gpt- 로 시작해야 OpenAI 백엔드를 써서 별칭
 # (별칭 gpt-km-* 는 kaggle-master 때 이름 그대로: 기록된 실행의 proxy.jsonl 과 맞춰야 사후 검사(other_models)가 같음)
@@ -53,6 +53,7 @@ CONFIGS = {
     "codex-gpt": ("codex", GPT, GPT),
 }
 CONTINUE_SUFFIX = "+cont"  # --continue 로 돌린 별도 설정의 이름 꼬리표 (공식 설정과 결과 표에서 섞이지 않게)
+GATEWAY_SUFFIX = "+gw"  # gateway: true 로 돌린 실행의 꼬리표 (분당 한도·거부 조건이 FM API 와 달라 섞지 않게, llm_route 열과 같은 뜻)
 HARNESS_VERSIONS = {"aide": "v6.3.3", "claude-code": "2.1.319", "codex": "0.167.0"}  # MLE-bench 의 AIDE 포크 태그
 ACCELERATOR = "GPU_1xA10"
 RUNS = OUTPUTS / "_mlebench" / "agents" / "runs.json"  # key → {run_id, cid, config, ...}
@@ -161,7 +162,7 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
     harness, model, alias = CONFIGS[config]
     check_continue([config], cont)
     cfg = settings()
-    label = f"{config}{CONTINUE_SUFFIX if cont else ''}"
+    label = f"{config}{CONTINUE_SUFFIX if cont else ''}{GATEWAY_SUFFIX if cfg['gateway'] else ''}"
     ensure_lfs(cid)
     data = upload_data(cfg, cid)
     # 키는 Volume 경로·command_path 에 들어감 → '+' 불가 (jobs submit 이 거부, 2026-11-10). 설정 이름(label)은 +cont 그대로
@@ -240,6 +241,7 @@ def posthoc(d: Path) -> dict:
                 waited_429=round(sum(c.get("waited", 0) for c in calls), 1),  # 흔들기로 소수 → 합의 부동소수 잡음 제거
                 llm_calls=len(calls), llm_errors=sum(1 for c in calls if (c.get("status") or 0) >= 400),
                 # Anthropic 의 input_tokens 는 캐시분을 뺀 값이라 캐시 읽기·쓰기를 더함 (OpenAI 는 캐시 포함해서 셈)
+                # runner.py 의 INPUT_TOKEN_KEYS·OUTPUT_TOKEN_KEYS 와 같은 규칙 (trace 요약과 맞게, 바꾸면 둘 다)
                 input_tokens=tok("input_tokens", "prompt_tokens", "cache_read_input_tokens",
                                  "cache_creation_input_tokens"),
                 output_tokens=tok("output_tokens", "completion_tokens"),
@@ -260,6 +262,24 @@ def node_columns(meta: dict) -> dict:
                 node_mem_gb=smallest("cgroup_mem_gb", "mem_total_gb", "mem_phys_gb"),
                 node_tmp_free_gb=n.get("disk_free_gb:/tmp"),
                 node_gpu="; ".join(gpu) if isinstance(gpu, list) else gpu)
+
+
+def fill_defaults(t: pd.DataFrame) -> pd.DataFrame:
+    """mlebench_runs.csv 에 나중에 생긴 열의 옛 행 값 (그 열 이전 실행의 실제 값): llm_route=fm_api, 이어 가기 0 번·
+    첫 종료 = harness_seconds. fetch (append) 와 recheck 가 같이 씀."""
+    if "llm_route" in t:
+        t["llm_route"] = t["llm_route"].fillna("fm_api")
+    if "continues" in t:
+        t["continues"] = t["continues"].fillna(0).astype(int)
+        t["first_exit_seconds"] = t["first_exit_seconds"].fillna(t["harness_seconds"])
+    return t
+
+
+def append_run(row: dict):
+    """채점 행 하나를 mlebench_runs.csv 에 (옛 행의 새 열은 fill_defaults 로 채움)."""
+    with table_lock(TABLE):
+        t = pd.concat([pd.read_csv(TABLE), pd.DataFrame([row])]) if TABLE.exists() else pd.DataFrame([row])
+        fill_defaults(t).to_csv(TABLE, index=False)
 
 
 def grade_run(key: str, info: dict) -> dict:
@@ -283,7 +303,7 @@ def grade_run(key: str, info: dict) -> dict:
         row.update(score=None, valid_submission=False)
     p = posthoc(d)
     row.update({k: (" ".join(v) if isinstance(v, list) else v) for k, v in p.items()})
-    append_rows(pd.DataFrame([row]), TABLE)
+    append_run(row)
     return row
 
 
@@ -377,12 +397,7 @@ def main(argv: list[str]):
             checks = pd.DataFrame([{k: " ".join(v) if isinstance(v, list) else v
                                     for k, v in posthoc(LOCAL_RUNS / key).items()} for key in t.key], index=t.index)
             t = pd.concat([t.drop(columns=[c for c in checks if c in t]), checks], axis=1)
-            if "llm_route" in t:  # 이 열 이전 행은 모두 FM API (grade_run 의 llm_route 와 같은 규칙)
-                t["llm_route"] = t["llm_route"].fillna("fm_api")
-            if "continues" in t:  # 이어 가기 열 이전 행: 이어 가지 않았으므로 0 과 harness_seconds (grade_run 과 같은 규칙)
-                t["continues"] = t["continues"].fillna(0).astype(int)
-                t["first_exit_seconds"] = t["first_exit_seconds"].fillna(t["harness_seconds"])
-            t.to_csv(TABLE, index=False)
+            fill_defaults(t).to_csv(TABLE, index=False)
         print(t[["mlebench", "config", "score", "tfm_in_code", "tfm_mentions", "pip_added"]].to_string(index=False))
     elif args.cmd == "peek":
         peek(args.keys or None)
