@@ -53,7 +53,8 @@ spaceship-titanic (accuracy ↑, 2288팀, test 870행)
 - 1회씩이라 시드 분산은 모름. 1시간 예산이라 공개 리더보드(24시간)와 섞어 순위 매기지 않음
 
 결과 표: `results/mlebench.csv` (FM 채점), `results/mlebench_runs.csv` (에이전트 실행), `results/mlebench_agents.csv`
-(공개 리더보드 에이전트), `results/results.csv` (FM 의 CV).
+(공개 리더보드 에이전트), `results/results.csv` (FM 의 CV). `mlebench_agents.csv` 를 뺀 셋은 원본이 Volume 의 `tables/` 이고
+로컬 파일은 `fab sync` 로 받은 사본 (아래 사용).
 
 ## 구조
 
@@ -64,26 +65,28 @@ fab/
   cli.py                          # `fab <명령>` 진입점
   core/                           # 대회 설정·데이터·fold, 공통 피처, 지표, 결과표, 데이터 준비 (fab download)
   models/                         # FM·GBDT 레지스트리 (fab/models/__init__.py), @spec 컨텍스트 선택 (context.py)
-  runner/                         # FM 실행: fab run (로컬), fab databricks (서버리스 GPU)
-  submission.py                   # test.npy → 제출 파일 (여러 모델이면 평균)
-  bench/mlebench/                 # MLE-bench 분할 준비·채점·공개 에이전트 점수 (mle-bench 가상환경을 driver.py 로 부름)
+  runner/                         # FM 실행: fab databricks 가 제출 (TFM: AI Runtime GPU, GBDT: serverless CPU), 원격에서 fab run
+  submission.py                   # test.npy → 제출 파일 (여러 모델이면 평균, 원격 정리 작업 안에서)
+  bench/mlebench/                 # MLE-bench 분할 준비 (로컬 mle-bench 가상환경), 채점 재료 업로드·원격 채점 (remote.py), 공개 에이전트 점수
   agent/                          # 에이전트 실행: 로컬 런처 (__init__.py) + 원격 실행기 (runner.py: LLM 프록시·형식 검사 서버)
+  remote/                         # 원격 상태(Volume 의 state/)·정리 작업 (reconcile.py: 결과 합치기·채점, `fab remote kick` 으로 실행)·fab sync
 docker/air/                       # Databricks 실행 이미지 (FM 패키지 미리 설치)
-results/                          # git 추적 표 (위), 실행 출력 results/<slug>/<model>/ 은 git 제외
+results/                          # git 추적 표 (위, fab sync 로 받은 사본). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
 docs/
 ```
 
 ## 준비
 
 1. `uv sync --frozen` (사내 PyPI 프록시 환경에서는 `--frozen` 으로 `uv.lock` 이 바뀌지 않게, [docs/known-issues.md](docs/known-issues.md))
-2. (macOS) `brew install libomp`
-3. mle-bench 를 옆에 따로 설치 (`../mle-bench`, 자체 가상환경): `fab/bench/mlebench/__init__.py` 위쪽 설명. 위치는 `FAB_MLEBENCH`
-4. Kaggle API 토큰 (`~/.kaggle/access_token`) + 대회 Rules 동의: MLE-bench 도 원본 zip 은 Kaggle 에서 받음
-5. Databricks (FM 원격 실행·에이전트 실행): databricks CLI 로그인 후 저장소 루트에 `databricks.local.yaml` (git 제외)
+2. mle-bench 를 옆에 따로 설치 (`../mle-bench`, 자체 가상환경): `fab/bench/mlebench/__init__.py` 위쪽 설명. 위치는 `FAB_MLEBENCH`.
+   로컬에서는 분할 준비와 정답 위치 확인에만 씀 (채점은 원격)
+3. Kaggle API 토큰 (`~/.kaggle/access_token`) + 대회 Rules 동의: MLE-bench 도 원본 zip 은 Kaggle 에서 받음
+4. Databricks (FM 실행·에이전트 실행·채점): databricks CLI 로그인 후 저장소 루트에 `databricks.local.yaml` (git 제외).
+   그다음 `uv run --frozen fab remote deploy` 로 정리 작업을 만듦 (한 번. 스케줄 없음, `fab remote kick` 으로만 돎)
 
 ```yaml
 profile: <~/.databrickscfg 프로필>
-volume: /Volumes/<catalog>/<schema>/<volume>   # FM 실행: 대회 데이터와 실행 결과
+volume: /Volumes/<catalog>/<schema>/<volume>   # 데이터·실행 결과·원격 상태·결과표·채점용 정답. 에이전트 SP 는 못 읽어야 함
 accelerator: GPU_1xH100                         # 선택. FM 실행 기본 GPU
 image: <catalog>.<schema>.<image>:<tag>         # 선택. docker/air 로 만든 이미지. 없으면 실행마다 pip 설치
 mleb_agent:
@@ -120,22 +123,38 @@ Unity Gateway 의 unified trace 표는 쓰지 않음: 설정이 메타스토어 
 
 ## 사용
 
+로컬은 제출과 결과표 동기화·분석만 한다. 학습·에이전트·결과 합치기·채점은 모두 Databricks 에서 돈다 (로컬 `fab run` 은 막혀 있음).
+학습·에이전트는 **제출한 뒤 맥북을 꺼도 계속 돌고**, 끝난 뒤 `fab remote kick` 으로 정리 작업을 한 번 돌리면 결과를 합치고 채점한다.
+
+- 로컬 명령은 제출만 하고 Volume 의 `state/` 에 제출 기록을 남김
+- 정리 작업 `fab-reconcile` (내 신원, serverless CPU, 스케줄 없음, `fab/remote/reconcile.py`)이 돌 때 끝난 실행을 처리: 예측·OOF 를
+  Volume 의 `outputs/` 로 옮기고, `--split-folds` 묶음을 합치고, 채점 요청은 그 모델의 학습이 끝나기를 기다렸다가 채점,
+  에이전트 실행은 회수·채점·사후 검사 → Volume 의 `tables/` 결과표에 씀
+- 아직 끝나지 않은 실행과 그 모델의 채점 요청은 그대로 남아 다음 kick 때 처리 (몇 번 돌려도 같은 결과)
+- 예측 배열은 로컬로 내려오지 않음 (합치기·제출 파일 만들기도 원격, 메모리는 fold·모델 수에 비례하지 않게 하나씩 읽음)
+- 정리 작업이 쓰는 fab 코드는 로컬 명령을 낼 때마다 지금 코드로 다시 올라감
+
 ```bash
 uv run --frozen fab                                   # 명령 목록, 명령별 인자는 fab <명령> -h
 
-# FM: MLE-bench 분할 준비 → CV + test 예측 → MLE-bench test 로 채점
+# FM: MLE-bench 분할 준비 (로컬) → CV + test 예측 (Databricks) → MLE-bench test 로 채점 (정리 작업)
 uv run --frozen fab download mleb-spaceship-titanic    # Kaggle zip → MLE-bench 분할 → public 만 data/
-uv run --frozen fab run mleb-spaceship-titanic lgbm catboost tabpfn_v2
-uv run --frozen fab databricks mleb-spaceship-titanic kumo tabicl          # GPU 가 필요한 FM
-uv run --frozen fab mleb grade spaceship-titanic catboost kumo --each      # → results/mlebench.csv
+uv run --frozen fab databricks mleb-spaceship-titanic lgbm catboost tabpfn_v2 kumo  # TFM: AI Runtime GPU, GBDT: serverless CPU
+uv run --frozen fab mleb grade spaceship-titanic catboost kumo --each      # 채점 요청 (학습이 아직 돌고 있어도 바로 내도 됨)
+
+# 진행 확인과 결과 받기 (언제든)
+uv run --frozen fab remote status                     # 처리 대기 항목·최근 정리 작업 실행
+uv run --frozen fab remote kick                       # 정리 작업 한 번 실행 (끝난 실행만 처리)
+uv run --frozen fab sync                              # Volume 의 tables/ → results/*.csv
+uv run --frozen fab sync --pull outputs/mleb-spaceship-titanic/catboost     # 필요한 예측만 골라 받기
 
 # 공개 리더보드 에이전트 점수 (표 형식 대회만) → results/mlebench_agents.csv
 uv run --frozen fab mleb agents
 
-# Agent: Databricks 서버리스 GPU(A10)에서 1시간 실행 → 회수·채점 → results/mlebench_runs.csv
+# Agent: AI Runtime GPU(A10)에서 전용 SP 로 1시간 실행 → 회수 → 원격 채점 → results/mlebench_runs.csv
 uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors codex-gpt claude-code-sonnet
 uv run --frozen fab mleb agent peek                    # 실행 중 진행 (LLM 호출·429)
-uv run --frozen fab mleb agent fetch
+uv run --frozen fab mleb agent list                    # 처리 상태 (회수·채점은 정리 작업, 결과는 fab sync)
 ```
 
 타깃이 둘인 대회(nomad2018)는 타깃마다 대회 하나(`mleb-nomad2018-formation`, `-bandgap`)로 돌리고, `fab mleb grade` 가

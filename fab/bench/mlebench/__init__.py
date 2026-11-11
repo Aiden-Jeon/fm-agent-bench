@@ -1,4 +1,5 @@
-"""MLE-bench 연동: 대회 준비(MLE-bench 의 train/test 분할), 채점. 계획은 docs/plans/mle-bench.md.
+"""MLE-bench 연동: 대회 준비(MLE-bench 의 train/test 분할, 로컬), 채점(원격 정리 작업, remote.py·fab/remote).
+계획은 docs/plans/mle-bench.md.
 
 MLE-bench 는 원래 train 을 다시 나눠 자체 test(정답 비공개)를 만들고 그 test 로 채점함 → 공개 리더보드 에이전트와
 비교하려면 TFM 도 같은 분할로 학습·채점해야 함 (Kaggle LB 가 아님).
@@ -11,8 +12,9 @@ mlebench 는 kaggle<1.7·tensorflow 를 요구해 이 프로젝트와 같이 못
     uv pip install --python ../mle-bench/.venv/bin/python appdirs "pandas>=2.2,<2.3" "numpy<2.1" pyyaml py7zr \
         "scikit-learn>=1.5,<1.6" tqdm diskcache tenacity
 
-위치는 FAB_MLEBENCH 로 바꿈. 정답(private)은 mlebench 캐시 디렉터리에만 있고 대회 data/ 에는 public 만 복사
-(data/ 는 원격 실행·에이전트에 올라가는 곳).
+위치는 FAB_MLEBENCH 로 바꿈. 로컬 mle-bench 는 분할 준비(prepare)·데이터 위치(paths)에만 씀.
+대회 data/ 에는 public 만 복사 (data/ 는 원격 실행·에이전트에 올라가는 곳). 정답(private)은 mlebench 캐시와
+채점용으로 올린 내 Volume 의 mlebench/data/ 에만 있음 (에이전트 SP 의 scratch Volume 에는 없음, remote.py).
 """
 
 from __future__ import annotations
@@ -160,21 +162,54 @@ def make_submission(cid: str, models: list[str]) -> Path:
     return path
 
 
-def grade(cid: str, models: list[str], note: str = "") -> dict:
+def grade(cid: str, groups: list[list[str]], note: str, grade_fn) -> tuple[list[dict], dict[str, str]]:
+    """모델 묶음마다 제출 파일을 만들어 (예측 평균) grade_fn(cid, csv) 로 채점 → results/mlebench.csv.
+    원격 정리 작업이 부름 (grade_fn = remote.Grader.grade). 돌려주는 것: (표에 쓴 행, {묶음: 실패 이유}).
+    예측이 없거나 채점에 실패한 묶음은 표에 쓰지 않음 (정리 작업이 다시 시도할지 정함)."""
     comps = bench_comps(cid)
-    path = make_submission(cid, models)
-    ensure_lfs(cid)
-    report = _driver("grade", cid, str(path))
-    infos = [test_info(c.name, m) or {} for c in comps for m in models]
-    row = dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"), mlebench=cid,
-               model="+".join(models), comps=" ".join(c.name for c in comps),
-               runs=" ".join(str(i.get("run")) for i in infos), note=note,
-               **{k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal", "silver_medal",
-                                             "bronze_medal", "above_median", "gold_threshold", "silver_threshold",
-                                             "bronze_threshold", "median_threshold", "is_lower_better",
-                                             "lb_rank", "lb_teams"]})
-    append_rows(pd.DataFrame([row]), GRADES)
-    return row
+    rows, errors = [], {}
+    for models in groups:
+        name = "+".join(models)
+        if missing := [f"{c.name}/{m}" for c in comps for m in models if test_info(c.name, m) is None]:
+            errors[name] = f"test 예측 없음 ({', '.join(missing)})"
+            print(f"{cid} {name}: {errors[name]} → 채점 안 함")
+            continue
+        report = grade_fn(cid, make_submission(cid, models))
+        if report.get("error"):
+            errors[name] = f"채점 실패\n{report['error']}"
+            print(f"{cid} {name}: {errors[name]}")
+            continue
+        infos = [test_info(c.name, m) or {} for c in comps for m in models]
+        rows.append(dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"),
+                         mlebench=cid, model="+".join(models), comps=" ".join(c.name for c in comps),
+                         runs=" ".join(str(i.get("run")) for i in infos), note=note,
+                         **{k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal",
+                                                       "silver_medal", "bronze_medal", "above_median",
+                                                       "gold_threshold", "silver_threshold", "bronze_threshold",
+                                                       "median_threshold", "is_lower_better", "lb_rank", "lb_teams"]}))
+        r = rows[-1]
+        rank = f"  LB {r['lb_rank']}/{r['lb_teams']}" if r.get("lb_rank") else ""
+        print(f"{cid} {r['model']}: score={r['score']}  {medal(r)}{rank}  "
+              f"(금 {r['gold_threshold']}, 중앙값 {r['median_threshold']})")
+    if rows:
+        append_rows(pd.DataFrame(rows), GRADES)
+    return rows, errors
+
+
+def request_grade(cid: str, groups: list[list[str]], note: str = ""):
+    """채점 요청을 Volume 에 남김 → 원격 정리 작업이 (요청한 모델의 학습이 끝나기를 기다렸다가) 채점."""
+    from datetime import datetime
+
+    from fab.bench.mlebench.remote import prepare_grading
+    from fab.remote import settings, submit_item
+
+    if not bench_comps(cid):
+        sys.exit(f"config.yaml 에 mlebench: {cid} 인 대회가 없음")
+    cfg = settings()
+    prepare_grading(cfg, [cid])
+    key = f"{cid}__{datetime.now():%Y%m%d-%H%M%S}"
+    submit_item(cfg, "grade", key, dict(cid=cid, groups=groups, note=note))
+    print(f"채점 요청: {key} ({len(groups)}개 묶음) → 학습이 끝난 뒤 fab remote kick, 결과는 fab sync")
 
 
 def agents() -> pd.DataFrame:
@@ -218,7 +253,7 @@ def main(argv: list[str] | None = None):
         return agent_main(argv[1:])
     ap = argparse.ArgumentParser(prog="fab mleb", description="MLE-bench 채점 (대회 준비는 fab download)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    g = sub.add_parser("grade", help="저장된 test 예측을 MLE-bench test 로 채점 → results/mlebench.csv")
+    g = sub.add_parser("grade", help="MLE-bench test 로 채점 요청 (원격 정리 작업이 학습이 끝나기를 기다려 채점) → fab sync 로 results/mlebench.csv")
     g.add_argument("target", help="MLE-bench 대회 id 또는 fab 대회 이름")
     g.add_argument("models", nargs="+", help="fab 모델 이름 (여러 개면 예측 평균)")
     g.add_argument("--each", action="store_true", help="모델마다 따로 채점 (평균하지 않음)")
@@ -234,8 +269,4 @@ def main(argv: list[str] | None = None):
         cid = args.target
         if (COMP_DIR / cid / "config.yaml").exists() and load_competition(cid).mlebench:
             cid = load_competition(cid).mlebench
-        for models in ([[m] for m in args.models] if args.each else [args.models]):
-            r = grade(cid, models, args.note)
-            rank = f"  LB {r['lb_rank']}/{r['lb_teams']}" if r.get("lb_rank") else ""
-            print(f"{cid} {r['model']}: score={r['score']}  {medal(r)}{rank}  "
-                  f"(금 {r['gold_threshold']}, 중앙값 {r['median_threshold']})")
+        request_grade(cid, [[m] for m in args.models] if args.each else [args.models], args.note)

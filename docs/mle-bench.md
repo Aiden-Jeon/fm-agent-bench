@@ -80,8 +80,10 @@ dev 세트 대회는 공개 리더보드 채점 결과에 없음 → 트랙 B �
 ```bash
 # mle-bench 는 ../mle-bench 에 따로 설치 (fab/bench/mlebench/__init__.py 위쪽 설명)
 uv run fab download mleb-spaceship-titanic            # Kaggle zip → MLE-bench 분할 → 체크섬 확인 → public 만 data/
-uv run fab run mleb-spaceship-titanic catboost tabpfn_v2
-uv run fab mleb grade spaceship-titanic catboost tabpfn_v2 --each   # → results/mlebench.csv (점수·메달·원래 LB 순위)
+uv run fab databricks mleb-spaceship-titanic catboost tabpfn_v2   # 학습은 Databricks 에서만 (로컬 fab run 은 막힘, 2026-11-10)
+uv run fab mleb grade spaceship-titanic catboost tabpfn_v2 --each   # 채점 요청 (Volume 에 기록만)
+uv run fab remote kick                                              # 학습이 끝난 뒤: 결과 합치기·채점
+uv run fab sync                                                     # → results/mlebench.csv (점수·메달·원래 LB 순위)
 uv run fab mleb agents                                 # 공개 에이전트 점수 → results/mlebench_agents.csv
 ```
 
@@ -176,7 +178,10 @@ Sonnet 이 이어 가라는 글에 "제출은 확정, 더 안 바꿈" 으로 한
 | 범위 | 큰 대회(taxi·tps-dec-2021 등)는 노드 메모리 확인 전까지 트랙 B 에서 뺌 (GitHub issue) |
 | P0 | spaceship·nomad × 설정 4 × 1회 = 8회 → 실제 비용 보고 나머지 결정 |
 
-정답(private)은 로컬 mlebench 캐시에만 있고 워크스페이스에 올리지 않음 → 에이전트가 볼 방법이 없음.
+정답(private)은 로컬 mlebench 캐시와, 채점용으로 올린 내 Volume(`databricks.local.yaml` 의 `volume` 아래 `mlebench/data/`)에만 있음.
+에이전트 SP 의 scratch Volume 에는 public 만 올림. 2026-11-10 채점을 원격 정리 작업(`fab/remote/reconcile.py`, 내 신원)으로 옮기면서
+정답이 워크스페이스에 올라감 → 격리는 SP 권한에 기댐: SP 는 정답 Volume 의 스키마에 `USE_SCHEMA`·`READ_VOLUME` 이 없음
+(`databricks grants get-effective` 로 확인, 그룹에서 받은 `READ_METADATA` 만). SP 권한을 넓힐 때 이 스키마는 빼야 함.
 
 ### 하네스 공통 규칙 (2026-11-09, kaggle-master#35·kaggle-master#37)
 
@@ -196,7 +201,7 @@ Sonnet 이 이어 가라는 글에 "제출은 확정, 더 안 바꿈" 으로 한
 - 429 대기도 같이 적음. Codex 는 호출마다 컨텍스트 전체(약 10만 토큰)를 보내서 대기가 가장 김 (P0: 4~7분) → 그만큼 불리
 - 한도 상향은 워크스페이스 쪽 일 (kaggle-master#37 에 남김). 한도가 바뀌면 그 전후 실행을 따로 표시
 
-구현 (`fab mleb agent run|fetch|list`, `fab/agent/__init__.py` + 원격 `fab/agent/runner.py`):
+구현 (`fab mleb agent run|list|peek`, `fab/agent/__init__.py` + 원격 `fab/agent/runner.py`, 회수·채점은 정리 작업 `fab/remote/reconcile.py`):
 
 - 전용 SP 와 전용 scratch Volume (SP 권한: USE CATALOG·USE SCHEMA·READ/WRITE VOLUME 만. TFM 실행용 Volume 은
   메타데이터만 보임, 위치는 `databricks.local.yaml` 의 `mleb_agent`). 작업은 `jobs submit` + `run_as` + `ai_runtime_task`
@@ -208,7 +213,7 @@ Sonnet 이 이어 가라는 글에 "제출은 확정, 더 안 바꿈" 으로 한
 - 하네스 버전 고정: AIDE `thesofakillers/aideml@v6.3.3` (MLE-bench 가 쓰는 포크), Claude Code 2.1.319, Codex 0.167.0
 - 로컬 확인 (2026-11-09): 프록시의 Anthropic Messages·Responses 스트리밍, Chat Completions, 모델 고정, 사용량 기록, 형식 검사.
   이 노트북의 Claude Code·Codex 는 회사 관리 설정이 공급자를 강제해서 로컬 하네스 시험은 대표성이 없음 → 원격에서 확인
-- 사후 검사 (`fetch`): 코드·기록의 TFM 이름, `pip` 로 새로 설치한 패키지, Kaggle 풀이·토론 URL 수, 토큰 합계, 다른 모델 요청 여부
+- 사후 검사 (정리 작업, 예전 `fetch`): 코드·기록의 TFM 이름, `pip` 로 새로 설치한 패키지, Kaggle 풀이·토론 URL 수, 토큰 합계, 다른 모델 요청 여부
 - 하네스가 시간을 다 안 쓰고 스스로 끝낼 때 (2026-11-10 결정, kaggle-master#35. 위 "하네스 공통 규칙" 의 "스스로 끝냄" 은 본 결과의 규칙,
   여기에 별도 설정을 더함):
   - **본 결과(공식 설정)는 그대로**: 이어 가지 않음. 결과 표에 "스스로 끝냄"·하네스 시간을 같이 적음. P0 의 Claude Code
@@ -260,10 +265,10 @@ Sonnet 이 이어 가라는 글에 "제출은 확정, 더 안 바꿈" 으로 한
     0.2초 뒤 다시 보내 결과에는 영향 없었음). 프록시에서 헤더만 빼면 본문의 지연 로드 도구가 검색 없이 남을 수 있어 기능 자체를 끔
     → 처음부터 모든 도구를 넘김. 프록시가 요청마다 `beta`(anthropic-beta 값)·`n_tools` 를 `proxy.jsonl` 에 기록해 다음 실행에서 확인
 - 노드 사양 (kaggle-master#32): 실행기가 시작할 때 `meta.json` 의 `node` 에 CPU 수(`os.cpu_count`·affinity·cgroup 한도), 메모리(물리·
-  `/proc/meminfo`·cgroup 한도), `/tmp`·HOME 디스크 여유, GPU(이름·메모리)를 적음. `fetch` 가 `node_cpus`·`node_mem_gb`·
+  `/proc/meminfo`·cgroup 한도), `/tmp`·HOME 디스크 여유, GPU(이름·메모리)를 적음. 정리 작업(예전 `fetch`)이 `node_cpus`·`node_mem_gb`·
   `node_tmp_free_gb`·`node_gpu` 열로 옮김 (CPU·메모리는 호스트·affinity·cgroup 한도 중 가장 작은 값.
   항목마다 따로 재서 하나가 실패해도 나머지는 남음, `nvidia-smi` 는 30초 제한) → 큰 대회(taxi·tps-dec-2021·tps-may-2022) 판단에 씀
-- 제외한 실행 (`fab mleb agent exclude`, 사유는 runs.json): 런처 시작 실패 4회, 프록시 Accept-Encoding 버그 1회,
+- 제외한 실행 (`fab mleb agent exclude`, 사유는 Volume 의 state/agent/<key>.done.json, 2026-11-10 이전은 runs.json): 런처 시작 실패 4회, 프록시 Accept-Encoding 버그 1회,
   AIDE temperature 거부·빈 messages 2회, Codex 429 로 27분에 중단 1회 (점수 0.8092)
 
 ## 에이전트 실행 환경 (트랙 B) 후보 (결정 전 검토)

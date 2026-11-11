@@ -32,6 +32,7 @@
 | macOS 로컬에서 lgbm·xgb import 실패 `Library not loaded: @rpath/libomp.dylib` (kaggle-master#43, catboost·TabPFN·TabICL 은 됨) | lightgbm·xgboost 의 macOS 패키지는 OpenMP 런타임을 넣지 않고 Homebrew 경로(Apple Silicon `/opt/homebrew/opt/libomp/lib`, Intel `/usr/local/opt/libomp/lib`)에서 찾음. lightgbm 은 MacPorts(`/opt/local/lib/libomp`)도 찾지만 xgboost 는 Homebrew 경로만. catboost 는 OpenMP 를 안 쓰고, torch 는 `libomp.dylib` 를 자체 포함 | `brew install libomp` (README 준비 단계). 없으면 `make_lgbm`·`make_xgb` 가 이 해결법을 에러에 붙임. 확인 (arm64, libomp 23.1.5): Python 3.12 lightgbm 4.7.0·xgboost 3.4.1, Python 3.11 xgboost 3.2.0 |
 | macOS 에서 lightgbm·xgboost 와 torch 를 한 프로세스에서 쓰면 segfault(139) 또는 멈춤 (kaggle-master#43, `brew install libomp` 후) | 둘 다 OpenMP 를 실제로 쓰면 순서와 상관없이 발생 (lgbm 학습 → torch 행렬곱, torch → lgbm 둘 다). libomp 를 하나로 맞춰도 (`DYLD_LIBRARY_PATH` 로 torch 것이나 Homebrew 것만 로드) 같음, `OMP_NUM_THREADS=1` 로도 일부 순서는 그대로. 한 프로세스에서 한쪽만 쓰면 문제없음 (torch 2.14.1, 2026-11-10). Linux 는 확인 안 함: GPU 경로는 원래 모델별 프로세스, 원격 CPU 작업은 GBDT 만 받아서 섞인 적이 없음 | `fab run` 이 macOS 에서는 GPU 가 없어도 모델마다 새 프로세스로 실행 (GPU 경로의 `run_parallel` 을 작업자 1개로). 모델 하나 안에서 둘을 섞는 것 (`llm_lgbm`·`llm8b_lgbm`, 컨텍스트 래퍼의 `_imp`·`_leaf`) 은 macOS 로컬에서 못 돌림 → 원격 (`fab databricks`·`fab kaggle`) |
 | serverless CPU 작업이 정상 종료인데 FAILED | IPython 위에서 실행돼 `sys.exit(0)` 도 예외로 처리 | 종료 코드가 0 이 아닐 때만 `sys.exit` |
+| 원격 채점에서 venv 생성 실패 `ensurepip is not available` (2026-11-10) | serverless 작업 환경 Python 에 ensurepip 가 없음 | `python -m venv --without-pip` 로 만들고 바깥 pip 로 설치 (`pip --python <venv> install`, `fab/bench/mlebench/remote.py`) |
 
 ## 운영 메모
 

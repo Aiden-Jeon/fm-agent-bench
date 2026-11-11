@@ -17,7 +17,7 @@ from fab.core.competition import ROOT
 
 
 def outputs_dir() -> Path:
-    """실행 출력 (git 제외: <대회>/<모델>/ 예측·OOF·test.json, submissions/, _air/runs.json) 위치.
+    """실행 출력 (git 제외: <대회>/<모델>/ 예측·OOF·test.json, submissions/) 위치. 원격 정리 작업에서는 FAB_OUTPUTS = Volume 의 outputs/.
     worktree 에서도 메인 체크아웃의 results/ → worktree 를 지워도 남음 (kaggle-master#22: worktree 에서 받은 예측이 worktree 와 함께 사라졌음).
     FAB_OUTPUTS 가 있으면 그 경로. 메인 체크아웃·원격 실행 (코드 묶음이라 .git 이 없음) 은 ROOT/results."""
     if env := os.environ.get("FAB_OUTPUTS"):
