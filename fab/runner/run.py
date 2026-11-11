@@ -25,14 +25,15 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
 from fab.core.competition import TRANSFORMS, build_features, get_folds, load_competition, load_data
-from fab.core.metrics import EXTRA, score
+from fab.core.metrics import EXTRA, normalize_proba, score
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, warn_overwrite, write_test_info
 from fab.models import make_model, split_features
 from fab.runner.common import add_run_args, check_run_args, cpu_count, run_argv
 
 
 def predict(model, X, task):
-    return model.predict(X) if task == "regression" else model.predict_proba(X)
+    # 분류 확률은 여기서 행 합을 맞춤 → OOF(CV 점수)와 test.npy(제출) 가 같은 확률
+    return model.predict(X) if task == "regression" else normalize_proba(model.predict_proba(X))
 
 
 def gpu_count() -> int:

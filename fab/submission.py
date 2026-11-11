@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from fab.core.competition import TRANSFORMS, load_competition
+from fab.core.metrics import normalize_proba
 from fab.core.results import OUTPUTS, test_info
 
 
@@ -37,10 +38,9 @@ def make_submission(comp_name: str, models: list[str]) -> Path:
         classes = (test_info(comp.name, models[0]) or {}).get("classes") or \
             json.loads((OUTPUTS / comp.name / models[0] / "meta.json").read_text())["classes"]
     if comp.task == "multiclass" and comp.submit_proba:  # 클래스마다 확률 열 하나 (열 이름 = 클래스 값)
-        # 행 합을 1 로 다시 맞춤: TFM 의 float32 확률을 fold·모델 평균하면 합이 1 에서 조금 벗어남
+        # 학습 때 이미 맞췄지만 (fab/runner/run.py 의 predict) 이전 실행의 test.npy·평균 오차까지 한 번 더
         # (MLE-bench leaf-classification 채점기는 합이 1 ± 1e-6 이 아니면 제출 무효)
-        pred = np.clip(pred, 0, None)
-        pred /= pred.sum(axis=1, keepdims=True)
+        pred = normalize_proba(pred)
         sub = pd.concat([pd.DataFrame({id_name: ids}), pd.DataFrame(pred, columns=classes)], axis=1)
     else:
         if comp.is_classification and comp.submit_proba:

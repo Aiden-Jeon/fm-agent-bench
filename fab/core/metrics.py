@@ -5,6 +5,24 @@ from __future__ import annotations
 import numpy as np
 from sklearn import metrics as skm
 
+PROBA_NEG_TOL = 1e-6  # 이보다 작은 음수는 수치 오차로 보고 0 으로 자름. 더 크면 확률이 아님 (래퍼 버그)
+
+
+def normalize_proba(p: np.ndarray) -> np.ndarray:
+    """분류 확률 (n, n_classes) 의 행 합을 1 로 맞춤. TFM 은 float32·float16 확률이라 99 클래스(leaf)면 합이 1 에서
+    눈에 띄게 벗어남 → sklearn 1.9 log_loss 는 경고만 하고 그대로 계산, MLE-bench leaf 채점기는 1 ± 1e-6 이 아니면 무효.
+    NaN·inf, 뚜렷한 음수, 합이 0 인 행은 고치지 않고 에러 (확률이 아닌 출력을 그럴듯한 제출로 바꾸지 않게)."""
+    p = np.asarray(p, dtype=float)
+    if not np.isfinite(p).all():
+        raise ValueError(f"확률에 NaN/inf 가 있음 ({int((~np.isfinite(p)).any(1).sum())}행)")
+    if (p < -PROBA_NEG_TOL).any():
+        raise ValueError(f"확률에 음수가 있음 (최솟값 {p.min():.3g}) → 확률이 아닌 출력")
+    p = np.clip(p, 0, None)
+    total = p.sum(axis=1, keepdims=True)
+    if (total <= 0).any():
+        raise ValueError(f"확률 합이 0 인 행 {int((total <= 0).sum())}개")
+    return p / total
+
 
 def _accuracy(y, p):
     return skm.accuracy_score(y, p.argmax(1))

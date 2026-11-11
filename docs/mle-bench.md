@@ -260,8 +260,10 @@ fab 대회 2개를 더함. 분할은 MLE-bench 그대로 (`fab download`, 체크
 - 클래스 수 (leaf): TabPFN v2 는 10 클래스까지라 fit 에서 거부 (`TabPFNValidationError`, tabpfn 9.2) → 표에서 뺌.
   TabICL 은 10 을 넘으면 계층 분류로 자동 전환 (`support_many_classes` 기본값). Kumo 는 확인 안 함 (로컬에 패키지 없음, 첫 실행에서 봄).
   클래스당 train 이 최소 6행이라 층화 5-fold 의 학습 쪽에 99 클래스가 모두 들어감
-- 제출: 다중 분류 확률은 행 합을 다시 1 로 맞춤 (`fab/submission.py`). leaf 채점기는 행 합이 1 ± 1e-6 이 아니면 무효인데
-  TFM 의 float32 확률을 fold·모델 평균하면 벗어날 수 있음
+- 분류 확률은 예측할 때 행 합을 1 로 맞춤 (`fab/core/metrics.py` 의 `normalize_proba`, `fab run` 의 predict 와 제출 둘 다).
+  TFM 은 float32·float16 확률이라 99 클래스면 합이 1 에서 벗어남 (float16 균등 확률이면 3e-5). leaf 채점기는 1 ± 1e-6 이 아니면 무효이고,
+  sklearn 1.9 log_loss 는 경고만 하고 그대로 계산해 CV logloss 와 채점 점수가 다른 확률을 보게 됨. NaN·합 0·뚜렷한 음수는 에러.
+  이 변경 전 실행은 다시 돌리지 않음: spaceship 의 지표 accuracy 는 argmax 라 행 합을 맞춰도 같음 (보조 지표 auc·logloss 는 조금 달라질 수 있음)
 - TFM 컨텍스트 (tps): 대회 설정 `tfm_max_rows: 10000` (kaggle-master 관례), 큰 컨텍스트는 `@rand200000`. kaggle-master 의 비슷한 크기
   (S6E1·S6E10, 60~70만 행, H100) 에서 kumo@rand200000 약 33분, tabicl@rand200000 약 42분, catboost 약 35분 (5-fold 합)
 - xgb 는 tps F0 에서 뺌: `f_27` 범주 67만 개 때문에 로컬 8코어 64만 행 20트리 28초 → 800트리 5-fold 면 CPU 4코어에서 몇 시간.

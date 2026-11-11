@@ -8,12 +8,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from fab.core.features import split
+from fab.core.features import auto_types, split
 
 
 def build(train: pd.DataFrame, test: pd.DataFrame):
-    df = pd.concat([train.drop(columns="target"), test], keys=["train", "test"]).drop(columns="id")
-    num = df.columns.drop("f_27")
-    df[num] = df[num].astype(float)
-    df["f_27"] = df["f_27"].astype("category")
-    return *split(df), ["f_27"]
+    df, cats = auto_types(pd.concat([train.drop(columns="target"), test], keys=["train", "test"]).drop(columns="id"))
+    return *split(df), cats
