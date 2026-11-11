@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 import traceback
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -27,7 +28,7 @@ from fab.core.competition import TRANSFORMS, build_features, get_folds, load_com
 from fab.core.metrics import EXTRA, score
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, warn_overwrite, write_test_info
 from fab.models import make_model, split_features
-from fab.runner.common import add_run_args, check_run_args, run_argv
+from fab.runner.common import add_run_args, check_run_args, cpu_count, run_argv
 
 
 def predict(model, X, task):
@@ -40,18 +41,6 @@ def gpu_count() -> int:
     except (OSError, subprocess.CalledProcessError):
         return 0
     return sum(line.startswith("GPU ") for line in out.splitlines())
-
-
-def cpu_count() -> int:
-    """이 프로세스가 쓸 수 있는 CPU 수 (affinity, cgroup v2 할당량 반영)."""
-    n = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
-    try:
-        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
-        if quota != "max":
-            n = min(n, max(1, int(quota) // int(period)))
-    except (OSError, ValueError):
-        pass
-    return n
 
 
 def run_parallel(args: argparse.Namespace, n_gpus: int) -> list[str]:
@@ -264,17 +253,29 @@ def main(argv: list[str] | None = None):
             print(f"실패한 모델: {', '.join(failed)}")
         return
 
-    failed, features = [], {}  # 피처 변형마다 한 번만 만듦 (~<variant>, None = 기본 features.py)
+    # 피처 변형마다 한 번만 만듦 (~<variant>, None = 기본 features.py). 만들다 실패하면 기억해 같은 변형의 다음 모델은
+    # 다시 만들지 않고 바로 실패, 그 변형의 마지막 모델이 끝나면 피처를 놓음 (큰 변형 여럿을 한 프로세스에서 돌 때 메모리)
+    features, broken = {}, {}
+    left = Counter(split_features(m)[1] for m in args.models)
+    failed = []
     for name in args.models:
+        variant = split_features(name)[1]
+        left[variant] -= 1
         try:
-            variant = split_features(name)[1]
+            if variant in broken:
+                raise RuntimeError(f"피처 {variant or 'base'} 만들기가 앞 모델에서 실패해 건너뜀: {broken[variant]}")
             if variant not in features:
                 t_feat = time.time()
-                features[variant] = build_features(comp, train, test, variant)
+                try:
+                    features[variant] = build_features(comp, train, test, variant)
+                except Exception as e:
+                    broken[variant] = repr(e)
+                    raise
                 X, X_test, cat_cols, max_features = features[variant]
                 print(f"{comp.name} [피처 {variant or 'base'}]: train {X.shape}, test {X_test.shape}, cats={cat_cols}, "
                       f"TFM 피처 상한 {max_features} ({time.time() - t_feat:.0f}s)")
             X, X_test, cat_cols, max_features = features[variant]
+            n_features = X.shape[1]
             oof, test_pred, scores, fold_scores, secs = run_model(name, comp, X, y, X_test, cat_cols, folds,
                                                                   args.max_folds, args.no_test, classes, args.fold,
                                                                   max_features)
@@ -283,12 +284,16 @@ def main(argv: list[str] | None = None):
             failed.append(name)
             print(f"=> {name}: 실패\n")
             continue
+        finally:
+            X = X_test = None
+            if not left[variant]:
+                features.pop(variant, None)
         if args.fold is not None:
             save_fold(comp, name, args.fold, oof, test_pred, fold_scores[0], secs, classes, args.note, args.no_test,
-                      args.fold_batch, X.shape[1])
+                      args.fold_batch, n_features)
         else:
             save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, args.note, args.no_test,
-                     n_features=X.shape[1])
+                     n_features=n_features)
 
     if failed:
         print(f"실패한 모델: {', '.join(failed)}")

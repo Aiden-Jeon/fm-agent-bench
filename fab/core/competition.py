@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -64,10 +65,15 @@ def load_data(comp: Competition) -> tuple[pd.DataFrame, pd.DataFrame]:
     return pd.read_csv(comp.data_dir / comp.train_file), pd.read_csv(comp.data_dir / comp.test_file)
 
 
+VARIANT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")  # `_` 로 시작하는 파일은 변형이 쓰는 도우미 (예: nomad 의 _geo.py)
+
+
 def features_path(comp: Competition, variant: str | None = None) -> Path:
     """기본 피처 competitions/<대회>/features.py, 변형은 competitions/<대회>/features/<variant>.py."""
     if variant is None:
         return comp.dir / "features.py"
+    if not VARIANT_NAME.fullmatch(variant):
+        raise ValueError(f"피처 변형 이름 '{variant}': 영문·숫자로 시작하고 영문·숫자·_·- 만 (도우미 _*.py·경로는 안 됨)")
     path = comp.dir / "features" / f"{variant}.py"
     if not path.exists():
         have = sorted(p.stem for p in (comp.dir / "features").glob("*.py") if not p.stem.startswith("_"))
@@ -75,13 +81,20 @@ def features_path(comp: Competition, variant: str | None = None) -> Path:
     return path
 
 
+def load_module(path: Path, name: str) -> ModuleType:
+    """파이썬 파일 하나를 모듈로 (competitions/ 는 패키지가 아님). 피처 파일끼리 서로 가져다 쓸 때도 이것."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def load_features(comp: Competition, variant: str | None = None) -> ModuleType:
     """피처 모듈 로드 (features_path). build(train, test) 를 제공해야 함.
     build 가 data_dir 인자를 받으면 대회 데이터 폴더를 넘김 (표 밖 파일을 읽는 변형용, 예: nomad 의 geometry.xyz)."""
-    path = features_path(comp, variant)
-    spec = importlib.util.spec_from_file_location(f"features_{comp.name}_{variant or 'base'}", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = load_module(features_path(comp, variant), f"features_{comp.name}_{variant or 'base'}")
+    if not callable(getattr(module, "build", None)):
+        raise AttributeError(f"{features_path(comp, variant)} 에 build(train, test) 가 없음")
     return module
 
 

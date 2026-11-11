@@ -13,7 +13,8 @@
 섞음), fold 마다 타깃 상관으로 열 고르기(phase_kfold.py:23-26), 복셀·그래프·원자별 SOAP (CNN·GNN·커널 모델의 입력).
 
 행 순서는 train 다음 test (build 가 넘겨받은 순서). 무거운 패키지(ase, dscribe)는 함수 안에서 import → 로컬에서 변형 파일을
-읽어 PIP 만 볼 때는 필요 없음. 블록마다 data_dir/_features/ 에 캐시 (한 작업 안에서 모델마다 새 프로세스로 돌 때 다시 안 만듦).
+읽어 PIP 만 볼 때는 필요 없음. 블록마다 data_dir/_features/ 에 캐시하고 파일 잠금 (한 작업 안에서 모델마다 새 프로세스로
+돌 때, 동시에 시작해도 한 번만 만듦).
 """
 
 from __future__ import annotations
@@ -293,44 +294,79 @@ def _items(train: pd.DataFrame, test: pd.DataFrame, data_dir: Path):
             for g, df in (("train", train), ("test", test)) for r in df.itertuples()]
 
 
-def _stack(values: list) -> np.ndarray:
-    """구조마다의 배열 → 행렬. None(해당 없는 공간군)은 0. 길이가 다르면 (spectrum 은 양이온 수에 따라 다를 수 있음,
-    에이전트 데이터에서는 모두 같았음) 가장 긴 길이에 0 을 채움."""
-    width = max((len(v) for v in values if v is not None), default=0)
-    out = np.zeros((len(values), width), np.float32)
+def _stack(values: list, name: str) -> np.ndarray:
+    """구조마다의 배열 → 행렬. None(해당 없는 공간군)은 0. 길이가 다르면 멈춤: spectrum 은 양이온 수마다 길이가 달라져
+    (고유값 하나당 값 하나) 0 을 채우면 같은 열이 구조마다 다른 뜻이 됨. 에이전트 데이터에서는 모두 같았음 (에이전트 코드도
+    길이가 다르면 실패)."""
+    widths = {len(v) for v in values if v is not None}
+    if len(widths) > 1:
+        raise ValueError(f"{name}: 구조마다 피처 길이가 다름 {sorted(widths)} (같은 열이 다른 뜻이 됨)")
+    out = np.zeros((len(values), widths.pop() if widths else 0), np.float32)
     for k, v in enumerate(values):
         if v is not None:
-            out[k, :len(v)] = v
+            out[k] = v
     return out
 
 
-def block(name: str, train: pd.DataFrame, test: pd.DataFrame, data_dir: Path) -> dict[str, np.ndarray]:
-    """블록 하나를 train+test 전체에 대해 계산 (캐시). {열 이름 접두어: 행렬}."""
+def _chunk(fn, items):
+    """구조 여러 개를 한 작업으로: 작업마다 함수·전역(SOAP 객체 등)을 다시 보내고 만드는 횟수를 작업자 수 정도로 줄임."""
+    return [fn(p, sg) for p, sg in items]
+
+
+def _compute(name: str, train: pd.DataFrame, test: pd.DataFrame, data_dir: Path) -> dict[str, np.ndarray]:
     from joblib import Parallel, delayed
+
+    from fab.runner.common import cpu_count
+
+    items = _items(train, test, Path(data_dir))
+    n_jobs = min(int(os.environ.get("FAB_THREADS") or cpu_count()), len(items))  # 병렬 작업자면 CPU 몫, 아니면 할당량
+    # 띄엄띄엄 나눔 (공간군마다 계산량이 달라 이어 붙여 나누면 한쪽에 몰림), 끝나면 원래 순서로
+    parts = Parallel(n_jobs=n_jobs)(delayed(_chunk)(BLOCKS[name], items[k::n_jobs]) for k in range(n_jobs))
+    res = [None] * len(items)
+    for k, part in enumerate(parts):
+        res[k::n_jobs] = part
+    if name == "radial_soap":
+        return {k: _stack([r[k] for r in res], k) for k in ("radial", "soap_mean", "soap_std")}
+    return {name: _stack(res, name)}
+
+
+def _read_cache(cache: Path, ids: np.ndarray) -> dict[str, np.ndarray] | None:
+    if not cache.exists():
+        return None
+    try:
+        with np.load(cache) as z:
+            if np.array_equal(z["_ids"], ids):
+                return {k: z[k] for k in z.files if k != "_ids"}
+    except (OSError, ValueError, KeyError) as e:
+        print(f"[features] 캐시 읽기 실패 → 다시 계산: {e!r}")
+    return None
+
+
+def block(name: str, train: pd.DataFrame, test: pd.DataFrame, data_dir: Path) -> dict[str, np.ndarray]:
+    """블록 하나를 train+test 전체에 대해 계산. {열 이름 접두어: 행렬}.
+    data_dir/_features/ 에 캐시하고, 블록마다 파일 잠금: 모델별 작업자가 동시에 시작해도 한 프로세스만 계산하고 나머지는
+    기다렸다가 캐시를 읽음. 캐시 폴더를 못 쓰면 잠금·캐시 없이 계산."""
+    import fcntl
 
     ids = np.r_[train.id.to_numpy(), test.id.to_numpy()]
     cache = Path(data_dir) / "_features" / f"{name}_v{CACHE_VERSION}.npz"
-    if cache.exists():  # 다른 모델 프로세스가 만든 것. 읽지 못하면 (깨짐 등) 다시 계산
-        try:
-            with np.load(cache) as z:
-                if np.array_equal(z["_ids"], ids):
-                    return {k: z[k] for k in z.files if k != "_ids"}
-        except (OSError, ValueError, KeyError) as e:
-            print(f"[features] 캐시 읽기 실패 → 다시 계산: {e!r}")
-    fn = BLOCKS[name]
-    n_jobs = int(os.environ.get("FAB_THREADS") or os.environ.get("OMP_NUM_THREADS") or os.cpu_count() or 1)
-    res = Parallel(n_jobs=n_jobs)(delayed(fn)(p, sg) for p, sg in _items(train, test, Path(data_dir)))
-    if name == "radial_soap":
-        out = {k: _stack([r[k] for r in res]) for k in ("radial", "soap_mean", "soap_std")}
-    else:
-        out = {name: _stack(res)}
     try:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        tmp = cache.with_name(f".{cache.stem}.{os.getpid()}.npz")  # 임시 파일 → 교체: 동시에 도는 프로세스가 반쯤 쓴 파일을 안 읽게
-        np.savez(tmp, _ids=ids, **out)
-        os.replace(tmp, cache)
-    except OSError as e:  # 캐시는 있으면 좋은 것
-        print(f"[features] 캐시 저장 실패 (무시): {e!r}")
+        lock = open(cache.with_suffix(".lock"), "w")
+    except OSError as e:
+        print(f"[features] 캐시 폴더를 못 씀 → 캐시 없이 계산: {e!r}")
+        return _compute(name, train, test, data_dir)
+    with lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if (out := _read_cache(cache, ids)) is not None:
+            return out
+        out = _compute(name, train, test, data_dir)
+        try:
+            tmp = cache.with_name(f".{cache.stem}.{os.getpid()}.npz")  # 임시 파일 → 교체 (잠금 밖에서 읽는 경우 대비)
+            np.savez(tmp, _ids=ids, **out)
+            os.replace(tmp, cache)
+        except OSError as e:  # 캐시는 있으면 좋은 것
+            print(f"[features] 캐시 저장 실패 (무시): {e!r}")
     return out
 
 
@@ -374,10 +410,6 @@ def build(train: pd.DataFrame, test: pd.DataFrame, data_dir: Path, blocks: list[
 
 def _base():
     """대회의 기본 features.py 의 build (F0)."""
-    import importlib.util
+    from fab.core.competition import load_competition, load_features
 
-    spec = importlib.util.spec_from_file_location("features_mleb_nomad2018_formation_base",
-                                                  Path(__file__).parents[1] / "features.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.build
+    return load_features(load_competition("mleb-nomad2018-formation")).build

@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
+from fab.core.competition import load_competition, load_features
 
-_spec = importlib.util.spec_from_file_location(
-    "features_mleb_nomad2018_formation_f2", Path(__file__).parents[2] / "mleb-nomad2018-formation" / "features" / "f2.py")
-_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_mod)
+_mod = load_features(load_competition("mleb-nomad2018-formation"), "f2")
 PIP, TFM_MAX_FEATURES, BLOCKS, build = _mod.PIP, _mod.TFM_MAX_FEATURES, _mod.BLOCKS, _mod.build

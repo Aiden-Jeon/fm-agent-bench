@@ -4,12 +4,11 @@
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 
-_spec = importlib.util.spec_from_file_location("features_nomad_geo", Path(__file__).with_name("_geo.py"))
-_geo = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_geo)
+from fab.core.competition import load_module
+
+_geo = load_module(Path(__file__).with_name("_geo.py"), "features_nomad_geo")
 
 PIP = _geo.PIP
 TFM_MAX_FEATURES = None

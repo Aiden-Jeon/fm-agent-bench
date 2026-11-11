@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import os
+from pathlib import Path
 
-from fab.core.competition import feature_pip, features_path, load_competition
+from fab.core.competition import feature_pip, load_competition, load_features
 from fab.models import REMOTE_PIP, base_name, split_features
 
 CODE_PATHS = ["fab", "competitions"]  # 원격(fab databricks)에서는 이 위치를 cwd 로 두고 `python -m fab run` 실행
@@ -40,10 +42,14 @@ def run_argv(args: argparse.Namespace, models: list[str] | None = None) -> list[
 def check_run_args(ap: argparse.ArgumentParser, args: argparse.Namespace):
     """원격에 보내기 전에 확인 (원격에서 실패하면 준비 시간만 버림): 피처 변형(~<variant>) 파일, --fold 범위·--max-folds 충돌."""
     comp = load_competition(args.comp)
+    seen = set()
     for m in args.models:
         try:
-            features_path(comp, split_features(m)[1])
-        except (ValueError, FileNotFoundError) as e:
+            variant = split_features(m)[1]
+            if variant and variant not in seen:
+                seen.add(variant)
+                load_features(comp, variant)  # 이름·파일·build 확인 (무거운 import 는 build 안이라 로컬에서 읽힘)
+        except (ValueError, FileNotFoundError, AttributeError) as e:
             ap.error(str(e))
     if args.fold is None:
         return
@@ -52,6 +58,18 @@ def check_run_args(ap: argparse.ArgumentParser, args: argparse.Namespace):
     n = comp.cv["n_splits"]
     if not 0 <= args.fold < n:
         ap.error(f"--fold 는 0 ~ {n - 1}")
+
+
+def cpu_count() -> int:
+    """이 프로세스가 쓸 수 있는 CPU 수 (affinity, cgroup v2 할당량 반영)."""
+    n = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
+    try:
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
+        if quota != "max":
+            n = min(n, max(1, int(quota) // int(period)))
+    except (OSError, ValueError):
+        pass
+    return n
 
 
 def pip_args(models: list[str], comp: str | None = None) -> list[list[str]]:
