@@ -22,6 +22,10 @@ databricks.local.yaml 의 mleb_agent 블록 (git 제외):
       run_as: <SP application id>
       volume: /Volumes/<catalog>/<schema>/<volume>     # SP 가 읽고 쓰는 scratch Volume
       experiment: <MLflow experiment 이름>             # 선택. 기본 fab-mleb-agent
+      traces_table: <catalog>.<schema>.<prefix>_otel_spans  # 선택. LLM 호출·하네스 trace 를 이 UC 표로 (README 'trace')
+      gateway: true          # 선택. LLM 요청을 FM API 대신 Unity Gateway 로 → system.ai_gateway.usage 에 남음
+  gateway 는 실행 조건(분당 한도·경로)이 바뀔 수 있어 run.json·runs.json·결과 표(llm_route)에 남김. 자세한 건 runner.py 의
+  'trace'. traces_table 은 기록만 더함 (요청 경로·내용은 그대로)
 """
 
 from __future__ import annotations
@@ -38,7 +42,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fab.core.results import OUTPUTS, RESULTS, append_rows, table_lock
+from fab.core.results import OUTPUTS, RESULTS, table_lock
 from fab.remote import items, submit_item
 from fab.remote import settings as remote_settings
 
@@ -52,6 +56,7 @@ CONFIGS = {
     "codex-gpt": ("codex", GPT, GPT),
 }
 CONTINUE_SUFFIX = "+cont"  # --continue 로 돌린 별도 설정의 이름 꼬리표 (공식 설정과 결과 표에서 섞이지 않게)
+GATEWAY_SUFFIX = "+gw"  # gateway: true 로 돌린 실행의 꼬리표 (분당 한도·거부 조건이 FM API 와 달라 섞지 않게, llm_route 열과 같은 뜻)
 HARNESS_VERSIONS = {"aide": "v6.3.3", "claude-code": "2.1.319", "codex": "0.167.0"}  # MLE-bench 의 AIDE 포크 태그
 ACCELERATOR = "GPU_1xA10"
 AGENT_RUNS = OUTPUTS / "_mlebench" / "agents"  # 회수한 실행: <key>/ (원격 정리 작업에서는 내 Volume 의 outputs/ 아래)
@@ -75,7 +80,18 @@ def settings() -> dict:
     if not (cfg.get("profile") and agent.get("run_as") and agent.get("volume")):
         raise SystemExit(f"{LOCAL_CONFIG.name} 에 profile 과 mleb_agent.run_as / mleb_agent.volume 필요 (fab/agent/__init__.py 설명)")
     return dict(profile=cfg["profile"], run_as=agent["run_as"], volume=agent["volume"].rstrip("/"),
-                experiment=agent.get("experiment", "fab-mleb-agent"))
+                experiment=agent.get("experiment", "fab-mleb-agent"), gateway=bool(agent.get("gateway")),
+                traces_table=agent.get("traces_table"))
+
+
+def gateway_model(endpoint: str) -> str:
+    """FM API 엔드포인트 이름 → Unity Gateway model service 이름 (databricks-claude-sonnet-5-5 → system.ai.claude-sonnet-5-5)."""
+    return f"system.ai.{endpoint.removeprefix('databricks-')}"
+
+
+def llm_route(info: dict) -> str:
+    """실행의 LLM 경로. gateway 설정 이전 실행(runs.json 에 없음)은 FM API."""
+    return "gateway" if info.get("gateway") else "fm_api"
 
 
 def dbx(cfg, *args, capture=True, check=True, timeout=1200):
@@ -133,13 +149,14 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
     harness, model, alias = CONFIGS[config]
     check_continue([config], cont)
     cfg, main_cfg = settings(), remote_settings()
-    label = f"{config}{CONTINUE_SUFFIX if cont else ''}"
+    label = f"{config}{CONTINUE_SUFFIX if cont else ''}{GATEWAY_SUFFIX if cfg['gateway'] else ''}"
     data = upload_data(cfg, cid)
     # 키는 Volume 경로·command_path 에 들어감 → '+' 불가 (jobs submit 이 거부, 2026-11-10). 설정 이름(label)은 +cont 그대로
     key = f"{cid}__{label.replace('+', '-')}__r{rep}__{datetime.now():%Y%m%d-%H%M%S}"
     out = f"{cfg['volume']}/runs/{key}"
     run = dict(key=key, cid=cid, harness=harness, model=model, alias=alias, hours=hours, data_tgz=data, out=out,
-               harness_versions=HARNESS_VERSIONS, **{"continue": cont})
+               harness_versions=HARNESS_VERSIONS, **{"continue": cont}, gateway=cfg["gateway"],
+               upstream_model=gateway_model(model) if cfg["gateway"] else model, traces_table=cfg["traces_table"])
     with tempfile.TemporaryDirectory() as d:
         code = Path(d) / "code"
         code.mkdir()
@@ -178,7 +195,9 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
         res = dbx(cfg, "jobs", "submit", "--no-wait", "--json", f"@{Path(d) / 'job.json'}", "-o", "json")
     run_id = json.loads(res.stdout[res.stdout.index("{"):])["run_id"]
     submit_item(main_cfg, "agent", key, dict(run, run_id=run_id, config=label, rep=rep))
-    print(f"제출: {key} (run_id {run_id}) → 끝난 뒤 fab remote kick 으로 회수·채점, 결과는 fab sync")
+    print(f"제출: {key} (run_id {run_id})" + (f" · LLM 경로 Unity Gateway ({run['upstream_model']})" if cfg["gateway"] else "")
+          + (f" · trace → {cfg['traces_table']}" if cfg["traces_table"] else "")
+          + " → 끝난 뒤 fab remote kick 으로 회수·채점, 결과는 fab sync")
     return key
 
 
@@ -192,7 +211,7 @@ def posthoc(d: Path) -> dict:
             for m in tar.getmembers():
                 if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")):
                     code.append(tar.extractfile(m).read().decode("utf-8", "replace"))
-    logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl") if p.name != "proxy.jsonl"]
+    logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl") if p.name not in ("proxy.jsonl", "otel.jsonl")]
     code_blob, blob = "\n".join(code), "\n".join(code + logs)
     before = set((d / "pip_before.txt").read_text().splitlines()) if (d / "pip_before.txt").exists() else set()
     after = set((d / "pip_after.txt").read_text().splitlines()) if (d / "pip_after.txt").exists() else set()
@@ -209,6 +228,7 @@ def posthoc(d: Path) -> dict:
                 waited_429=round(sum(c.get("waited", 0) for c in calls), 1),  # 흔들기로 소수 → 합의 부동소수 잡음 제거
                 llm_calls=len(calls), llm_errors=sum(1 for c in calls if (c.get("status") or 0) >= 400),
                 # Anthropic 의 input_tokens 는 캐시분을 뺀 값이라 캐시 읽기·쓰기를 더함 (OpenAI 는 캐시 포함해서 셈)
+                # runner.py 의 INPUT_TOKEN_KEYS·OUTPUT_TOKEN_KEYS 와 같은 규칙 (trace 요약과 맞게, 바꾸면 둘 다)
                 input_tokens=tok("input_tokens", "prompt_tokens", "cache_read_input_tokens",
                                  "cache_creation_input_tokens"),
                 output_tokens=tok("output_tokens", "completion_tokens"),
@@ -231,13 +251,31 @@ def node_columns(meta: dict) -> dict:
                 node_gpu="; ".join(gpu) if isinstance(gpu, list) else gpu)
 
 
+def fill_defaults(t: pd.DataFrame) -> pd.DataFrame:
+    """mlebench_runs.csv 에 나중에 생긴 열의 옛 행 값 (그 열 이전 실행의 실제 값): llm_route=fm_api, 이어 가기 0 번·
+    첫 종료 = harness_seconds. grade_run (append_run) 과 recheck_table 이 같이 씀."""
+    if "llm_route" in t:
+        t["llm_route"] = t["llm_route"].fillna("fm_api")
+    if "continues" in t:
+        t["continues"] = t["continues"].fillna(0).astype(int)
+        t["first_exit_seconds"] = t["first_exit_seconds"].fillna(t["harness_seconds"])
+    return t
+
+
+def append_run(row: dict):
+    """채점 행 하나를 mlebench_runs.csv 에 (옛 행의 새 열은 fill_defaults 로 채움)."""
+    with table_lock(TABLE):
+        t = pd.concat([pd.read_csv(TABLE), pd.DataFrame([row])]) if TABLE.exists() else pd.DataFrame([row])
+        fill_defaults(t).to_csv(TABLE, index=False)
+
+
 def grade_run(key: str, info: dict, report: dict | None) -> dict:
     """회수한 실행 하나의 표 행. report 는 원격 채점 보고서 (submission.csv 가 없으면 None)."""
     d = AGENT_RUNS / key
     meta = json.loads((d / "meta.json").read_text()) if (d / "meta.json").exists() else {}
     row = dict(timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
                mlebench=info["cid"], config=info["config"], harness=info["harness"], model=info["model"],
-               rep=info["rep"], hours=info["hours"], key=key, timed_out=meta.get("timed_out"),
+               rep=info["rep"], hours=info["hours"], key=key, llm_route=llm_route(info), timed_out=meta.get("timed_out"),
                harness_seconds=meta.get("harness_seconds"), format_ok=meta.get("format_ok"), **node_columns(meta),
                # 이어 가기: 횟수와 첫 종료 시각. 이 기능 이전 실행(meta 에 없음)은 이어 가지 않았으므로 0 과 harness_seconds
                continues=meta.get("continues", 0),
@@ -249,7 +287,7 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
         row.update(score=None, valid_submission=False)
     p = posthoc(d)
     row.update({k: (" ".join(v) if isinstance(v, list) else v) for k, v in p.items()})
-    append_rows(pd.DataFrame([row]), TABLE)
+    append_run(row)
     return row
 
 
@@ -265,10 +303,7 @@ def recheck_table():
             t[c] = t[c].astype(object) if c in t else None
             t.loc[have, c] = checks[c]
         print(f"사후 검사 다시 계산: {len(have)}/{len(t)}행 (나머지는 회수 기록이 없어 그대로)")
-        if "continues" in t:  # 이어 가기 열 이전 행: 이어 가지 않았으므로 0 과 harness_seconds (grade_run 과 같은 규칙)
-            t["continues"] = t["continues"].fillna(0).astype(int)
-            t["first_exit_seconds"] = t["first_exit_seconds"].fillna(t["harness_seconds"])
-        t.to_csv(TABLE, index=False)
+        fill_defaults(t).to_csv(TABLE, index=False)
     print(t[["mlebench", "config", "score", "tfm_in_code", "tfm_mentions", "pip_added"]].to_string(index=False))
 
 
@@ -307,7 +342,13 @@ def peek(keys: list[str] | None = None):
             for c in calls:
                 status[c.get("status")] = status.get(c.get("status"), 0) + 1
             errs = [c.get("proxy_error") or c.get("error") for c in calls if (c.get("status") or 0) >= 400]
+            # trace 전송 (traces_table): 출처(fab = 프록시 LLM span, harness = 하네스 OTLP)별 상태 수. 403 = SP 표 권한 없음
+            otel = {}
+            for c in read_jsonl(Path(d) / "otel.jsonl"):
+                k = f"{c.get('source', '?')}:{c.get('status')}"
+                otel[k] = otel.get(k, 0) + 1
             print(f"{key}: {elapsed}s, LLM {len(calls)}회 {status}, 429 대기 {round(sum(c.get('waited', 0) for c in calls), 1)}s"
+                  + (f", trace 전달 {otel}" if otel else "")
                   + (f"\n  마지막 오류: {str(errs[-1])[:300]}" if errs else ""))
 
 
