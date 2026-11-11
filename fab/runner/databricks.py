@@ -38,7 +38,7 @@ import yaml
 from fab.core.competition import ROOT, load_competition
 from fab.core.download import download
 from fab.models import GATED, base_name
-from fab.runner.common import CODE_PATHS, add_run_args, check_fold_args, pip_args, run_argv
+from fab.runner.common import CODE_PATHS, add_run_args, check_run_args, pip_args, run_argv
 
 LOCAL_CONFIG = ROOT / "databricks.local.yaml"
 DEFAULT_ACCELERATOR = "GPU_1xH100"  # A10G(24GB)는 TFM 이 OOM 재시도를 반복해 느림
@@ -207,7 +207,7 @@ def snapshot(work: Path, comp: str, run_args: list[str], models: list[str], data
             shutil.copytree(src, code / p, ignore=shutil.ignore_patterns("__pycache__", "data"))
         else:
             shutil.copy(src, code / p)
-    consts = dict(COMP=comp, ARGS=run_args, PIP=BASE_PIP + pip_args(models), IMAGE=preinstalled, DATA=data, OUT=out,
+    consts = dict(COMP=comp, ARGS=run_args, PIP=BASE_PIP + pip_args(models, comp), IMAGE=preinstalled, DATA=data, OUT=out,
                   CACHE=cache, WEIGHTS=weights)
     (code / "air_runner.py").write_text("".join(f"{k} = {v!r}\n" for k, v in consts.items()) + "\n" + RUNNER)
     return code
@@ -376,7 +376,7 @@ def main(argv: list[str] | None = None):
                     help="GPU 모델을 fold 마다 작업 하나로 나눠 동시에 제출 (GPU 작업이 fold 수만큼). 다 끝나면 원격 정리 작업이 "
                          "fold 를 합쳐 results.csv 에 기록. 벽시계 시간은 줄지만 GPU 시간은 작업마다 준비 시간만큼 늘어남")
     args = ap.parse_args(argv)
-    check_fold_args(ap, args)
+    check_run_args(ap, args)
     if args.split_folds and (args.fold is not None or args.max_folds or args.fold_batch):
         ap.error("--split-folds 는 --fold·--max-folds·--fold-batch 와 같이 쓸 수 없음")
     if args.fold is not None and not args.split_folds:

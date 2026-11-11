@@ -178,6 +178,12 @@ uv run --frozen fab mleb agent list                    # 처리 상태 (회수·
 | `sap_rpt` / `sap_rpt8k` | SAP-RPT-1-OSS, 컨텍스트 2048 / 8192 | HF gated + 연구용 라이선스, `fab databricks` 전용 |
 
 이름 뒤 `@<spec>` 은 컨텍스트 선택 래퍼 (예: `tabpfn_v2@knn1000`, `fab/models/context.py`).
+맨 뒤 `~<variant>` 는 피처 변형: 그 실행만 `competitions/<대회>/features/<variant>.py` 의 `build` 를 씀 (예: `catboost~f2`,
+`tabpfn_v2@knn1000~f2`). 실행 이름(결과 폴더, `results.csv`·`mlebench.csv` 의 `model`, `fab mleb grade` 인자)은 `~` 까지
+포함한 전체 이름이고, `results.csv` 의 `features` (변형 이름, 기본은 `base`)·`n_features` (넣은 열 수) 에도 남음.
+`build(train, test, data_dir)` 처럼 `data_dir` 를 받으면 대회 데이터 폴더를 넘김 (표 밖 파일을 읽는 변형용).
+변형 파일의 `TFM_MAX_FEATURES` 는 그 변형의 TFM 피처 상한 (None = 상한 없음, 없으면 대회 설정 `tfm_max_features`),
+`PIP` 는 원격에서 더 설치할 패키지. nomad 의 `~f2s`·`~f2` 는 [docs/plans/roadmap.md](docs/plans/roadmap.md) 의 C1.
 
 ## 출처
 

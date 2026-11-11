@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 
-from fab.core.competition import load_competition
-from fab.models import REMOTE_PIP, base_name
+from fab.core.competition import feature_pip, features_path, load_competition
+from fab.models import REMOTE_PIP, base_name, split_features
 
 CODE_PATHS = ["fab", "competitions"]  # 원격(fab databricks)에서는 이 위치를 cwd 로 두고 `python -m fab run` 실행
 
@@ -37,20 +37,31 @@ def run_argv(args: argparse.Namespace, models: list[str] | None = None) -> list[
     return out
 
 
-def check_fold_args(ap: argparse.ArgumentParser, args: argparse.Namespace):
-    """--fold 범위·--max-folds 충돌을 원격에 보내기 전에 확인 (원격에서 실패하면 준비 시간만 버림)."""
+def check_run_args(ap: argparse.ArgumentParser, args: argparse.Namespace):
+    """원격에 보내기 전에 확인 (원격에서 실패하면 준비 시간만 버림): 피처 변형(~<variant>) 파일, --fold 범위·--max-folds 충돌."""
+    comp = load_competition(args.comp)
+    for m in args.models:
+        try:
+            features_path(comp, split_features(m)[1])
+        except (ValueError, FileNotFoundError) as e:
+            ap.error(str(e))
     if args.fold is None:
         return
     if args.max_folds:
         ap.error("--fold 와 --max-folds 는 같이 쓸 수 없음")
-    n = load_competition(args.comp).cv["n_splits"]
+    n = comp.cv["n_splits"]
     if not 0 <= args.fold < n:
         ap.error(f"--fold 는 0 ~ {n - 1}")
 
 
-def pip_args(models: list[str]) -> list[list[str]]:
+def pip_args(models: list[str], comp: str | None = None) -> list[list[str]]:
+    """모델과 피처 변형(~<variant>, comp 가 있을 때)이 원격에서 더 설치할 pip 인자 목록."""
     out = []
     for m in models:
         out += [a for a in REMOTE_PIP.get(base_name(m), []) if a not in out]
+    if comp:
+        c = load_competition(comp)
+        for variant in dict.fromkeys(split_features(m)[1] for m in models):
+            out += [a for a in feature_pip(c, variant) if a not in out]
     return out
 

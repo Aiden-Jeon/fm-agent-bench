@@ -48,7 +48,8 @@ dev 세트 대회는 공개 리더보드 채점 결과에 없음 → 트랙 B �
 ## 질문 2: 에이전트 피처 → TFM
 
 1. **추출**: 에이전트 최종 풀이에서 전처리만 떼어 `build(train, test) -> (X, X_test, cat_cols)` 로 옮김 (LLM 변환 + 사람 검토)
-2. **동일성 확인**: 추출 피처로 에이전트가 쓴 모델을 다시 돌려 에이전트 점수와 비슷한지 확인, 크게 다르면 버림
+2. **동일성 확인**: 옮긴 피처 값이 에이전트의 피처 배열과 같은지 + GBDT 의 F2 가 F0 보다 나은지 (2026-11-11 바꿈.
+   원래 "에이전트 모델을 다시 돌려 점수 재현" 은 nomad × Codex 처럼 점수가 구조 모델에서 나오면 못 씀, [roadmap](plans/roadmap.md) 의 C1)
 3. **누수**: 타깃을 쓰는 피처(target encoding, OOF 스태킹)는 지금 형식(train+test 전체 계산)에선 CV 누수 → 1차는 타깃 비의존 피처만,
    2차에 fold 별 fit 형식(`build(train, test, y)`)으로 확장
 4. **조건**: F0 원본 최소 피처 / F1 사람 피처 / F2… 에이전트 피처 × {tabpfn_v2, tabicl, kumo} + 대조군 {lgbm, catboost}
@@ -58,7 +59,7 @@ dev 세트 대회는 공개 리더보드 채점 결과에 없음 → 트랙 B �
 ## 저장소 변경
 
 - `config.yaml` 에 `source: mlebench` → `fab download` 가 `mlebench prepare` 를 부르고 public 데이터만 `data/` 에 둠 (private 정답은 에이전트 작업 공간 밖)
-- `fab run ... --features <variant>` → `competitions/<slug>/features/<variant>.py`, 결과에 `features` 기록
+- 모델 이름 뒤 `~<variant>` (예: `catboost~f2`) → `competitions/<slug>/features/<variant>.py`, 결과에 `features`·`n_features` 기록
 - `fab mleb grade` → test.npy 로 제출 파일 → `mlebench grade-sample` → `results/mlebench.csv`
 - `fab mleb agents` → 공개 채점 결과 수집 (표 형식 대회만)
 - `fab mleb agent <harness> <llm> <slug> --hours 1` → 원격 실행, 코드·로그 보관

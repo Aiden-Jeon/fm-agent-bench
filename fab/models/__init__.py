@@ -4,6 +4,8 @@
 팩토리 시그니처: make(task: str, cat_cols: list[str], seed: int, **설정) -> estimator (설정은 VARIANTS 에서 전달)
 
 이름 뒤에 `@<spec>` 을 붙이면 컨텍스트 선택 래퍼로 감쌈 (예: tabpfn_v2@knn1000, models/context.py 참고).
+맨 뒤에 `~<variant>` 를 붙이면 그 실행만 피처 변형 competitions/<대회>/features/<variant>.py 를 씀 (예: catboost~f2,
+tabpfn_v2@knn1000~f2). 실행 이름(결과 폴더·results.csv·채점의 model)은 `~` 까지 포함한 전체 이름.
 """
 
 from __future__ import annotations
@@ -58,8 +60,19 @@ VARIANTS = {
 }
 
 
+FEATURES_SEP = "~"
+
+
+def split_features(name: str) -> tuple[str, str | None]:
+    """실행 이름 → (모델 이름, 피처 변형). 변형이 없으면 None (대회의 기본 features.py)."""
+    model, sep, variant = name.partition(FEATURES_SEP)
+    if sep and not variant:
+        raise ValueError(f"'{name}': {FEATURES_SEP} 뒤에 피처 변형 이름이 없음")
+    return model, variant or None
+
+
 def base_name(name: str) -> str:
-    base = name.partition("@")[0]
+    base = split_features(name)[0].partition("@")[0]
     return VARIANTS.get(base, (base,))[0]
 
 
@@ -68,7 +81,7 @@ def make_model(name: str, task: str, cat_cols: list[str], seed: int, max_rows: i
     """max_rows / max_features: TFM 컨텍스트 행·피처 상한 (대회 설정 tfm_max_rows / tfm_max_features).
     GBDT 와 `@spec` 래퍼(컨텍스트를 직접 고름)에는 적용 안 함.
     metric: 대회 지표 (팩토리가 metric 인자를 받을 때만 전달. 예: kumo 는 mae 면 분포의 중앙값으로 예측)."""
-    base, _, spec = name.partition("@")
+    base, _, spec = split_features(name)[0].partition("@")  # 피처 변형은 fab run 이 피처를 만들 때 씀
     base, kwargs = VARIANTS.get(base, (base, {}))
     kwargs = dict(kwargs)
     max_features = kwargs.pop("max_features", max_features)
