@@ -1064,7 +1064,7 @@ CODEX_FLAGS = ["--json", "--dangerously-bypass-approvals-and-sandbox", "--skip-g
 # 상한 (2026-11-11 결정, P0 +cont 2회의 구간별 기록으로): 도구를 하나도 안 쓰고 끝난 구간(무작업)이 연속
 # CONTINUE_IDLE_MAX 번이면 멈춤. 무작업 한 번 뒤 다시 작업하는 경우가 있어 1 은 너무 짧고 (nomad 개선 3번을 놓침),
 # 2·3·5 는 두 실행 모두 최종 제출이 같았음 → 여유를 하나 둔 3 (5 는 거절 뒤 호출만 늘림). "제출이 안 바뀜" 은 실험 뒤 일부러
-# 안 바꾼 구간까지 세서 쓰지 않음. 근거 표는 docs/mle-bench.md 의 P0 +cont.
+# 안 바꾼 구간까지 세서 쓰지 않음. 근거 표는 docs/mle-bench.md 의 "+cont" 절.
 # CONTINUE_MAX 는 매번 사소한 도구 호출을 하나씩 해서 무작업으로 안 잡히는 경우를 막는 안전장치.
 CONTINUE_MIN_LEFT = 120  # 초
 CONTINUE_IDLE_MAX = 3

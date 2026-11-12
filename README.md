@@ -1,12 +1,13 @@
 # fm-agent-bench
 
-표 형식 ML 문제를 세 가지 방식으로 풀고, 같은 채점 기준으로 비교한다.
+표 형식 ML 문제를 네 가지 방식으로 풀고, 같은 채점 기준으로 비교한다.
 
 | 방식 | 내용 | 비용 |
 |---|---|---|
 | **FM** | 튜닝 없는 Tabular Foundation Model 한 번 추론 (TabPFN, TabICL, Kumo 등). GBDT(LightGBM·XGBoost·CatBoost)는 기준선 | 초~분, GPU |
 | **Agent** | LLM 코딩 에이전트 (하네스 × LLM: AIDE·Claude Code·Codex CLI × Sonnet 5.5·GPT-6.1 Terra), 1시간 · A10 1장 | 1시간 GPU + 토큰 |
-| **FM + Agent** | C1: 에이전트가 만든 피처를 FM 에 넣음 / C2: FM 을 도구로 받은 에이전트 | |
+| **FM + Agent 피처** (C1) | 에이전트가 만든 피처를 FM 에 넣어 한 번 추론 | Agent 1회 + FM 한 번 |
+| **FM 을 깐 Agent** (C2) | TFM 을 미리 설치한 환경에서 도는 에이전트 (설정 이름 뒤 `+fm`) | Agent 와 같음 |
 
 질문
 
@@ -16,80 +17,27 @@
 
 벤치마크
 
-- **MLE-bench** (`openai/mle-bench`): Kaggle 대회를 다시 나눈 test 로 채점, 메달 기준선은 원래 리더보드.
-  표 형식 대회 7개 중 4개 (spaceship·nomad·tps-may-2022·leaf). 공개 리더보드 에이전트(24시간) 결과와도 비교 가능
-- **TabArena**: 연동 예정 (프로토콜 확인 중, [docs/plans/roadmap.md](docs/plans/roadmap.md))
+- **MLE-bench** (`openai/mle-bench`): Kaggle 대회의 원래 train 을 다시 나눈 test 로 채점하고, 원래 리더보드로 순위·메달을 매기는 벤치마크.
+  이 중 표 형식 대회 4개 (spaceship·nomad·tps-may-2022·leaf) 를 씀
+- **TabArena**: 연동 예정 (프로토콜 확인 중)
 
-계획과 단계는 [docs/plans/roadmap.md](docs/plans/roadmap.md), MLE-bench 실행 기록·결정은 [docs/mle-bench.md](docs/mle-bench.md).
+계획과 단계 (P0~P6, C1·C2 규칙) 는 [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
-## 지금까지 (P0~P3, 2026-11-09~12)
+## 성능 대시보드
 
-MLE-bench test 점수, 괄호는 원래 Kaggle 리더보드에서의 위치. FM·GBDT 는 튜닝 없음. Agent 는 1회째 / 2회째.
-자세한 표·해석은 [docs/mle-bench.md](docs/mle-bench.md) 의 P0·P1·C1·P3 결과. P3 (tps·leaf) 의 Agent 는 1회째만.
+대회마다 각 방식의 최고 점수 (MLE-bench test), 괄호는 원래 Kaggle 리더보드에서의 위치. 대회별 전체 표·해석은 [docs/mle-bench.md](docs/mle-bench.md).
 
-nomad2018-predict-transparent-conductors (열별 RMSLE 평균 ↓, 879팀, 금 0.05589)
+| 대회 (지표) | FM | GBDT | Agent | FM + Agent 피처 (C1) | FM 을 깐 Agent (C2) |
+|---|---|---|---|---|---|
+| nomad2018 (RMSLE ↓) | 0.05734 (17위) | 0.06001 (31위) | 0.04567 (1위) | **0.04523 (1위)** | 0.04589 (1위) |
+| spaceship-titanic (accuracy ↑) | 0.8218 (6위) | **0.8241 (2위)** | **0.8241 (2위)** | – | – |
+| tps-may-2022 (AUC ↑) | 0.99232 (417위)¹ | 0.97223 (581위)¹ | **0.99734 (240위)** | – | – |
+| leaf-classification (logloss ↓) | 0.01998 (219위) | 0.40629 (1015위) | **0.00000 (1위)**² | – | – |
 
-| 방식 | 점수 | 시간 |
-|---|---|---|
-| **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04523 (1위)** / 0.04803 (1위) | 15분 / 1분 (피처 계산 포함) |
-| Agent: Codex × GPT | 0.04847 (1위) / 0.04567 (1위) | 59분 / 57분 |
-| FM 을 깐 Agent (C2): Codex × GPT +fm | 0.04589 (1위) | 57분 (kumo 를 계속 씀) |
-| GBDT + Agent 피처 (C1): catboost~f2s | 0.04976 (1위) | 23분 |
-| Agent: Claude Code × Sonnet +cont | 0.05267 (4위) / 0.05157 (2위) | 5분 / 19분 |
-| Agent: AIDE × GPT | 제출 없음 / 0.05308 (5위) | 60분 |
-| Agent: AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | 60분 |
-| FM: kumo (원본 열) | 0.05734 (17위) | 22초 |
-| FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.13875 (833위) | 6분 (TabPFN·TabICL 을 씀, 학습·test 열 순서가 어긋난 에이전트 버그) |
-| Agent: Claude Code × Sonnet | 0.06134 (42위) / 0.06253 (53위) | 20초 / 40초 (스스로 끝냄) |
-
-spaceship-titanic (accuracy ↑, 2288팀, test 870행)
-
-| 방식 | 점수 | 시간 |
-|---|---|---|
-| GBDT: catboost / FM: kumo / FM: tabpfn_v2 | **0.8241 (2위)** / 0.8218 (6위) / 0.8207 (11위) | 26초 / 47초 / 100초 |
-| Agent: Codex × GPT | 0.8184 (41위) / 0.8241 (2위) | 58분 |
-| Agent: AIDE × GPT | 0.8184 (41위) / 0.8149 (77위) | 60분 |
-| Agent: Claude Code × Sonnet | 0.8161 (58위) / 0.8058 (375위) | 18초 / 16초 |
-| Agent: AIDE × Sonnet | 0.8115 (199위) / 0.8115 (199위) | 60분 |
-| Agent: Claude Code × Sonnet +cont | 0.8115 (199위) / 0.8103 (217위) | 3분 / 2분 |
-
-tabular-playground-series-may-2022 (AUC ↑, 1152팀, 금 0.99823, test 10만 행)
-
-| 방식 | 점수 | 시간 |
-|---|---|---|
-| Agent: Codex × GPT | **0.99734 (240위)** | 59분 |
-| Agent: Claude Code × Sonnet +cont | 0.99658 (311위) | 38분 |
-| FM: kumo@rand200000~f1 (사람 피처, 컨텍스트 20만) | 0.99232 (417위) | 25분 |
-| Agent: AIDE × GPT / Claude Code × Sonnet / AIDE × Sonnet | 0.99156 (434위) / 0.99145 (436위) / 0.99137 (437위) | 60분 / 1분 / 60분 |
-| GBDT: catboost~f1 | 0.97223 (581위) | 13분 |
-| FM: kumo (원본 열, 컨텍스트 1만) | 0.93168 (708위) | 10분 |
-
-leaf-classification (99 클래스 logloss ↓, 1596팀, 금 0.0, test 99행)
-
-| 방식 | 점수 | 시간 |
-|---|---|---|
-| Agent: Codex × GPT | **0.00000 (1위)** (분할 구조를 씀, 아래) | 23분 |
-| Agent: AIDE × Sonnet | 0.00385 (33위) | 60분 |
-| Agent: AIDE × GPT | 0.01821 (193위) | 60분 |
-| FM: kumo / tabicl | 0.01998 (219위) / 0.05069 (619위) | 3분 / 1분 |
-| Agent: Claude Code × Sonnet +cont / Claude Code × Sonnet | 0.04197 (569위) / 0.06297 (682위) | 10분 / 2분 |
-| GBDT: lgbm (최고) | 0.40629 (1015위) | 6분 |
-
-- 표 밖의 정보가 있는 nomad 는 원본 열만 쓴 FM 보다 에이전트가 앞섬: Codex 가 결정 구조 파일(`geometry.xyz`)로 피처를 만듦.
-  그 피처를 FM 에 넣으면 (C1) FM 한 번이 에이전트 1시간을 넘음 (kumo~f2 0.04523). 다만 GBDT 도 비슷하게 좋아져서
-  "FM 에 특히 도움" 은 kumo × 전체 피처 하나뿐
-- 순수 표 형식인 spaceship 은 방식 사이 차이가 대부분 test 크기에서 오는 흔들림(정확도 표준오차 약 0.013) 안 → 뚜렷한 차이 없음.
-  밖인 건 Claude Code × Sonnet 2회째 (0.8058, 최고 0.8241 과 0.018 차이, 16초 만에 스스로 끝낸 실행)
-- 에이전트 2회째에도 설정 순위는 같음 (nomad). 어느 에이전트도 FM 을 쓰지 않음 (환경에 미리 깔지 않음, C2 에서 바꿈)
-- tps: 컨텍스트를 20만 행으로 늘린 kumo 가 GBDT 최고보다 AUC 0.020 높고 Sonnet·AIDE 에이전트보다 위. Codex·Claude Code +cont 는
-  교차 피처·신경망으로 그보다 위 (메달은 없음)
-- leaf: 클래스당 약 7행이라 GBDT 는 안 되고 FM 이 크게 앞섬. Codex 의 0.0 은 "원래 종마다 10장" 에서 test 의 종별 개수를 계산해
-  test 행을 1:1 로 배정한 결과 (외부 데이터 아님, nomad 의 정답 섞기와 같은 종류라 따로 읽음)
-- 1시간 예산이라 공개 리더보드(24시간)와 섞어 순위 매기지 않음
-
-결과 표: `results/mlebench.csv` (FM 채점), `results/mlebench_runs.csv` (에이전트 실행), `results/mlebench_agents.csv`
-(공개 리더보드 에이전트), `results/results.csv` (FM 의 CV). `mlebench_agents.csv` 를 뺀 셋은 원본이 Volume 의 `tables/` 이고
-로컬 파일은 `fab sync` 로 받은 사본 (아래 사용).
+FM·GBDT 는 튜닝 없음, Agent 는 1~2회 실행 중 최고, – 는 아직 안 돌림. ¹ 사람 피처(`~f1`), FM 은 컨텍스트 20만 행.
+² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님).
+결과 표: `results/mlebench.csv` (FM·GBDT 채점), `results/mlebench_runs.csv` (Agent 실행), `results/results.csv` (CV) 는
+Volume 의 `tables/` 가 원본이고 `fab sync` 로 받은 사본. `results/mlebench_agents.csv` (공개 리더보드 에이전트) 는 로컬 `fab mleb agents` 로 만듦.
 
 ## 구조
 
@@ -107,8 +55,8 @@ fab/
                                   #   C2 (--fm): fm_notes.txt (지시문의 TFM 안내), fm_warmup.py (사전 점검), fm_audit.py (TFM import 기록)
   remote/                         # 원격 상태(Volume 의 state/)·정리 작업 (reconcile.py: 결과 합치기·채점, `fab remote kick` 으로 실행)·fab sync
 docker/air/                       # Databricks 실행 이미지 (FM 패키지 미리 설치)
-results/                          # git 추적 표 (위, fab sync 로 받은 사본). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
-docs/
+results/                          # git 추적 결과 표 (성능 대시보드 아래 설명). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
+docs/                             # mle-bench.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
 ```
 
 ## 준비
@@ -159,16 +107,7 @@ Unity Gateway 의 unified trace 표는 쓰지 않음: 설정이 메타스토어 
 
 ## 사용
 
-로컬은 제출과 결과표 동기화·분석만 한다. 학습·에이전트·결과 합치기·채점은 모두 Databricks 에서 돈다 (로컬 `fab run` 은 막혀 있음).
-학습·에이전트는 **제출한 뒤 맥북을 꺼도 계속 돌고**, 끝난 뒤 `fab remote kick` 으로 정리 작업을 한 번 돌리면 결과를 합치고 채점한다.
-
-- 로컬 명령은 제출만 하고 Volume 의 `state/` 에 제출 기록을 남김
-- 정리 작업 `fab-reconcile` (내 신원, serverless CPU, 스케줄 없음, `fab/remote/reconcile.py`)이 돌 때 끝난 실행을 처리: 예측·OOF 를
-  Volume 의 `outputs/` 로 옮기고, `--split-folds` 묶음을 합치고, 채점 요청은 그 모델의 학습이 끝나기를 기다렸다가 채점,
-  에이전트 실행은 회수·채점·사후 검사 → Volume 의 `tables/` 결과표에 씀
-- 아직 끝나지 않은 실행과 그 모델의 채점 요청은 그대로 남아 다음 kick 때 처리 (몇 번 돌려도 같은 결과)
-- 예측 배열은 로컬로 내려오지 않음 (합치기·제출 파일 만들기도 원격, 메모리는 fold·모델 수에 비례하지 않게 하나씩 읽음)
-- 정리 작업이 쓰는 fab 코드는 로컬 명령을 낼 때마다 지금 코드로 다시 올라감
+학습·에이전트·채점은 Databricks 에서 돌고, 끝난 뒤 `fab remote kick` 으로 결과를 합치고 채점한다 (흐름은 [docs/remote.md](docs/remote.md)).
 
 ```bash
 uv run --frozen fab                                   # 명령 목록, 명령별 인자는 fab <명령> -h
