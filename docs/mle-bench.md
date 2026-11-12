@@ -393,20 +393,54 @@ uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors clau
 - `tfm_at_submit` 고친 것: 처음엔 제출 파일 시각(`cp` 한 때)으로 봐서 Claude Code 가 빈칸이었음 → 작업 디렉터리에서 제출과
   내용이 같은 파일의 가장 이른 시각으로 봄
 
-## C2 마무리: leaf · tps-may · nomad (2026-11-12, 진행 중)
+## C2 마무리: leaf · tps-may · nomad (2026-11-12, 1시간 · A10 · 1회씩)
 
 C2 1회째 (nomad) 는 FM 과 GBDT 차이가 작은 대회라 "FM 을 줘서 나아졌나" 가 안 갈림 → FM 이 크게 앞서는 대회에서 돌림
-(leaf: FM 이 GBDT 의 1/8~1/20 오차, tps-may: kumo 20만 행 컨텍스트가 GBDT 보다 AUC 0.02 높음). 같은 설정의 Agent (P3·P0·P1) 와 비교.
+(leaf: FM 이 GBDT 의 1/8~1/20 오차, tps-may: kumo 20만 행 컨텍스트가 GBDT 보다 AUC 0.02 높음). 비교는 같은 설정의 Agent (P3·P0·P1).
+같은 LLM 엔드포인트끼리는 차례로 (GPT 줄 · Sonnet 줄을 하나씩 동시에). 뺀 것: spaceship (차이가 test 흔들림 안),
+claude-code-sonnet 공식 설정 (몇 초 만에 스스로 끝나 FM 을 쓸 틈이 없음 → +cont 로 봄).
 
-| 대회 | 설정 (`+fm`, rep 1) |
-|---|---|
-| leaf-classification | codex-gpt, aide-gpt, aide-sonnet, claude-code-sonnet+cont |
-| tabular-playground-series-may-2022 | codex-gpt, aide-gpt, aide-sonnet, claude-code-sonnet+cont |
-| nomad2018 (1회째에 없던 것) | aide-gpt, aide-sonnet |
+**aide-sonnet+fm 3개는 실패라 해석에서 뺌 (#10)**: Sonnet 이 긴 프롬프트(+fm 안내문)에 Chat Completions content 를 파트 목록으로 답했고
+프록시가 그대로 넘겨 AIDE 가 `TypeError` 로 죽음 (tps 는 첫 응답, nomad 는 3번째, leaf 는 15번째). #10 을 고친 뒤 다시 돌림.
 
-- 같은 LLM 엔드포인트끼리는 차례로 (GPT 줄 · Sonnet 줄을 하나씩 동시에), 2026-11-12 14:47 시작
-- 뺀 것: spaceship (FM·GBDT·Agent 차이가 test 흔들림 안), claude-code-sonnet 공식 설정 (몇 초 만에 스스로 끝나 FM 을 쓸 틈이 없음 → +cont 로 봄)
-- 볼 것: 점수 (같은 설정의 Agent 대비), FM 을 실제로 썼는지 (`tfm_runtime`), 제출에 들었는지 (`tfm_at_submit`)
+leaf-classification (logloss ↓, 금 0.0 · 동 0.01526)
+
+| 설정 | Agent | C2 (+fm) | 쓴 FM (`tfm_runtime`) | 제출에 든 FM (`tfm_at_submit`) |
+|---|---|---|---|---|
+| Claude Code × Sonnet +cont | 0.04197 (569위) | **0.02348 (268위)** | kumo · tabicl | kumo · tabicl |
+| Codex × GPT | 0.00000 (1위, 금) | 0.00002 (25위, 금) | kumo · tabicl | 없음 |
+| AIDE × GPT | 0.01821 (193위) | 0.03090 (399위) | tabicl | 없음 |
+| AIDE × Sonnet | 0.00385 (33위, 은) | (0.02965, #10 으로 실패) | tabicl | tabicl |
+| (참고) FM 한 번: kumo / tabicl | 0.01998 / 0.05069 | | | |
+
+tabular-playground-series-may-2022 (AUC ↑, 동 0.99818)
+
+| 설정 | Agent | C2 (+fm) | 쓴 FM |
+|---|---|---|---|
+| Codex × GPT | 0.99734 (240위) | 0.99681 (296위) | 안 씀 |
+| Claude Code × Sonnet +cont | 0.99658 (311위) | 0.99255 (410위) | 안 씀 |
+| AIDE × GPT | 0.99156 (434위) | 0.99174 (428위) | 안 씀 |
+| AIDE × Sonnet | 0.99137 (437위) | (제출 없음, #10) | |
+| (참고) FM 한 번: kumo@rand200000~f1 | 0.99232 (417위) | | |
+
+nomad2018 (RMSLE ↓, 1회째 C2 포함)
+
+| 설정 | Agent 1회째 / 2회째 | C2 (+fm) | 쓴 FM / 제출에 든 FM |
+|---|---|---|---|
+| Codex × GPT | 0.04847 / 0.04567 | 0.04589 (1위) | kumo · tabicl · tabpfn / kumo |
+| Claude Code × Sonnet +cont | 0.05267 / 0.05157 | 0.13875 (에이전트의 열 순서 버그, 위 "C2 결과 1회째") | tabicl · tabpfn / tabicl · tabpfn |
+| AIDE × GPT | 제출 없음 / 0.05308 | 0.05306 (5위) | 안 씀 |
+| AIDE × Sonnet | 0.05494 / 0.05568 | (0.06189, #10 으로 3번째 응답에서 실패) | 안 씀 |
+
+- **FM 을 쓰는지는 대회에 따라 갈림**: leaf 는 네 설정 모두 FM 을 import 함 (P3 의 Agent 는 아무도 안 씀). tps 는 아무도 안 씀 —
+  코드 import 0, 메시지에서도 언급 없음 (Codex·Claude Code 확인). 이유는 확인 안 함: 행이 많고 (train 80만 행), 안내문에 TabPFN 1만 행
+  제약을 적었으며, FM 이 앞서려면 20만 행 컨텍스트를 줘야 함 (위 P3 결과). nomad 는 Codex·Claude Code 가 씀, AIDE × GPT 는 안 씀
+- **FM 을 제출에 넣어 좋아진 건 leaf × Claude Code +cont 하나** (0.0420 → 0.0235, 작업 10분 → 37분). 그래도 FM 한 번 (kumo 0.01998) 보다는 낮음.
+  Codex 는 leaf 에서 FM 을 시험만 하고 분할 구조 배정 (P3) 으로 다시 거의 0 점, nomad 에서는 Kumo 를 제출에 넣었지만 2회째와 같은 수준
+- 나머지 차이는 FM 탓으로 볼 수 없음: FM 을 제출에 안 넣은 실행끼리의 차이 (leaf × AIDE × GPT 0.018 → 0.031, tps × Claude Code +cont
+  0.9966 → 0.9926) 는 실행마다의 흔들림이거나, 안내문을 읽고 FM 을 시험하는 데 1시간 일부를 쓴 몫 (1회씩이라 못 가름)
+- 질문 3 의 지금 답: FM 을 깔아 주면 FM 이 앞서는 작은 데이터(leaf)에서는 에이전트가 쓰고, 한 설정은 그 덕에 좋아짐. FM 이 큰 컨텍스트를
+  줘야 앞서는 큰 데이터(tps)에서는 아무도 안 씀. FM 을 쓴 에이전트가 FM 한 번이나 다른 에이전트 최고를 넘은 경우는 아직 없음
 
 ## 트랙 B 실행 환경 (2026-11-09 결정)
 
