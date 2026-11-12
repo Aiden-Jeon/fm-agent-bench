@@ -19,6 +19,9 @@
 
 - **MLE-bench** (`openai/mle-bench`): Kaggle 대회의 원래 train 을 다시 나눈 test 로 채점하고, 원래 리더보드로 순위·메달을 매기는 벤치마크.
   이 중 표 형식 대회 4개 (spaceship·nomad·tps-may-2022·leaf) 를 씀
+- **TabArena**: 연동 예정 (프로토콜 확인 중)
+
+계획과 단계 (P0~P6, C1·C2 규칙) 는 [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
 ## 성능 대시보드
 
@@ -32,7 +35,9 @@
 | leaf-classification (logloss ↓) | 0.01998 (219위) | 0.40629 (1015위) | **0.00000 (1위)**² | – | – |
 
 FM·GBDT 는 튜닝 없음, Agent 는 1~2회 실행 중 최고, – 는 아직 안 돌림. ¹ 사람 피처(`~f1`), FM 은 컨텍스트 20만 행.
-² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님). 결과 표는 `results/*.csv` (`fab sync` 로 받은 사본).
+² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님).
+결과 표: `results/mlebench.csv` (FM·GBDT 채점), `results/mlebench_runs.csv` (Agent 실행), `results/results.csv` (CV) 는
+Volume 의 `tables/` 가 원본이고 `fab sync` 로 받은 사본. `results/mlebench_agents.csv` (공개 리더보드 에이전트) 는 로컬 `fab mleb agents` 로 만듦.
 
 ## 구조
 
@@ -50,7 +55,7 @@ fab/
                                   #   C2 (--fm): fm_notes.txt (지시문의 TFM 안내), fm_warmup.py (사전 점검), fm_audit.py (TFM import 기록)
   remote/                         # 원격 상태(Volume 의 state/)·정리 작업 (reconcile.py: 결과 합치기·채점, `fab remote kick` 으로 실행)·fab sync
 docker/air/                       # Databricks 실행 이미지 (FM 패키지 미리 설치)
-results/                          # git 추적 표 (위, fab sync 로 받은 사본). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
+results/                          # git 추적 결과 표 (성능 대시보드 아래 설명). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
 docs/                             # mle-bench.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
 ```
 
@@ -155,3 +160,9 @@ uv run --frozen fab mleb agent list                    # 처리 상태 (회수·
 `build(train, test, data_dir)` 처럼 `data_dir` 를 받으면 대회 데이터 폴더를 넘김 (표 밖 파일을 읽는 변형용).
 변형 파일의 `TFM_MAX_FEATURES` 는 그 변형의 TFM 피처 상한 (None = 상한 없음, 없으면 대회 설정 `tfm_max_features`),
 `PIP` 는 원격에서 더 설치할 패키지. nomad 의 `~f2s`·`~f2` 는 [docs/plans/roadmap.md](docs/plans/roadmap.md) 의 C1.
+
+## 출처
+
+[kaggle-master](https://github.com/Aiden-Jeon/kaggle-master) (비공개로 전환)에서 FM 실행·MLE-bench 부분만 새 히스토리로 옮김.
+Kaggle 대회 13개의 FM 벤치마크(Kaggle LB 기준)와 Kaggle·Colab 실행기, Kaggle 제출·순위 집계는 그쪽에 남김.
+코드·문서의 `kaggle-master#N` 은 그 저장소의 이슈.
