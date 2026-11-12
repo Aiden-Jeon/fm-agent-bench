@@ -53,12 +53,14 @@ def table(X, y=None, y_stype=None):
     return sdm.TableTensor.from_pandas(df.assign(target=y), stypes={**stypes, "target": y_stype}, device=dev)
 
 
-# classification: one probability column per class, named by the class label
+# classification: one probability column per class, named by the class label. The column order is not fixed:
+# sort the columns so they follow np.unique(y_train)
 ctx = table(X_train, y_train, "categorical")
 clf = sdm.models.KumoTabular(task="classification", device=dev)
 with amp:
     clf.fit(ctx.drop_columns("target"), ctx[:, "target"], num_estimators=8)
     proba = clf.predict(table(X_test)).to_pandas()
+proba = proba[sorted(proba.columns, key=lambda c: int(c) if str(c).isdigit() else str(c))]
 
 # regression: 999 quantiles per row (their mean is a point estimate); standardize the target
 mu, sd = float(np.mean(y_train_reg)), float(np.std(y_train_reg)) or 1.0

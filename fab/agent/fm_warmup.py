@@ -15,6 +15,7 @@ from pathlib import Path
 
 SECTION = re.compile(r"^### (\S+)\s*$", re.M)
 CODE = re.compile(r"```python\n(.*?)```", re.S)
+MIN_ACC, MAX_RMSE = 0.8, 1.0  # 합성 데이터에서 사용 예가 맞게 돈다고 볼 기준 (check 참고)
 
 
 def sections(text: str) -> tuple[str, dict[str, str]]:
@@ -42,6 +43,7 @@ def check(name: str, code: str) -> dict:
     env = dict(X_train=X[:300], X_test=X[300:], y_train=y[:300], y_train_reg=y_reg[:300])
     t = time.time()
     exec(compile(code, f"<fm_notes:{name}>", "exec"), env)  # noqa: S102 - 저장소의 고정 글 조각
+    cols = [str(c) for c in env["proba"].columns] if hasattr(env["proba"], "columns") else None
     proba, pred = np.asarray(env["proba"], dtype=float), np.asarray(env["pred"], dtype=float)
     if proba.shape != (50, 3) or not np.allclose(proba.sum(1), 1, atol=1e-3):
         raise ValueError(f"proba 모양·합이 이상함: {proba.shape}, 합 {proba.sum(1)[:3]}")
@@ -49,7 +51,13 @@ def check(name: str, code: str) -> dict:
         raise ValueError(f"pred 모양이 이상함: {pred.shape}")
     acc = float((proba.argmax(1) == y[300:]).mean())
     rmse = float(np.sqrt(np.mean((pred - y_reg[300:]) ** 2)))
-    return dict(seconds=round(time.time() - t, 1), acc=round(acc, 3), rmse=round(rmse, 3), y_reg_std=round(float(y_reg.std()), 3))
+    # 쉬운 합성 데이터라 맞는 사용 예면 정확도 0.98~1.0, RMSE ≈ 0.1 (표준편차 약 3). 열 순서가 클래스와 어긋나면 모양은
+    # 맞아도 정확도가 무너짐 (2026-11-12 nomad C2 의 Kumo 사전 점검 acc 0.0: 확률 열 순서가 실행마다 다름)
+    if acc < MIN_ACC or rmse > MAX_RMSE:
+        raise ValueError(f"사용 예의 결과가 이상함: acc {acc:.3f} (기준 {MIN_ACC}), rmse {rmse:.3f} (기준 {MAX_RMSE}), "
+                         f"proba 열 {cols}")
+    return dict(seconds=round(time.time() - t, 1), acc=round(acc, 3), rmse=round(rmse, 3),
+                y_reg_std=round(float(y_reg.std()), 3), proba_columns=cols)
 
 
 def main():

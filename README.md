@@ -33,11 +33,13 @@ nomad2018-predict-transparent-conductors (열별 RMSLE 평균 ↓, 879팀, 금 0
 |---|---|---|
 | **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04523 (1위)** / 0.04803 (1위) | 15분 / 1분 (피처 계산 포함) |
 | Agent: Codex × GPT | 0.04847 (1위) / 0.04567 (1위) | 59분 / 57분 |
+| FM 을 깐 Agent (C2): Codex × GPT +fm | 0.04589 (1위) | 57분 (kumo 를 계속 씀) |
 | GBDT + Agent 피처 (C1): catboost~f2s | 0.04976 (1위) | 23분 |
 | Agent: Claude Code × Sonnet +cont | 0.05267 (4위) / 0.05157 (2위) | 5분 / 19분 |
 | Agent: AIDE × GPT | 제출 없음 / 0.05308 (5위) | 60분 |
 | Agent: AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | 60분 |
 | FM: kumo (원본 열) | 0.05734 (17위) | 22초 |
+| FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.13875 (833위) | 6분 (TabPFN·TabICL 을 씀, 학습·test 열 순서가 어긋난 에이전트 버그) |
 | Agent: Claude Code × Sonnet | 0.06134 (42위) / 0.06253 (53위) | 20초 / 40초 (스스로 끝냄) |
 
 spaceship-titanic (accuracy ↑, 2288팀, test 870행)

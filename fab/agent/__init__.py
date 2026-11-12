@@ -241,9 +241,25 @@ def code_text(name: str, raw: bytes) -> str:
     return text
 
 
+def submission_origin(d: Path, mtime: float | None) -> float | None:
+    """제출 내용이 처음 생긴 시각: workspace.tgz 안에서 submission.csv 와 바이트가 같은 파일의 가장 이른 mtime (초 단위,
+    tar 는 정수 초), 없으면 mtime (실행기가 잰 제출 파일 시각)."""
+    sub, tgz = d / "submission.csv", d / "workspace.tgz"
+    if mtime is None or not sub.exists() or not tgz.exists():
+        return mtime
+    data, times = sub.read_bytes(), [mtime]
+    with tarfile.open(tgz) as tar:
+        for m in tar.getmembers():
+            if m.isfile() and m.size == len(data) and tar.extractfile(m).read() == data:
+                times.append(float(m.mtime))
+    return min(times)
+
+
 def tfm_runtime(d: Path, meta: dict) -> dict:
     """fm_audit.jsonl (실행 중 TFM import 기록, runner.py 의 install_audit) → 실제로 import 한 TFM, 그런 프로세스 수,
-    마지막 제출 파일을 쓴 시각에 살아 있던 (import 뒤 ~ 끝) 프로세스가 import 한 TFM (tfm_at_submit). 끝 = exit 줄,
+    제출 내용이 처음 생긴 시각에 살아 있던 (import 뒤 ~ 끝) 프로세스가 import 한 TFM (tfm_at_submit). 제출 내용이 처음 생긴
+    시각 = 작업 디렉터리에서 submission.csv 와 내용이 같은 파일 중 가장 이른 수정 시각 (에이전트는 흔히 sub6.csv 를 만든 뒤
+    cp 로 제출함: 2026-11-12 nomad Claude Code, cp 시각에는 TFM 프로세스가 이미 끝남), 없으면 submission_mtime. 끝 = exit 줄,
     없으면 (강제 종료·os._exit) 마지막 alive + HEARTBEAT, 그것도 없으면 import + HEARTBEAT.
     tfm_at_submit 은 근사: TFM 예측을 파일로 저장하고 다른 프로세스에서 섞어 제출하면 안 잡힘, 오래 사는 프로세스가 TFM 을
     import 만 하고 제출은 다른 모델로 하면 잡힘 → 최종 풀이 코드로 확인. 이 기록 이전 실행은 모두 None
@@ -256,7 +272,7 @@ def tfm_runtime(d: Path, meta: dict) -> dict:
     for r in rows:
         last[r["pid"]] = max(last.get(r["pid"], 0), r["t"])
     exits = {r["pid"]: r["t"] for r in rows if r.get("event") == "exit"}
-    sub_t = meta.get("submission_mtime")
+    sub_t = submission_origin(d, meta.get("submission_mtime"))
     at_submit = {r["tfm"] for r in imports if sub_t is not None
                  and r["t"] <= sub_t <= exits.get(r["pid"], last[r["pid"]] + HEARTBEAT)}
     return dict(tfm_runtime=sorted({r["tfm"] for r in imports}), tfm_runtime_procs=len({r["pid"] for r in imports}),

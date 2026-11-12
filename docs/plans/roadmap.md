@@ -42,7 +42,7 @@ TabArena 연동 전에 확인할 것
 | P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 C1 결과 |
 | P3 ✓ | MLE-bench 표 형식 대회 확장: tps-may-2022, leaf-classification (FM × Agent 1회씩, 2026-11-12). 남은 대회 (s3e18·dec-2021·taxi) 는 나중에 | [docs/mle-bench.md](../mle-bench.md) 의 P3 결과 |
 | P4 | TabArena 연동 (위 확인 → `fab/bench/tabarena/`) | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
-| P5 | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`). 준비됨 (2026-11-12, 아래 "C2 규칙"), 실행 전 | Agent 와 C2 를 같은 대회·시드로 |
+| P5 | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`, 아래 "C2 규칙"). nomad 1회째 (Codex·Claude Code +cont, 2026-11-12, [docs/mle-bench.md](../mle-bench.md) 의 "C2 결과 1회째") | Agent 와 C2 를 같은 대회·시드로 |
 | P6 | 정리 | 방식 × 벤치마크 결과 문서 |
 
 kaggle-master 에 열려 있던 이슈 (그쪽에 남김, 진행할 때 이 저장소에 새로 엶):

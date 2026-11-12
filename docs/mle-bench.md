@@ -368,6 +368,31 @@ uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors code
 uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors claude-code-sonnet --continue --fm  # → aide-sonnet --fm → claude-code-sonnet --fm
 ```
 
+## C2 결과 1회째: nomad (2026-11-12, 1시간 · A10)
+
+열별 RMSLE 평균 ↓, 괄호는 원래 리더보드 순위. 비교는 같은 설정의 Agent 1·2회째 (위 P0·P1). FM 사용 열은 회수 기록으로 이 브랜치의
+사후 검사를 돌린 값 (아래 "운영 메모": 결과 표의 이 열들은 `fab mleb agent recheck` 뒤에 채워짐).
+
+| 설정 | C2 (+fm) | Agent 1회째 / 2회째 | 시간 | 실제로 쓴 FM (`tfm_runtime`, 프로세스 수) | 제출에 든 FM (`tfm_at_submit`) |
+|---|---|---|---|---|---|
+| Codex × GPT | **0.04589 (1위)** | 0.04847 / 0.04567 | 57분, 429 39번 | kumo·tabicl·tabpfn (55, kumo 41) | kumo |
+| Claude Code × Sonnet +cont | 0.13875 (833위) | 0.05267 / 0.05157 | 6분 14초 (이어 가기 9번) | tabicl·tabpfn (6) | tabicl·tabpfn |
+
+- **두 에이전트 모두 FM 을 실제로 씀** (P0·P1 에서는 아무도 안 씀). 사전 점검은 두 실행 모두 세 모델 통과 (모델당 10~30초),
+  Kumo 컴파일 도구는 노드에 이미 있음 (`fm_build_tools: present`)
+- **Codex**: 16분부터 Kumo 를 결정 구조 피처와 함께 계속 씀 (`cv_kumo_*.py` 등, 공간군·상별 Kumo, 커널·GNN 과 앙상블).
+  점수는 2회째 (0.04567) 와 같은 수준 → 이 1회로는 FM 덕에 나아졌다고 못 함. C1 의 `kumo~f2` (0.04523) 와도 비슷
+- **Claude Code: 에이전트 버그로 test 만 깨짐**. 교차 검증(OOF) 은 RMSLE 약 0.0495 (Agent 때보다 나음) 인데 test 0.139.
+  `c.py` 부터 학습 행렬은 [기본 열, `sg`, 결정 구조 피처] 인데 test 행렬은 [기본 열, 결정 구조 피처, `sg`] 순서
+  (`X['sg']` 를 결정 구조 피처를 붙이기 전에, `T['sg']` 는 뒤에 만듦) → TabPFN·TabICL 에 `.values` 로 넘겨 열이 위치로 어긋남.
+  CV 는 학습 행렬만 써서 못 잡음. 제출은 `c3.py` 가 만든 `sub6.csv` 를 `cp` 한 것 (LightGBM 0.15 + TabPFN 0.45 + TabICL 0.40).
+  FM 환경 탓은 아님: 열 이름으로 맞추는 GBDT 만 썼다면 안 깨졌을 버그라 FM 의 numpy 인터페이스가 드러낸 것에 가까움
+- 사전 점검에서 고친 것: Codex 실행의 Kumo 분류 사전 점검 정확도가 0.0 (Claude 실행은 1.0) → 확률 열 순서가 실행마다 다름.
+  사용 예에 열을 클래스 순서로 정렬하는 줄을 넣고 (fab 의 Kumo 와 같은 방식), 사전 점검이 정확도·RMSE 기준도 보게 함
+  (nomad 는 회귀라 이 두 실행의 점수와는 상관없음)
+- `tfm_at_submit` 고친 것: 처음엔 제출 파일 시각(`cp` 한 때)으로 봐서 Claude Code 가 빈칸이었음 → 작업 디렉터리에서 제출과
+  내용이 같은 파일의 가장 이른 시각으로 봄
+
 ## 트랙 B 실행 환경 (2026-11-09 결정)
 
 | 항목 | 결정 |
