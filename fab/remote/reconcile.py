@@ -227,7 +227,7 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
         tables.flush()
         state.done("agent", key, result=st["result"], score=row.get("score"))
         print(f"  {key}: {st['result']} score={row.get('score')} timed_out={row.get('timed_out')} "
-              f"tfm_code={row.get('tfm_in_code') or '-'} tokens={row.get('input_tokens')}/{row.get('output_tokens')}")
+              f"tfm_code={row.get('tfm_in_code') or '-'} tfm_run={row.get('tfm_runtime') or '-'} tokens={row.get('input_tokens')}/{row.get('output_tokens')}")
 
     step("agent", state.pending("agent"), agent, state, tables, "agent")
 

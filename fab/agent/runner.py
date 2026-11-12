@@ -1,12 +1,13 @@
 """MLE-bench 에이전트 1회 실행 (Databricks 서버리스 GPU 작업 안에서, 전용 SP 신원으로 돎).
 
 fab 을 import 하지 않음. 같은 디렉터리의 run.json 이 설정 (fab/agent/__init__.py 가 만듦):
-  {key, cid, harness, model, alias, hours, continue, data_tgz, out, harness_versions, gateway, upstream_model,
+  {key, cid, harness, model, alias, hours, continue, fm, data_tgz, out, harness_versions, gateway, upstream_model,
    traces_table}
 
 흐름 (MLE-bench agents/aide/start.sh 를 따름):
   1. public 데이터 풀기 → HOME/data, 지시문 = instructions.txt(경로만 바꿈) + 추가 안내 + 대회 description.md
-  2. 일반 ML 패키지 설치 (TFM 없음), 하네스 설치
+  2. 일반 ML 패키지 설치 (TFM 없음), 하네스 설치. fm=true (C2, 설정 이름 +fm) 면 TFM 3개를 더 깔고 지시문의 사용 예를
+     그대로 돌려 가중치를 받아 둠 (아래 'C2'). TFM import 기록(fm_audit.py)은 모든 실행에 깖
   3. 로컬 프록시 (127.0.0.1): 하네스의 LLM 요청을 FM API 로 넘김. 모델은 run.json 의 model 로 고정,
      SP 토큰은 요청마다 SDK 에서 받음 (1시간 넘게 돌아도 만료 안 됨), 요청마다 토큰 사용량을 proxy.jsonl 에 기록.
      traces_table 이 있으면 LLM 호출마다 span 을 그 UC 표에 쓰고, 하네스의 OTLP trace 도 토큰을 붙여 같은 표로 넘김.
@@ -45,11 +46,22 @@ OUT = Path("/tmp/mleb_out")
 PROXY_PORT = 8765
 VALIDATE_PORT = 5000
 TIME_LIMIT = int(CFG["hours"] * 3600)
+FM = bool(CFG.get("fm"))  # C2: 환경에 TFM 을 깔고 지시문에 알림 (설정 이름 +fm)
+FM_AUDIT = OUT / "fm_audit.jsonl"  # 하네스와 그 자식 프로세스의 TFM import 기록 (fm_audit.py)
 
 # 일반 ML 패키지 (MLE-bench environment/requirements.txt 중 표 형식에 쓰는 것). TFM(tabpfn·tabicl 등)은 넣지 않음
 ML_PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "lightgbm", "xgboost", "catboost", "optuna", "hyperopt",
                "bayesian-optimization", "imbalanced-learn", "scikit-optimize", "matplotlib", "seaborn", "statsmodels",
                "pyarrow", "tqdm", "torch"]
+# ---------- C2 (+fm, docs/plans/roadmap.md 의 P5) ----------
+# 모델: C1 에서 쓴 TFM 셋. 셋 다 라이선스 동의 없이 받음 (TabPFN 은 v2 만: 패키지 기본값인 최신 버전은 브라우저 동의가 필요해
+# 원격에서 실패 → 지시문에 v2 쓰는 법을 적음). 버전은 FM 실행 이미지(docker/air/requirements.txt)와 같게.
+# 지시문: 이름 + 그대로 도는 사용 예 (fm_notes.txt). 쓰라고 권하지 않음 ("optional"). 사용 예가 없으면 TabPFN 기본값·Kumo 의
+# TableTensor API 에서 막혀 "FM 이 도움이 되나" 대신 "API 를 찾아내나" 를 재게 됨.
+# 준비 (하네스 시작 전, 1시간에 안 들어감): 설치 → fm_warmup.py 가 fm_notes.txt 의 사용 예를 합성 데이터로 실행 (가중치가
+# HOME 캐시에 남음, 예가 실제로 도는지 확인). 하나라도 실패하면 하네스를 시작하지 않음 (실행마다 받은 모델이 달라지지 않게)
+FM_PACKAGES = {"tabpfn_v2": ["tabpfn==9.2.0"], "tabicl": ["tabicl==2.2.0"], "kumo": ["structured-data-models==0.2.1"]}
+FM_WARMUP_TIMEOUT = 600  # 초, 모델 하나 (가중치 받기 포함). 셋 합 30분 = 작업 여유 FM_EXTRA_MINUTES 안
 AIDE_PACKAGES = ["openai", "anthropic", "google-generativeai", "backoff", "black", "coolname", "dataclasses-json",
                  "funcy", "genson", "humanize", "python-igraph", "jsonschema", "omegaconf", "rich", "shutup"]
 
@@ -537,7 +549,7 @@ def trace_root(meta: dict):
     trace 단위 mlflow.trace.tokenUsage 는 OTLP 로는 안 채워짐 (resource 속성으로 보내도 trace metadata 에 안 들어감, 2026-11-11)"""
     if TRACER is None:
         return
-    keys = ("cid", "harness", "model", "alias", "hours", "continue", "gateway", "upstream_model")
+    keys = ("cid", "harness", "model", "alias", "hours", "continue", "fm", "gateway", "upstream_model")
     prompt = (HOME / "instructions.txt").read_text() if (HOME / "instructions.txt").exists() else ""
     text, result, tok = run_summary(meta)
     attrs = {**mlflow_attrs("AGENT", TRACE_ID, {"messages": [{"role": "user", "content": body_value(prompt)}]}, text),
@@ -872,7 +884,7 @@ def serve(handler, port):
 
 # ---------- 지시문 ----------
 
-def instructions() -> str:
+def instructions(fm_text: str = "") -> str:
     # GPU 이름만 (P0 의 --query-gpu=name 출력과 같은 글: 지시문이 실행마다 같도록)
     hardware = "\n".join(line.split(",")[0].strip() for line in gpu_info() or ())
     h, m = divmod(TIME_LIMIT // 60, 60)
@@ -881,7 +893,78 @@ def instructions() -> str:
     notes = (SRC / "additional_notes.txt").read_text().format(
         hardware=f"1 {hardware}" if hardware else "a CPU", time_limit=f"{h}hrs {m}mins 0secs")
     desc = (HOME / "data" / "description.md").read_text()
-    return f"{text}\n\n{notes}\n\nCOMPETITION INSTRUCTIONS\n------\n\n{desc}"
+    fm = f"{fm_text.strip()}\n\n" if fm_text else ""  # C2: 추가 안내 뒤, 대회 설명 앞
+    return f"{text}\n\n{notes}\n\n{fm}COMPETITION INSTRUCTIONS\n------\n\n{desc}"
+
+
+# ---------- C2: TFM 준비, TFM import 기록 ----------
+
+def build_tools() -> str:
+    """Kumo 는 triton 이 커널 런처를 컴파일 (gcc, Python.h). FM 실행 이미지의 베이스(dcs-base)에는 없어서 이미지에 넣었음
+    (docs/known-issues.md) → 에이전트 노드에서도 없으면 apt 로. 결과 글은 meta 의 fm_build_tools (실패해도 사전 점검이 판단)."""
+    import sysconfig
+
+    header = Path(sysconfig.get_paths()["include"]) / "Python.h"
+    if shutil.which("gcc") and header.exists():
+        return "present"
+    apt = ["apt-get"] if os.geteuid() == 0 else ["sudo", "-n", "apt-get"] if shutil.which("sudo") else None
+    if apt is None:
+        return f"missing (gcc={bool(shutil.which('gcc'))}, {header}={header.exists()}), no root"
+    pkgs = ["gcc", "libc6-dev", f"python{sys.version_info.major}.{sys.version_info.minor}-dev"]
+    try:
+        for args in (["update", "-q"], ["install", "-y", "-q", "--no-install-recommends", *pkgs]):
+            res = sh([*apt, *args], capture_output=True, text=True, timeout=900,
+                     env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"})
+            if res.returncode:
+                return f"apt-get {args[0]} failed ({res.returncode}): {(res.stderr or res.stdout)[-300:]}"
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"apt-get failed: {e!r}"[:400]
+    return f"installed {' '.join(pkgs)} (gcc={bool(shutil.which('gcc'))}, Python.h={header.exists()})"
+
+
+def prepare_fm(meta: dict) -> str:
+    """TFM 설치 + 사용 예 실행 (가중치 받기) → 지시문에 넣을 글. 결과는 meta["fm"] = {모델: {ok, seconds, ...}}.
+    사전 점검은 모델마다 새 프로세스 (FAB_FM_AUDIT 없이 → import 기록에 안 남음, GPU 메모리도 프로세스와 함께 풀림)."""
+    import fm_warmup  # 실행기 코드 폴더 (SRC) 에 같이 올라옴
+
+    for args in FM_PACKAGES.values():
+        pip(*args)
+    meta["fm_build_tools"] = build_tools()
+    step(f"TFM 설치 ({', '.join(FM_PACKAGES)}), 컴파일 도구: {meta['fm_build_tools']}")
+    head, secs = fm_warmup.sections((SRC / "fm_notes.txt").read_text())
+    env = {k: v for k, v in os.environ.items() if k != "FAB_FM_AUDIT"}
+    meta["fm"] = {}
+    for name in FM_PACKAGES:
+        t = time.time()
+        try:
+            res = sh([sys.executable, "-u", str(SRC / "fm_warmup.py"), str(SRC / "fm_notes.txt"), name],
+                     capture_output=True, text=True, timeout=FM_WARMUP_TIMEOUT, cwd=SRC, env=env)
+            last = (res.stdout.strip().splitlines() or [""])[-1]
+            info = json.loads(last) if res.returncode == 0 else {"error": (res.stderr or res.stdout)[-3000:]}
+        except subprocess.TimeoutExpired:
+            info = {"error": f"timeout {FM_WARMUP_TIMEOUT}s"}
+        except ValueError:
+            info = {"error": f"no result line: {res.stdout[-500:]}"}
+        meta["fm"][name] = dict(ok="error" not in info, total_seconds=round(time.time() - t, 1), **info)
+        step(f"TFM 사전 점검 {name}: {'ok' if 'error' not in info else 'FAILED'} "
+             f"{json.dumps(info, ensure_ascii=False)[-600:]}")
+    if failed := [n for n, v in meta["fm"].items() if not v["ok"]]:
+        raise RuntimeError(f"TFM 사전 점검 실패 {failed} → 하네스를 시작하지 않음 (meta.json 의 fm)")
+    return head + "\n" + "\n".join(secs[n] for n in FM_PACKAGES)
+
+
+def install_audit(meta: dict):
+    """fm_audit.py 를 이 파이썬의 site-packages 에 + .pth 로 시작할 때 읽게 (모든 실행, 에이전트에게는 안 알림).
+    기록은 FAB_FM_AUDIT 가 있는 프로세스(하네스와 자식)만. 실패해도 실행은 계속 (meta 의 fm_audit)."""
+    import sysconfig
+
+    try:
+        site = Path(sysconfig.get_paths()["purelib"])
+        shutil.copy(SRC / "fm_audit.py", site / "_fab_fm_audit.py")
+        (site / "_fab_fm_audit.pth").write_text("import _fab_fm_audit\n")
+        meta["fm_audit"] = str(site)
+    except OSError as e:
+        meta["fm_audit"] = f"error: {e!r}"[:300]
 
 
 # ---------- 하네스 ----------
@@ -910,7 +993,8 @@ def harness_command(prompt_file: Path) -> tuple[list[str], dict, Path]:
     """(명령, 추가 환경 변수, 하네스 출력 파일)."""
     h, model, alias = CFG["harness"], CFG["model"], CFG["alias"]
     proxy = f"http://127.0.0.1:{PROXY_PORT}"
-    env = {"PATH": f"{Path.home() / '.local' / 'bin'}:{os.environ['PATH']}"}
+    env = {"PATH": f"{Path.home() / '.local' / 'bin'}:{os.environ['PATH']}",
+           "FAB_FM_AUDIT": str(FM_AUDIT)}  # 하네스와 자식 프로세스만 TFM import 를 기록 (fm_audit.py)
     prompt = prompt_file.read_text()
     if h == "aide":
         # AIDE 는 모델 이름이 gpt- 로 시작해야 OpenAI 백엔드(=OPENAI_BASE_URL)를 씀 → 별칭, 실제 모델은 프록시가 고정
@@ -1047,6 +1131,7 @@ def run_harness(cmd: list[str], env: dict, log: Path, meta: dict):
     """벽시계 TIME_LIMIT 동안 하네스 실행 (넘으면 프로세스 그룹째 종료). continue 설정이면 스스로 끝날 때 이어 감.
     구간마다 도구 호출 수를 meta["segments"][i]["tools"] 에, 이어 가기를 멈춘 까닭은 meta["continue_stop"] 에 남김."""
     t = time.time()
+    meta["harness_started_at"] = round(t, 2)  # epoch 초: fm_audit.jsonl 의 시각과 맞춰 보려고
     deadline = t + TIME_LIMIT
     stop = threading.Event()
     threading.Thread(target=sync_progress, args=(stop,), daemon=True).start()
@@ -1172,6 +1257,8 @@ def run(meta: dict):
 
     pip(*ML_PACKAGES)
     install_harness()
+    fm_text = prepare_fm(meta) if FM else ""  # pip_before 전: pip_added 는 에이전트가 직접 설치한 것만
+    install_audit(meta)
     (OUT / "pip_before.txt").write_text(pip_list())
     step("패키지·하네스 설치")
 
@@ -1185,7 +1272,7 @@ def run(meta: dict):
     serve(make_proxy(ws), PROXY_PORT)
     serve(Validate, VALIDATE_PORT)
     prompt = HOME / "instructions.txt"
-    prompt.write_text(instructions())
+    prompt.write_text(instructions(fm_text))
     shutil.copy(prompt, OUT / "full_instructions.txt")
     cmd, env, log = harness_command(prompt)
     step(f"하네스 시작: {CFG['harness']} × {CFG['model']} ({TIME_LIMIT}s)")
@@ -1195,6 +1282,7 @@ def run(meta: dict):
     sub = find_submission()
     meta["submission_from"] = str(sub) if sub else None
     if sub:
+        meta["submission_mtime"] = round(sub.stat().st_mtime, 2)  # 마지막으로 쓴 시각 (사후 검사의 tfm_at_submit)
         shutil.copy(sub, OUT / "submission.csv")
         meta["format_ok"], meta["format_msg"] = check_submission(sub)
     (OUT / "pip_after.txt").write_text(pip_list())

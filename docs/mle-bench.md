@@ -348,6 +348,26 @@ tabular-playground-series-may-2022 (AUC ↑, 1,152팀, 금 0.99823 · 동 0.9981
 - 비용: Agent 10회 A10 하네스 시간 합 6.2시간 (+ 실행마다 설치), 입력 토큰 6,580만 (Codex 둘이 6,290만), 출력 53만.
   FM 학습 시간 합 (준비·대기 제외) GPU 2.3시간 (A10 1.4 + H100 0.95), GBDT CPU 2.9시간 (leaf catboost 99 클래스 84분, tps catboost F0 53분)
 
+## C2 준비: FM 을 깐 환경의 Agent (2026-11-12)
+
+규칙·결과 표 열은 [roadmap](plans/roadmap.md) 의 "C2 규칙". 요약: `--fm` 이면 tabpfn_v2·tabicl·kumo 를 깔고 가중치를 받아 둔 뒤
+(하네스 1시간 밖) 지시문에 이름과 사용 예(`fab/agent/fm_notes.txt`)를 더함. 나머지는 공식 설정과 같음.
+실행 중 TFM import 기록(`fab/agent/fm_audit.py`)은 공식 설정에도 깖 (에이전트에게 안 알림, 동작은 바꾸지 않음).
+
+확인한 것 (로컬): import 기록 (실제 import 만 남고 `importlib.util.find_spec` 은 안 남음, `importlib.resources` 정상),
+사후 검사 열 (합성 기록), 안내문 조각 나누기·코드 블록 파싱, CLI. **사용 예 실행(사전 점검)은 로컬에서 못 돌림** →
+첫 원격 실행의 `meta.json` 의 `fm`·`fm_build_tools` 로 확인 (실패하면 하네스를 시작하지 않아 LLM 비용은 안 듦, 행은 `exclude`).
+
+실행 (P0·P1 과 같은 순서: Sonnet 줄과 GPT 줄을 하나씩 동시에). 먼저 nomad (C1 에서 "에이전트 피처 + FM" 이 강했던 대회),
+그다음 spaceship. 비교 대상은 같은 설정의 1·2회째
+
+```bash
+# GPT 줄
+uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors codex-gpt --fm   # → aide-gpt --fm
+# Sonnet 줄
+uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors claude-code-sonnet --continue --fm  # → aide-sonnet --fm → claude-code-sonnet --fm
+```
+
 ## 트랙 B 실행 환경 (2026-11-09 결정)
 
 | 항목 | 결정 |
@@ -355,7 +375,7 @@ tabular-playground-series-may-2022 (AUC ↑, 1,152팀, 금 0.99823 · 동 0.9981
 | 위치 | Databricks 서버리스 GPU 작업, **A10 1장** (MLE-bench 공식 설정과 같은 GPU) |
 | LLM | 워크스페이스 FM API: `databricks-claude-sonnet-5-5`, `databricks-gpt-6-1-terra` |
 | 하네스 × LLM | AIDE × {Sonnet, GPT} (Chat Completions), Claude Code × Sonnet (Anthropic Messages), Codex CLI × GPT (Responses) |
-| 패키지 | 일반 ML 패키지만 (MLE-bench 공식 이미지 수준). TFM 은 미리 안 깖 → 에이전트가 직접 설치해 썼는지 기록 |
+| 패키지 | 일반 ML 패키지만 (MLE-bench 공식 이미지 수준). TFM 은 미리 안 깖 → 에이전트가 직접 설치해 썼는지 기록. C2 (`+fm`) 만 TFM 3개를 깖 (위 "C2 준비") |
 | 인터넷 | 허용. 기록(대화·명령)을 남기고 사후 검사 (kaggle.com 풀이·토론 접근, 답 찾기) |
 | 신원·권한 | 전용 서비스 프린시펄로 실행. 권한은 FM 엔드포인트 2개 조회 + 전용 scratch Volume 읽기·쓰기만 |
 | 지시문 | MLE-bench `environment/instructions.txt` 를 경로만 바꿔 씀. 검증 서버 대신 형식만 보는 스크립트 (열·행 수·id) |
