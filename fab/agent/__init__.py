@@ -3,6 +3,7 @@
     uv run fab mleb agent run spaceship-titanic claude-code-sonnet          # 제출 (기다리지 않음)
     uv run fab mleb agent run nomad2018-predict-transparent-conductors aide-gpt --rep 2
     uv run fab mleb agent run spaceship-titanic claude-code-sonnet --continue  # 별도 설정 +cont (kaggle-master#35)
+    uv run fab mleb agent run nomad2018-predict-transparent-conductors codex-gpt --fm  # C2: TFM 을 깐 환경 (+fm)
     uv run fab mleb agent list                                              # 제출한 실행과 처리 상태 (Volume 의 state/agent/)
     uv run fab sync                                                         # 채점된 결과 → results/mlebench_runs.csv
 
@@ -16,6 +17,8 @@
   - A10 1장, 벽시계 hours 시간. 원격 쪽은 fab/agent/runner.py
   - 기본은 공식 설정: 하네스가 스스로 끝나면 그대로 끝. --continue 는 별도 설정(<config>+cont)으로, 시간이 남았는데 끝나면
     같은 세션에 "남은 시간 N분, 계속 개선하라" 를 보내 이어 감 (세 하네스 같은 규칙, 2026-11-10 결정, kaggle-master#35)
+  - --fm 은 C2 (<config>+fm, docs/plans/roadmap.md 의 P5): 환경에 TFM(tabpfn_v2·tabicl·kumo)을 깔고 가중치를 받아 둔 뒤
+    지시문에 이름과 사용 예(fm_notes.txt)를 더함. 나머지는 공식 설정과 같음. 준비는 하네스 시작 전 (runner.py 의 'C2')
 
 databricks.local.yaml 의 mleb_agent 블록 (git 제외):
     mleb_agent:
@@ -42,6 +45,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from fab.agent.fm_audit import HEARTBEAT, WATCH
 from fab.core.results import OUTPUTS, RESULTS, table_lock
 from fab.remote import items, submit_item
 from fab.remote import settings as remote_settings
@@ -56,6 +60,10 @@ CONFIGS = {
     "codex-gpt": ("codex", GPT, GPT),
 }
 CONTINUE_SUFFIX = "+cont"  # --continue 로 돌린 별도 설정의 이름 꼬리표 (공식 설정과 결과 표에서 섞이지 않게)
+FM_SUFFIX = "+fm"  # --fm (C2): 환경에 TFM 을 깐 설정
+# --fm 의 작업 시간 여유 더하기 (하네스 1시간 밖): TFM pip 설치 + apt (runner.py 의 APT_TIMEOUT × 2) + 사전 점검
+# (FM_WARMUP_TIMEOUT × 3) 최악 합 약 60분에 여유. 작업 시간 상한이라 넉넉해도 비용은 실제로 쓴 만큼
+FM_EXTRA_MINUTES = 75
 GATEWAY_SUFFIX = "+gw"  # gateway: true 로 돌린 실행의 꼬리표 (분당 한도·거부 조건이 FM API 와 달라 섞지 않게, llm_route 열과 같은 뜻)
 HARNESS_VERSIONS = {"aide": "v6.3.3", "claude-code": "2.1.319", "codex": "0.167.0"}  # MLE-bench 의 AIDE 포크 태그
 ACCELERATOR = "GPU_1xA10"
@@ -63,8 +71,11 @@ AGENT_RUNS = OUTPUTS / "_mlebench" / "agents"  # 회수한 실행: <key>/ (원�
 TABLE = RESULTS / "mlebench_runs.csv"  # 에이전트 실행별 채점 (git 추적)
 HERE = Path(__file__).parent
 # 사후 검사: 에이전트가 TFM 을 썼는지, Kaggle 풀이·토론을 봤는지 (기록에서 찾음)
-# 단어 경계: "carte" 가 "Cartesian" 에 걸렸음 (2026-11-09 nomad Codex)
-TFM_PATTERN = re.compile(r"\b(tabpfn|tabicl|kumo|autogluon|mitra|limix|exaone|tabdpt|carte)\b", re.I)
+# 단어 경계: "carte" 가 "Cartesian" 에 걸렸음 (2026-11-09 nomad Codex). Kumo 는 코드에 KumoTabular 로 나옴 → kumo 로 셈
+TFM_PATTERN = re.compile(r"\b(tabpfn|tabicl|kumo(?:tabular)?|autogluon|mitra|limix|exaone|tabdpt|carte)\b", re.I)
+# 코드의 import 문 (주석의 이름은 안 셈): `import a, b as c` 는 모듈마다, `from a.b import c` 는 a.
+# 모듈 → TFM 이름은 실행 중 기록과 같은 표 (fm_audit.WATCH, Kumo 의 모듈은 sdm)
+IMPORT_LINE = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\b|import\s+([\w., ]+))", re.M)
 # databricks fs ls 가 경로 없음으로 실패할 때의 메시지 (그 밖의 실패는 일시적 오류로 봄)
 MISSING = re.compile(r"no such (?:file|directory)|not found|does not exist|RESOURCE_DOES_NOT_EXIST", re.I)
 KAGGLE_PATTERN = re.compile(r"kaggle\.com/(?:code|competitions/[^/\s\"']+/(?:discussion|code))", re.I)
@@ -143,25 +154,27 @@ def check_continue(configs: list[str], cont: bool):
         raise SystemExit(f"--continue 는 AIDE 해당 없음 (일찍 끝나지 않음, 이어 갈 세션 없음): {', '.join(aide)}")
 
 
-def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) -> str:
+def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm: bool = False) -> str:
     from fab.bench.mlebench import MLEBENCH_DIR
 
     harness, model, alias = CONFIGS[config]
     check_continue([config], cont)
     cfg, main_cfg = settings(), remote_settings()
-    label = f"{config}{CONTINUE_SUFFIX if cont else ''}{GATEWAY_SUFFIX if cfg['gateway'] else ''}"
+    label = (f"{config}{CONTINUE_SUFFIX if cont else ''}{FM_SUFFIX if fm else ''}"
+             f"{GATEWAY_SUFFIX if cfg['gateway'] else ''}")
     data = upload_data(cfg, cid)
     # 키는 Volume 경로·command_path 에 들어감 → '+' 불가 (jobs submit 이 거부, 2026-11-10). 설정 이름(label)은 +cont 그대로
     key = f"{cid}__{label.replace('+', '-')}__r{rep}__{datetime.now():%Y%m%d-%H%M%S}"
     out = f"{cfg['volume']}/runs/{key}"
     run = dict(key=key, cid=cid, harness=harness, model=model, alias=alias, hours=hours, data_tgz=data, out=out,
-               harness_versions=HARNESS_VERSIONS, **{"continue": cont}, gateway=cfg["gateway"],
+               harness_versions=HARNESS_VERSIONS, **{"continue": cont}, fm=fm, gateway=cfg["gateway"],
                upstream_model=gateway_model(model) if cfg["gateway"] else model, traces_table=cfg["traces_table"])
     with tempfile.TemporaryDirectory() as d:
         code = Path(d) / "code"
         code.mkdir()
         shutil.copy(HERE / "runner.py", code)
-        shutil.copy(HERE / "additional_notes.txt", code)
+        for name in ("additional_notes.txt", "fm_audit.py", "fm_notes.txt", "fm_warmup.py"):
+            shutil.copy(HERE / name, code)
         shutil.copy(MLEBENCH_DIR / "environment" / "instructions.txt", code)  # 공식 지시문 그대로 (경로는 실행기가 바꿈)
         shutil.copy(MLEBENCH_DIR / "environment" / "validate_submission.sh", code)
         (code / "run.json").write_text(json.dumps(run, indent=2))
@@ -182,7 +195,7 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
         job = {
             "run_name": f"fab-mleb-{key}"[:100],
             "run_as": {"service_principal_name": cfg["run_as"]},
-            "timeout_seconds": int(hours * 3600) + 45 * 60,  # 하네스 시간 + 설치·회수 여유
+            "timeout_seconds": int(hours * 3600) + (45 + (FM_EXTRA_MINUTES if fm else 0)) * 60,  # 하네스 + 설치·회수 여유
             "tasks": [{"task_key": "agent", "environment_key": "default", "max_retries": 0,
                        "ai_runtime_task": {
                            "experiment": cfg["experiment"], "mlflow_run": key[:100],
@@ -201,17 +214,87 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False) ->
     return key
 
 
+def tfm_names(found) -> list[str]:
+    """코드에서 찾은 이름 → TFM 이름 (KumoTabular → kumo)."""
+    return sorted({m.lower().removesuffix("tabular") for m in found})
+
+
+def tfm_imports(code: str) -> list[str]:
+    """코드의 import 문이 부르는 TFM (fm_audit.WATCH 의 최상위 모듈)."""
+    mods = []
+    for frm, names in IMPORT_LINE.findall(code):
+        mods += [frm] if frm else [n.split()[0] for n in names.split(",") if n.strip()]
+    return sorted({WATCH[m.split(".")[0]] for m in mods if m.split(".")[0] in WATCH})
+
+
+def code_text(name: str, raw: bytes) -> str:
+    """작업 디렉터리 파일 → 코드 글. .ipynb 는 코드 셀 source 만 이어 붙임 (JSON 그대로면 줄이 따옴표로 시작해
+    import 문 검사에 안 걸림). 깨진 노트북은 원문 그대로."""
+    text = raw.decode("utf-8", "replace")
+    if name.endswith(".ipynb"):
+        try:
+            cells = json.loads(text).get("cells", [])
+            return "\n".join("".join(c["source"]) if isinstance(c.get("source"), list) else str(c.get("source", ""))
+                             for c in cells if c.get("cell_type") == "code")
+        except (ValueError, AttributeError, KeyError, TypeError):
+            return text
+    return text
+
+
+def submission_origin(d: Path, mtime: float | None) -> float | None:
+    """제출 내용이 처음 생긴 시각: workspace.tgz 안에서 submission.csv 와 바이트가 같은 파일의 가장 이른 mtime (초 단위,
+    tar 는 정수 초), 없으면 mtime (실행기가 잰 제출 파일 시각)."""
+    sub, tgz = d / "submission.csv", d / "workspace.tgz"
+    if mtime is None or not sub.exists() or not tgz.exists():
+        return mtime
+    data, times = sub.read_bytes(), [mtime]
+    with tarfile.open(tgz) as tar:
+        for m in tar.getmembers():
+            if m.isfile() and m.size == len(data) and tar.extractfile(m).read() == data:
+                times.append(float(m.mtime))
+    return min(times)
+
+
+def tfm_runtime(d: Path, meta: dict) -> dict:
+    """fm_audit.jsonl (실행 중 TFM import 기록, runner.py 의 install_audit) → 실제로 import 한 TFM, 그런 프로세스 수,
+    제출 내용이 처음 생긴 시각에 살아 있던 (import 뒤 ~ 끝) 프로세스가 import 한 TFM (tfm_at_submit). 제출 내용이 처음 생긴
+    시각 = 작업 디렉터리에서 submission.csv 와 내용이 같은 파일 중 가장 이른 수정 시각 (에이전트는 흔히 sub6.csv 를 만든 뒤
+    cp 로 제출함: 2026-11-12 nomad Claude Code, cp 시각에는 TFM 프로세스가 이미 끝남), 없으면 submission_mtime. 끝 = exit 줄,
+    없으면 (강제 종료·os._exit) 마지막 alive + HEARTBEAT, 그것도 없으면 import + HEARTBEAT.
+    tfm_at_submit 은 근사: TFM 예측을 파일로 저장하고 다른 프로세스에서 섞어 제출하면 안 잡힘, 오래 사는 프로세스가 TFM 을
+    import 만 하고 제출은 다른 모델로 하면 잡힘 → 최종 풀이 코드로 확인. 이 기록 이전 실행은 모두 None
+    (CSV 에서는 None 과 빈 목록이 둘 다 빈칸 → 기록이 있었는지는 tfm_runtime_procs 로: 빈칸 = 기록 없음, 0 = 안 씀)."""
+    rows = read_jsonl(d / "fm_audit.jsonl")
+    if not rows and (not meta.get("fm_audit") or str(meta["fm_audit"]).startswith("error")):
+        return dict(tfm_runtime=None, tfm_runtime_procs=None, tfm_at_submit=None)
+    imports = [r for r in rows if r.get("event") == "import"]
+    last = {}  # pid → 마지막으로 살아 있던 시각
+    for r in rows:
+        last[r["pid"]] = max(last.get(r["pid"], 0), r["t"])
+    exits = {r["pid"]: r["t"] for r in rows if r.get("event") == "exit"}
+    sub_t = submission_origin(d, meta.get("submission_mtime"))
+    at_submit = {r["tfm"] for r in imports if sub_t is not None
+                 and r["t"] <= sub_t <= exits.get(r["pid"], last[r["pid"]] + HEARTBEAT)}
+    return dict(tfm_runtime=sorted({r["tfm"] for r in imports}), tfm_runtime_procs=len({r["pid"] for r in imports}),
+                tfm_at_submit=sorted(at_submit))
+
+
 def posthoc(d: Path) -> dict:
     """회수한 기록에서: TFM 사용 흔적, Kaggle 풀이·토론 URL, 토큰 사용량, 429 대기.
-    TFM 은 셋으로 나눔: 작업 디렉터리 코드에 있음(tfm_in_code) / 새로 설치함(pip_added) / 대화·명령 기록에 언급만(tfm_mentions).
+    TFM 은 이렇게 나눔: 작업 디렉터리 코드에 이름이 있음(tfm_in_code) / 코드에 import 문(tfm_imported) / 실행 중 실제로
+    import 됨(tfm_runtime·tfm_runtime_procs·tfm_at_submit, tfm_runtime 참고) / 새로 설치함(pip_added) / 대화·명령 기록에
+    언급만(tfm_mentions). +fm 실행은 지시문에 TFM 이름이 있어 tfm_mentions 가 늘 차므로 보지 않음. fm_offered 는 +fm 이
+    깔아 준 TFM (사전 점검 통과).
     (2026-11-09 Codex: TabPFN·AutoGluon 이 깔렸는지 importlib 로 확인만 하고 안 씀 → 언급만으로 '사용'이라 하면 틀림)"""
+    meta = json.loads((d / "meta.json").read_text()) if (d / "meta.json").exists() else {}
     code = []
     if (d / "workspace.tgz").exists():
         with tarfile.open(d / "workspace.tgz") as tar:
             for m in tar.getmembers():
                 if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")):
-                    code.append(tar.extractfile(m).read().decode("utf-8", "replace"))
-    logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl") if p.name not in ("proxy.jsonl", "otel.jsonl")]
+                    code.append(code_text(m.name, tar.extractfile(m).read()))
+    logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl")
+            if p.name not in ("proxy.jsonl", "otel.jsonl", "fm_audit.jsonl")]
     code_blob, blob = "\n".join(code), "\n".join(code + logs)
     before = set((d / "pip_before.txt").read_text().splitlines()) if (d / "pip_before.txt").exists() else set()
     after = set((d / "pip_after.txt").read_text().splitlines()) if (d / "pip_after.txt").exists() else set()
@@ -221,8 +304,10 @@ def posthoc(d: Path) -> dict:
     def tok(*ks):
         return sum(c.get(k, 0) for c in calls for k in ks)
 
-    return dict(tfm_in_code=sorted({m.lower() for m in TFM_PATTERN.findall(code_blob)}),
-                tfm_mentions=sorted({m.lower() for m in TFM_PATTERN.findall(blob)}),
+    return dict(tfm_in_code=tfm_names(TFM_PATTERN.findall(code_blob)),
+                tfm_mentions=tfm_names(TFM_PATTERN.findall(blob)),
+                tfm_imported=tfm_imports(code_blob), **tfm_runtime(d, meta),
+                fm_offered=sorted(k for k, v in (meta.get("fm_warmup") or {}).items() if v.get("ok")),
                 pip_added=sorted(after - before), kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
                 retries_429=sum(c.get("retries_429", 0) for c in calls),
                 waited_429=round(sum(c.get("waited", 0) for c in calls), 1),  # 흔들기로 소수 → 합의 부동소수 잡음 제거
@@ -304,7 +389,8 @@ def recheck_table():
             t.loc[have, c] = checks[c]
         print(f"사후 검사 다시 계산: {len(have)}/{len(t)}행 (나머지는 회수 기록이 없어 그대로)")
         fill_defaults(t).to_csv(TABLE, index=False)
-    print(t[["mlebench", "config", "score", "tfm_in_code", "tfm_mentions", "pip_added"]].to_string(index=False))
+    cols = ["mlebench", "config", "score", "tfm_in_code", "tfm_imported", "tfm_runtime", "tfm_at_submit", "pip_added"]
+    print(t[[c for c in cols if c in t]].to_string(index=False))  # 회수 기록이 하나도 없으면 새 열이 아직 없음
 
 
 def runs(main_cfg) -> dict[str, dict]:
@@ -362,6 +448,8 @@ def main(argv: list[str]):
     r.add_argument("--hours", type=float, default=1.0)
     r.add_argument("--continue", dest="cont", action="store_true",
                    help="별도 설정(+cont): 시간이 남았는데 하네스가 스스로 끝나면 같은 세션을 이어 감 (kaggle-master#35)")
+    r.add_argument("--fm", action="store_true",
+                   help="C2 (+fm): 환경에 TFM(tabpfn_v2·tabicl·kumo)을 깔고 지시문에 사용 예를 더함 (fab/agent/fm_notes.txt)")
     sub.add_parser("list", help="제출한 실행 목록")
     k = sub.add_parser("peek", help="실행 중인 실행의 진행 기록 (2분마다 갱신): LLM 호출 수·상태·429·프록시 오류")
     k.add_argument("keys", nargs="*", help="없으면 채점 안 된 실행 전부")
@@ -377,7 +465,7 @@ def main(argv: list[str]):
         settings()  # 제출 전에 설정 확인 (SP·scratch Volume)
         prepare_grading(remote_settings(), [args.cid])  # 끝난 뒤 원격에서 채점할 재료 (리더보드·정답·채점 코드), 설정 수와 무관하게 한 번
         for c in args.configs:
-            submit(args.cid, c, args.rep, args.hours, args.cont)
+            submit(args.cid, c, args.rep, args.hours, args.cont, args.fm)
     elif args.cmd == "recheck":
         submit_item(remote_settings(), "recheck", f"{datetime.now():%Y%m%d-%H%M%S}", {})
         print("사후 검사 다시 계산 요청 → fab remote kick, 결과는 fab sync")

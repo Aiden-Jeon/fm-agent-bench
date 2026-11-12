@@ -1,0 +1,72 @@
+PRE-INSTALLED TABULAR FOUNDATION MODELS
+------
+
+The tabular foundation models below are installed in this environment and their weights are already downloaded. They are pretrained transformers that predict from training rows given as context (no gradient training). Using them is optional: they are one more option next to the other installed packages. The snippets show a working call pattern. `X_train` and `X_test` are numeric 2-D arrays (encode categorical columns as integers first), `y_train` holds class labels and `y_train_reg` a numeric target.
+
+### tabpfn_v2
+TabPFN v2 (`tabpfn` package). Pretrained for up to 10,000 rows, 500 features and 10 classes. Pass `ignore_pretraining_limits=True` to go past the row/feature limits; more than 10 classes is not supported. Only the v2 weights are available here: other TabPFN versions, including the package default, require an interactive license acceptance and will fail.
+```python
+from tabpfn import TabPFNClassifier, TabPFNRegressor
+from tabpfn.constants import ModelVersion
+
+clf = TabPFNClassifier.create_default_for_version(ModelVersion.V2)
+clf.fit(X_train, y_train)
+proba = clf.predict_proba(X_test)  # columns follow clf.classes_
+
+reg = TabPFNRegressor.create_default_for_version(ModelVersion.V2)
+reg.fit(X_train, y_train_reg)
+pred = reg.predict(X_test)
+```
+
+### tabicl
+TabICL v2 (`tabicl` package). More than 10 classes are handled automatically.
+```python
+from tabicl import TabICLClassifier, TabICLRegressor
+
+clf = TabICLClassifier()
+clf.fit(X_train, y_train)
+proba = clf.predict_proba(X_test)  # columns follow clf.classes_
+
+reg = TabICLRegressor()
+reg.fit(X_train, y_train_reg)
+pred = reg.predict(X_test)
+```
+
+### kumo
+NVIDIA Kumo-Tabular, large (`structured-data-models` package, module `sdm`). Numeric features only. For many query rows, predict in chunks (for example 2,048 rows) to stay within GPU memory.
+```python
+import numpy as np
+import pandas as pd
+import sdm
+import torch
+
+dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+cols = [f"f{i}" for i in range(X_train.shape[1])]
+stypes = {c: "numerical" for c in cols}
+amp = torch.amp.autocast(dev.type, dtype=torch.float16, enabled=dev.type == "cuda")
+
+
+def table(X, y=None, y_stype=None):
+    df = pd.DataFrame(np.asarray(X, dtype=np.float32), columns=cols)
+    if y is None:
+        return sdm.TableTensor.from_pandas(df, stypes=stypes, device=dev)
+    return sdm.TableTensor.from_pandas(df.assign(target=y), stypes={**stypes, "target": y_stype}, device=dev)
+
+
+# classification: one probability column per class, named by the class label. The column order is not fixed:
+# sort the columns so they follow np.unique(y_train)
+ctx = table(X_train, y_train, "categorical")
+clf = sdm.models.KumoTabular(task="classification", device=dev)
+with amp:
+    clf.fit(ctx.drop_columns("target"), ctx[:, "target"], num_estimators=8)
+    proba = clf.predict(table(X_test)).to_pandas()
+proba = proba[sorted(proba.columns, key=lambda c: int(c) if str(c).isdigit() else str(c))]
+
+# regression: 999 quantiles per row (their mean is a point estimate); standardize the target
+mu, sd = float(np.mean(y_train_reg)), float(np.std(y_train_reg)) or 1.0
+ctx = table(X_train, (np.asarray(y_train_reg) - mu) / sd, "numerical")
+reg = sdm.models.KumoTabular(task="regression", device=dev)
+with amp:
+    reg.fit(ctx.drop_columns("target"), ctx[:, "target"], num_estimators=8)
+    pred = reg.predict(table(X_test)).to_pandas().to_numpy(float).mean(1) * sd + mu
+```

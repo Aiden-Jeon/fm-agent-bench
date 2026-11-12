@@ -348,6 +348,51 @@ tabular-playground-series-may-2022 (AUC ↑, 1,152팀, 금 0.99823 · 동 0.9981
 - 비용: Agent 10회 A10 하네스 시간 합 6.2시간 (+ 실행마다 설치), 입력 토큰 6,580만 (Codex 둘이 6,290만), 출력 53만.
   FM 학습 시간 합 (준비·대기 제외) GPU 2.3시간 (A10 1.4 + H100 0.95), GBDT CPU 2.9시간 (leaf catboost 99 클래스 84분, tps catboost F0 53분)
 
+## C2 준비: FM 을 깐 환경의 Agent (2026-11-12)
+
+규칙·결과 표 열은 [roadmap](plans/roadmap.md) 의 "C2 규칙". 요약: `--fm` 이면 tabpfn_v2·tabicl·kumo 를 깔고 가중치를 받아 둔 뒤
+(하네스 1시간 밖) 지시문에 이름과 사용 예(`fab/agent/fm_notes.txt`)를 더함. 나머지는 공식 설정과 같음.
+실행 중 TFM import 기록(`fab/agent/fm_audit.py`)은 공식 설정에도 깖 (에이전트에게 안 알림, 동작은 바꾸지 않음).
+
+확인한 것 (로컬): import 기록 (실제 import 만 남고 `importlib.util.find_spec` 은 안 남음, `importlib.resources` 정상),
+사후 검사 열 (합성 기록), 안내문 조각 나누기·코드 블록 파싱, CLI. **사용 예 실행(사전 점검)은 로컬에서 못 돌림** →
+첫 원격 실행의 `meta.json` 의 `fm_warmup`·`fm_build_tools` 로 확인 (실패하면 하네스를 시작하지 않아 LLM 비용은 안 듦, 행은 `exclude`).
+
+실행 (P0·P1 과 같은 순서: Sonnet 줄과 GPT 줄을 하나씩 동시에). 먼저 nomad (C1 에서 "에이전트 피처 + FM" 이 강했던 대회),
+그다음 spaceship. 비교 대상은 같은 설정의 1·2회째
+
+```bash
+# GPT 줄
+uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors codex-gpt --fm   # → aide-gpt --fm
+# Sonnet 줄
+uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors claude-code-sonnet --continue --fm  # → aide-sonnet --fm → claude-code-sonnet --fm
+```
+
+## C2 결과 1회째: nomad (2026-11-12, 1시간 · A10)
+
+열별 RMSLE 평균 ↓, 괄호는 원래 리더보드 순위. 비교는 같은 설정의 Agent 1·2회째 (위 P0·P1). FM 사용 열은 회수 기록으로 이 브랜치의
+사후 검사를 돌린 값 (아래 "운영 메모": 결과 표의 이 열들은 `fab mleb agent recheck` 뒤에 채워짐).
+
+| 설정 | C2 (+fm) | Agent 1회째 / 2회째 | 시간 | 실제로 쓴 FM (`tfm_runtime`, 프로세스 수) | 제출에 든 FM (`tfm_at_submit`) |
+|---|---|---|---|---|---|
+| Codex × GPT | **0.04589 (1위)** | 0.04847 / 0.04567 | 57분, 429 39번 | kumo·tabicl·tabpfn (55, kumo 41) | kumo |
+| Claude Code × Sonnet +cont | 0.13875 (833위) | 0.05267 / 0.05157 | 6분 14초 (이어 가기 9번) | tabicl·tabpfn (6) | tabicl·tabpfn |
+
+- **두 에이전트 모두 FM 을 실제로 씀** (P0·P1 에서는 아무도 안 씀). 사전 점검은 두 실행 모두 세 모델 통과 (모델당 10~30초),
+  Kumo 컴파일 도구는 노드에 이미 있음 (`fm_build_tools: present`)
+- **Codex**: 16분부터 Kumo 를 결정 구조 피처와 함께 계속 씀 (`cv_kumo_*.py` 등, 공간군·상별 Kumo, 커널·GNN 과 앙상블).
+  점수는 2회째 (0.04567) 와 같은 수준 → 이 1회로는 FM 덕에 나아졌다고 못 함. C1 의 `kumo~f2` (0.04523) 와도 비슷
+- **Claude Code: 에이전트 버그로 test 만 깨짐**. 교차 검증(OOF) 은 RMSLE 약 0.0495 (Agent 때보다 나음) 인데 test 0.139.
+  `c.py` 부터 학습 행렬은 [기본 열, `sg`, 결정 구조 피처] 인데 test 행렬은 [기본 열, 결정 구조 피처, `sg`] 순서
+  (`X['sg']` 를 결정 구조 피처를 붙이기 전에, `T['sg']` 는 뒤에 만듦) → TabPFN·TabICL 에 `.values` 로 넘겨 열이 위치로 어긋남.
+  CV 는 학습 행렬만 써서 못 잡음. 제출은 `c3.py` 가 만든 `sub6.csv` 를 `cp` 한 것 (LightGBM 0.15 + TabPFN 0.45 + TabICL 0.40).
+  FM 환경 탓은 아님: 열 이름으로 맞추는 GBDT 만 썼다면 안 깨졌을 버그라 FM 의 numpy 인터페이스가 드러낸 것에 가까움
+- 사전 점검에서 고친 것: Codex 실행의 Kumo 분류 사전 점검 정확도가 0.0 (Claude 실행은 1.0) → 확률 열 순서가 실행마다 다름.
+  사용 예에 열을 클래스 순서로 정렬하는 줄을 넣고 (fab 의 Kumo 와 같은 방식), 사전 점검이 정확도·RMSE 기준도 보게 함
+  (nomad 는 회귀라 이 두 실행의 점수와는 상관없음)
+- `tfm_at_submit` 고친 것: 처음엔 제출 파일 시각(`cp` 한 때)으로 봐서 Claude Code 가 빈칸이었음 → 작업 디렉터리에서 제출과
+  내용이 같은 파일의 가장 이른 시각으로 봄
+
 ## 트랙 B 실행 환경 (2026-11-09 결정)
 
 | 항목 | 결정 |
@@ -355,7 +400,7 @@ tabular-playground-series-may-2022 (AUC ↑, 1,152팀, 금 0.99823 · 동 0.9981
 | 위치 | Databricks 서버리스 GPU 작업, **A10 1장** (MLE-bench 공식 설정과 같은 GPU) |
 | LLM | 워크스페이스 FM API: `databricks-claude-sonnet-5-5`, `databricks-gpt-6-1-terra` |
 | 하네스 × LLM | AIDE × {Sonnet, GPT} (Chat Completions), Claude Code × Sonnet (Anthropic Messages), Codex CLI × GPT (Responses) |
-| 패키지 | 일반 ML 패키지만 (MLE-bench 공식 이미지 수준). TFM 은 미리 안 깖 → 에이전트가 직접 설치해 썼는지 기록 |
+| 패키지 | 일반 ML 패키지만 (MLE-bench 공식 이미지 수준). TFM 은 미리 안 깖 → 에이전트가 직접 설치해 썼는지 기록. C2 (`+fm`) 만 TFM 3개를 깖 (위 "C2 준비") |
 | 인터넷 | 허용. 기록(대화·명령)을 남기고 사후 검사 (kaggle.com 풀이·토론 접근, 답 찾기) |
 | 신원·권한 | 전용 서비스 프린시펄로 실행. 권한은 FM 엔드포인트 2개 조회 + 전용 scratch Volume 읽기·쓰기만 |
 | 지시문 | MLE-bench `environment/instructions.txt` 를 경로만 바꿔 씀. 검증 서버 대신 형식만 보는 스크립트 (열·행 수·id) |

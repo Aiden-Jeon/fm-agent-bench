@@ -11,7 +11,7 @@
 | FM | 원본 열(F0) 또는 사람 피처(F1)로 TFM 한 번 추론, 튜닝 없음. GBDT 는 같은 피처의 기준선 | 점수, 시간, GPU |
 | Agent | 하네스 × LLM, 벽시계 1시간 · A10 1장, 환경에 TFM 없음 | 점수, 시간, 토큰, 429 대기, 쓴 모델, 사후 검사 |
 | C1 (Agent → FM) | 에이전트 최종 풀이에서 전처리만 떼어(F2) FM·GBDT 에 넣음 | FM 의 F0 대비 향상 − GBDT 의 F0 대비 향상 |
-| C2 (FM 을 도구로 받은 Agent) | 환경에 TFM 을 깔고 지시문에 알림, 나머지는 Agent 와 같음 | Agent 와 같음 + FM 을 실제로 썼는지 (`tfm_in_code`) |
+| C2 (FM 을 도구로 받은 Agent) | 환경에 TFM 을 깔고 지시문에 알림, 나머지는 Agent 와 같음 | Agent 와 같음 + FM 을 실제로 썼는지 (`tfm_runtime`·`tfm_at_submit`, 아래 "C2 규칙") |
 
 순서: **C1 → C2**. C1 은 이미 돌린 에이전트 풀이로 할 수 있고, C2 의 결과를 읽으려면 "에이전트 피처 + FM" 이 얼마나 되는지
 (C1) 를 먼저 알아야 함 (C2 의 에이전트가 FM 을 써서 좋아졌는지, 피처 덕인지 가르려면).
@@ -42,7 +42,7 @@ TabArena 연동 전에 확인할 것
 | P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 C1 결과 |
 | P3 ✓ | MLE-bench 표 형식 대회 확장: tps-may-2022, leaf-classification (FM × Agent 1회씩, 2026-11-12). 남은 대회 (s3e18·dec-2021·taxi) 는 나중에 | [docs/mle-bench.md](../mle-bench.md) 의 P3 결과 |
 | P4 | TabArena 연동 (위 확인 → `fab/bench/tabarena/`) | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
-| P5 | **C2**: Agent 설정에 FM 추가 (예: `codex-gpt+fm`) | Agent 와 C2 를 같은 대회·시드로 |
+| P5 | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`, 아래 "C2 규칙"). nomad 1회째 (Codex·Claude Code +cont, 2026-11-12, [docs/mle-bench.md](../mle-bench.md) 의 "C2 결과 1회째") | Agent 와 C2 를 같은 대회·시드로 |
 | P6 | 정리 | 방식 × 벤치마크 결과 문서 |
 
 kaggle-master 에 열려 있던 이슈 (그쪽에 남김, 진행할 때 이 저장소에 새로 엶):
@@ -100,9 +100,41 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 - 에이전트 CV (참고, 손으로 정한 섞기 비율이라 낙관적): formation 0.0179, bandgap 0.0707. F0 의 CV: kumo 0.0316 / 0.0841,
   catboost 0.0353 / 0.0912
 
+## C2 규칙 (2026-11-12)
+
+`fab mleb agent run <대회> <설정> --fm` → 설정 이름 `<config>+fm` (`+cont` 와 같이 쓰면 `claude-code-sonnet+cont+fm`).
+나머지(지시문 본문·1시간·A10·프록시·이어 가기 규칙)는 공식 설정과 같음. 코드는 `fab/agent/runner.py` 의 "C2".
+
+| 항목 | 정한 것 | 까닭 |
+|---|---|---|
+| 깔 TFM | `tabpfn_v2` (tabpfn 9.2.0), `tabicl` (2.2.0), `kumo` (structured-data-models 0.2.1, `nvidia/Kumo-Tabular` v1.0.1) | C1 의 TFM 셋. 셋 다 라이선스 동의 없이 받음 (TabPFN 은 v2 만, Kumo 는 Apache-2.0). 버전은 FM 실행 이미지와 같게 |
+| 가중치 | 하네스 시작 전에 받아 둠 (HOME 캐시) | 받는 시간을 1시간에 넣지 않음. 설치·사전 점검도 1시간 밖 (공식 설정의 패키지 설치와 같은 자리) |
+| 지시문 | 공식 지시문 + 추가 안내 뒤, 대회 설명 앞에 `fab/agent/fm_notes.txt` (영어 약 3,300자): 이름·제약 (TabPFN 1만 행·10 클래스 등) + 그대로 도는 사용 예. "optional" 이라고 적고 쓰라고 권하지 않음 | 이름만 주면 TabPFN 기본값(최신 버전)이 브라우저 라이선스 동의에서 실패하고 Kumo 는 `TableTensor` API 를 찾아야 해서, "FM 이 도움이 되나" 대신 "API 를 찾아내나" 를 잼 |
+| 사전 점검 | `fab/agent/fm_warmup.py` 가 안내문의 사용 예를 **그대로** 합성 데이터(3 클래스 + 회귀)로 실행. 하나라도 실패하면 하네스를 시작하지 않음 (meta.json 의 `fm_warmup`) | 에이전트가 받은 예가 실제로 돎을 보장, 실행마다 받은 TFM 이 달라지지 않게 |
+| Kumo 컴파일 도구 | gcc·Python.h 가 없으면 apt 로 설치 시도 (meta.json 의 `fm_build_tools`) | FM 실행 이미지에서 베이스에 없어 넣었던 것 (docs/known-issues.md). 에이전트 노드는 이미지가 아닌 기본 환경 |
+| 썼는지 | 실행 중 import 기록 (`fab/agent/fm_audit.py`, 모든 실행에 깖, 에이전트에게는 안 알림) + 코드 검사 | 아래 열 |
+
+결과 표(`results/mlebench_runs.csv`)에 더한 열
+
+| 열 | 뜻 |
+|---|---|
+| `fm_offered` | +fm 이 깔아 준 TFM (사전 점검 통과). 공식 설정은 비어 있음 |
+| `tfm_imported` | 작업 디렉터리 코드의 import 문 (Kumo 는 `sdm`). `tfm_in_code` 는 이름만 (주석 포함, `KumoTabular` 도 이제 셈) |
+| `tfm_runtime`·`tfm_runtime_procs` | 실행 중 하네스와 그 자식 프로세스가 실제로 import 한 TFM, 그런 프로세스 수 (모듈 실행이 끝나야 셈: 설치 여부만 보는 `find_spec` 은 안 셈) |
+| `tfm_at_submit` | 마지막 `submission.csv` 를 쓴 시각에 살아 있던, TFM 을 import 한 프로세스의 TFM. 끝난 시각은 exit 줄, 없으면 (강제 종료·`os._exit`: AIDE 의 코드 실행 프로세스, multiprocessing 자식) 30초마다 남기는 alive 줄로 어림. 근사: TFM 예측을 파일로 남기고 다른 프로세스에서 섞으면 빠지고, TFM 을 import 만 한 프로세스가 다른 모델로 제출하면 잡힘 → 최종 풀이 코드로 확인 |
+
+- 이 기록 이전 실행(P0·P1)은 `tfm_runtime`·`tfm_at_submit` 가 비어 있음 (None). `fab mleb agent recheck` 로 다시 계산해도 같음.
+  CSV 에서는 None 과 빈 목록(기록은 있는데 안 씀)이 둘 다 빈칸 → 가르는 건 `tfm_runtime_procs` (빈칸 = 기록 없음, 0 = 안 씀)
+- import 기록은 loader 클래스를 바꾸지 않고 그 모듈 loader 인스턴스의 `exec_module` 만 감쌈 (pkg_resources 처럼 loader 종류로 고르는 코드가 그대로 동작)
+- +fm 실행은 지시문에 TFM 이름이 있어 `tfm_mentions` 가 늘 참 → 보지 않음
+- 환경 차이: TFM 설치가 공유 의존성(torch·numpy 등)의 버전을 바꿀 수 있음 → 같은 대회의 공식 설정 실행과 `pip_before.txt` 를 비교해 적음
+- 읽는 법: C2 점수 − 같은 설정 Agent 점수 (1·2회째). FM 을 썼으면 C1 (같은 대회의 "에이전트 피처 + FM") 과도 비교:
+  nomad 에서 Codex 가 자기 피처로 kumo 를 돌리면 C1 의 `kumo~f2s` 0.04803·`kumo~f2` 0.04523 근처가 기대값
+
 ## 정해야 할 것
 
 (정함) +cont 이어 가기 상한: 도구 0개 구간 연속 3번 + 전체 40번 (2026-11-11, [docs/mle-bench.md](../mle-bench.md) 의 +cont 결과)
 
-- C2 의 FM 목록과 안내 문구: 어떤 TFM 을 깔지 (라이선스·설치 시간), 지시문에 얼마나 알릴지 (이름만 / 사용 예까지)
+(정함) C2 의 FM 목록과 안내 문구: tabpfn_v2·tabicl·kumo, 이름 + 사용 예 (2026-11-12, 위 "C2 규칙")
+
 - 해석 주의: Agent 는 LLM 이 공개 Kaggle 풀이를 학습했을 수 있음 (FM 은 아님). TabArena 데이터셋도 같은 문제가 있는지
