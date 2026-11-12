@@ -22,9 +22,9 @@ kaggle-master 의 `docs/plans/mle-bench.md` 를 옮긴 것 (2026-11-10 까지의
 | playground-series-s3e18 | dev | 다중 타깃(2개) |
 | nomad2018-predict-transparent-conductors | low | 작음(약 2.4천 행), 타깃 2개 (RMSLE 평균) → 파일럿 |
 | tabular-playground-series-dec-2021 | low | 큼(수백만 행), 리더보드가 촘촘해 메달 판정이 민감 |
-| tabular-playground-series-may-2022 | low | 큼, 위와 같음 |
+| tabular-playground-series-may-2022 | low | train 80만 행 (MLE-bench 분할), 금~동 폭 AUC 0.00005 → P3 (아래 "P3 준비") |
 | new-york-city-taxi-fare-prediction | low | 아주 큼 → 컨텍스트 샘플링 필수 |
-| leaf-classification | low | 99 클래스 → TFM 클래스 수 제한 확인 필요 |
+| leaf-classification | low | 99 클래스 → TabPFN v2 는 못 씀 (10 클래스), TabICL·Kumo 는 됨 → P3 (아래 "P3 준비"·"P3 결과") |
 
 dev 세트 대회는 공개 리더보드 채점 결과에 없음 → 트랙 B 로만 비교.
 
@@ -240,6 +240,113 @@ CV (같은 fold 5개, formation / bandgap): F0 → F2s → F2
   사람이 읽을 수 있는 물리 피처(RDF·이웃 통계·대칭)만으로 대부분이 나옴
 - 해석 주의: test 에 train 과 같은 구조가 있음 (Codex 가 정답을 섞던 행). SOAP 같은 기술자를 받은 TFM 은 비슷한 행을 보고 예측하므로
   그 효과를 피처로 정당하게 얻을 수 있음 → kumo × F2 의 추가 이득이 여기서 왔을 수 있음 (확인 안 함)
+
+## P3 준비: tps-may-2022 · leaf-classification (2026-11-12)
+
+fab 대회 2개를 더함. 분할은 MLE-bench 그대로 (`fab download`, 체크섬 일치), 결과는 아직 없음.
+
+| fab 대회 | MLE-bench | train / test | 지표 | 메달 기준선 (원래 LB) | 공개 에이전트 (실험별 시드 중앙값) |
+|---|---|---|---|---|---|
+| `mleb-tps-may-2022` | tabular-playground-series-may-2022 | 800,000 / 100,000, 31열 | AUC ↑ | 금 0.99823 · 은 0.99822 · 동 0.99818 · 중앙값 0.97268 (1,152팀) | 31개 실험, 금은 Disarray 0.99825 하나. 다음 MLEvolve 0.99771 · MARS 0.99760 |
+| `mleb-leaf-classification` | leaf-classification | 891 / 99, 192열, 99 클래스 | logloss ↓ | 금 0.0 · 은 0.00791 · 동 0.01526 · 중앙값 0.10835 (1,596팀) | 33개 실험 중 17개가 메달 선 (중앙값 기준), MARS·MARS+·Famou-2.0 gemini-2.5-pro 는 0.0 (금) |
+
+- 피처
+  - leaf F0: margin·shape·texture 192개 (대회가 이미지에서 미리 뽑은 수치). 잎 이미지(`images/`, 990장)는 안 씀 — nomad 의
+    `geometry.xyz` 처럼 에이전트만 씀
+  - tps F0: 원본 31열. `f_27` (10글자 문자열, 80만 행에 고유값 67만 개, test 값의 28% 만 train 에 있음)은 범주형 하나로 둠
+    → TFM 에는 정수 코드(사전순)라 거의 정보가 없음
+  - tps `~f1` (사람 피처): `f_27` 을 글자 위치별 10열 + 서로 다른 글자 수로 바꿈 (41열). 대회 당시 공개 노트북에서 널리 쓴 처리.
+    F0 만으로는 FM 이 이 한 가지 처리를 못 해서 지는 비교가 되므로 같이 둠. C1 의 F2 (에이전트 피처) 와는 다름
+- 클래스 수 (leaf): TabPFN v2 는 10 클래스까지라 fit 에서 거부 (`TabPFNValidationError`, tabpfn 9.2) → 표에서 뺌.
+  TabICL 은 10 을 넘으면 계층 분류로 자동 전환 (`support_many_classes` 기본값). Kumo 도 됨 (P3 결과, 로컬에는 패키지가 없어 실행 전엔 몰랐음).
+  클래스당 train 이 최소 6행이라 층화 5-fold 의 학습 쪽에 99 클래스가 모두 들어감
+- 분류 확률은 예측할 때 행 합을 1 로 맞춤 (`fab/core/metrics.py` 의 `normalize_proba`, `fab run` 의 predict 와 제출 둘 다).
+  TFM 은 float32·float16 확률이라 99 클래스면 합이 1 에서 벗어남 (float16 균등 확률이면 3e-5). leaf 채점기는 1 ± 1e-6 이 아니면 무효이고,
+  sklearn 1.9 log_loss 는 경고만 하고 그대로 계산해 CV logloss 와 채점 점수가 다른 확률을 보게 됨. NaN·합 0·뚜렷한 음수는 에러.
+  이 변경 전 실행은 다시 돌리지 않음: spaceship 의 지표 accuracy 는 argmax 라 행 합을 맞춰도 같음 (보조 지표 auc·logloss 는 조금 달라질 수 있음)
+- TFM 컨텍스트 (tps): 대회 설정 `tfm_max_rows: 10000` (kaggle-master 관례), 큰 컨텍스트는 `@rand200000`. kaggle-master 의 비슷한 크기
+  (S6E1·S6E10, 60~70만 행, H100) 에서 kumo@rand200000 약 33분, tabicl@rand200000 약 42분, catboost 약 35분 (5-fold 합)
+- xgb 는 tps F0 에서 뺌: `f_27` 범주 67만 개 때문에 로컬 8코어 64만 행 20트리 28초 → 800트리 5-fold 면 CPU 4코어에서 몇 시간.
+  lgbm 은 50트리 1.3초 (범주 분할 상한이 있음). `~f1` 은 범주가 없어 xgb 도 됨
+- Agent 노드 (A10G, 12코어, 메모리 51GB, `/tmp` 500GB, P0·P1 실행 기록) 에서 tps (CSV 283MB) 는 문제없음
+- 로컬 확인: 피처 모양 (leaf 891×192, tps F0 800,000×31 · `~f1` ×41), 합성 예측으로 제출 파일 → 로컬 mle-bench 채점이 두 대회 모두
+  `valid_submission=True` (leaf 는 두 모델 평균까지)
+
+실행 (FM: H100 1장 + serverless CPU, Agent: 같은 엔드포인트끼리는 한 번에 하나)
+
+```bash
+# FM
+uv run --frozen fab databricks mleb-leaf-classification lgbm xgb catboost tabicl kumo
+uv run --frozen fab mleb grade leaf-classification lgbm xgb catboost tabicl kumo --each
+T=(lgbm catboost tabpfn_v2 tabicl kumo lgbm~f1 xgb~f1 catboost~f1 tabpfn_v2~f1 tabicl~f1 kumo~f1 kumo@rand200000~f1 tabicl@rand200000~f1)
+uv run --frozen fab databricks mleb-tps-may-2022 "${T[@]}"
+uv run --frozen fab mleb grade tabular-playground-series-may-2022 "${T[@]}" --each
+
+# Agent (Sonnet 줄과 GPT 줄을 하나씩 동시에, 대회마다)
+uv run --frozen fab mleb agent run leaf-classification aide-sonnet      # → claude-code-sonnet → claude-code-sonnet --continue
+uv run --frozen fab mleb agent run leaf-classification codex-gpt        # → aide-gpt
+```
+
+## P3 결과: tps-may-2022 · leaf-classification (2026-11-12, 1회씩)
+
+MLE-bench test, 괄호는 원래 Kaggle 리더보드 순위. FM 은 튜닝 없음. Agent 는 1시간 · A10 · 1회 (P1 처럼 2회째는 아직 없음).
+"공개 실험 중" = 공개 리더보드 에이전트(24시간) 실험별 시드 중앙값 사이 위치 (`results/mlebench_agents.csv`, 섞어 순위 매기지 않고 참고만).
+
+leaf-classification (logloss ↓, 1,596팀, 금 0.0 · 은 0.00791 · 동 0.01526 · 중앙값 0.10835)
+
+| 방식 | test | 공개 실험 중 | 시간 | CV (5-fold) |
+|---|---|---|---|---|
+| Agent: Codex × GPT | **0.00000 (1위, 금)** | 공동 1위 | 23분 (스스로 끝냄) | |
+| Agent: AIDE × Sonnet | 0.00385 (33위, 은) | 10위 / 33 | 60분 | |
+| Agent: AIDE × GPT | 0.01821 (193위) | | 60분, 429 12번 | |
+| FM: kumo | 0.01998 (219위) | 18위 | 2분 44초 (A10) | 0.0096 ± 0.0084 |
+| Agent: Claude Code × Sonnet +cont | 0.04197 (569위) | | 10분 (이어 가기 10번) | |
+| FM: tabicl | 0.05069 (619위) | 21위 | 54초 (A10) | 0.0148 ± 0.0092 |
+| Agent: Claude Code × Sonnet | 0.06297 (682위) | | 2분 19초 (스스로 끝냄) | |
+| GBDT: lgbm / catboost / xgb | 0.40629 (1,015위) / 0.45896 (1,037위) / 0.88510 (1,293위) | 24위~ | 6분 / 84분 / 3분 | 0.279 / 0.327 / 0.758 |
+
+- **GBDT 는 이 대회에서 안 됨**: 클래스당 학습 약 7행 (fold 학습) 이라 트리가 거의 못 배움. FM 은 같은 192열로 GBDT 최고 (lgbm 0.406) 의 1/8 (tabicl)~1/20 (kumo).
+  FM 대 GBDT 차이가 지금까지 대회 중 가장 큼 (nomad 는 GBDT 와 비슷, spaceship 은 GBDT 가 1위)
+- **Kumo 는 99 클래스를 받음**, TabICL 은 계층 분류. TabPFN v2 는 10 클래스까지라 안 돌림
+- **Codex 의 0.0 은 분할 구조를 쓴 결과**: 원래 데이터가 종마다 정확히 10장이라는 점에서 test 의 종별 개수 = 10 − train 개수를 계산하고,
+  test 99행을 종별 자리에 1:1 로 배정 (`scipy.optimize.linear_sum_assignment`, 점수는 192열 + 이미지 거리 모델) → 98/99행에 확률 1.0.
+  외부 데이터·Kaggle 풀이는 안 봄 (`kaggle_urls` 0). 공개 리더보드 1위권 (MARS 등 0.0) 도 비슷한 방법일 수 있음 (확인 안 함).
+  nomad 의 "정답 섞기" 와 같은 종류 (데이터 수집 방식에서 오는 사전 정보) → 에이전트 대 FM 비교에서 따로 읽음.
+  같은 배정을 FM 확률에 얹으면 FM 도 0.0 근처가 될 수 있음 (안 해 봄, C1 처럼 "모델 몫이 아닌 몫")
+- AIDE 둘은 배정을 안 씀: 잎 이미지 거리 + 정규화 판별 분석(RDA) 등 고전 모델 (88~89/99행 확률 > 0.999). Claude Code 는 표만 씀
+- CV 와 test 순서는 FM·GBDT 에서 같음 (test 99행이라 test 흔들림은 큼)
+
+tabular-playground-series-may-2022 (AUC ↑, 1,152팀, 금 0.99823 · 동 0.99818 · 중앙값 0.97268)
+
+| 방식 | test | 공개 실험 중 | 시간 |
+|---|---|---|---|
+| Agent: Codex × GPT | **0.99734 (240위)** | 5위 / 30 | 59분 (스스로 끝냄), 429 135번 (대기 9분 24초) |
+| Agent: Claude Code × Sonnet +cont | 0.99658 (311위) | 7위 | 38분 (이어 가기 9번) |
+| **FM: kumo@rand200000~f1** | **0.99232 (417위)** | 10위 | 25분 (H100) |
+| Agent: AIDE × GPT | 0.99156 (434위) | | 60분 |
+| Agent: Claude Code × Sonnet | 0.99145 (436위) | | 1분 23초 (스스로 끝냄) |
+| Agent: AIDE × Sonnet | 0.99137 (437위) | | 60분 (LLM 호출 3번) |
+| FM: tabicl@rand200000~f1 | 0.98189 (534위) | | 32분 (H100) |
+| FM: kumo~f1 (컨텍스트 1만) | 0.97442 (572위) | | 11분 (A10) |
+| GBDT: catboost~f1 / xgb~f1 / lgbm~f1 | 0.97223 (581위) / 0.96626 (600위) / 0.96585 (601위) | 18위~ | 13분 / 3분 / 5분 |
+| FM: tabicl~f1 / tabpfn_v2~f1 (컨텍스트 1만) | 0.95646 (628위) / 0.93095 (710위) | | 5분 / 26분 (A10) |
+| F0 (`f_27` 그대로): kumo / catboost / lgbm / tabicl / tabpfn_v2 | 0.93168 / 0.91743 / 0.90474 / 0.89663 / 0.87639 | | |
+
+- **`~f1` (f_27 글자 분해) 이 모든 모델을 AUC 0.04~0.06 올림**. F0 의 순위는 그대로 (kumo > catboost > lgbm > tabicl > tabpfn_v2)
+- **컨텍스트가 FM 순위를 정함**: 1만 행이면 kumo~f1 0.9744 ≈ catboost~f1 0.9722, 20만 행이면 0.9923 으로 GBDT 최고보다 0.020 높음
+  (kaggle-master 의 S6E1·S6E10 과 같은 방향). tabicl 도 1만 → 20만에서 0.956 → 0.982
+- **FM 한 번 (25분) 이 Sonnet 에이전트 셋과 AIDE × GPT 보다 위, Codex·Claude Code +cont 보다 아래**. 에이전트 위쪽 둘은 `f_27` 분해에 더해
+  교차 피처·신경망 (Codex: PyTorch MLP + GBDT 앙상블) 을 씀 → 메달권 (0.998) 은 피처 간 상호작용을 찾아야 나옴. 어느 쪽도 메달은 없음
+- Claude Code +cont 가 공식 설정 (1분 23초, 0.99145) 보다 크게 오름: 이어 가기 9번에 38분을 씀 (지금까지 +cont 중 가장 김, nomad P1 은 19분)
+- CV 와 test 순서가 거의 같음 (test 10만 행)
+- 어느 에이전트도 TFM 을 쓰지 않음. Codex 의 `kaggle_urls` 1 은 대회 설명(description.md)의 시작 노트북 링크를 기록에 다시 출력한 것 (사후 검사 오탐)
+
+실행 메모
+
+- FM GPU 작업의 H100 이 약 1시간 동안 안 잡힘 (PENDING, 워크스페이스에 다른 H100 작업 없음). 1만 행 컨텍스트 TFM 과 leaf 는 A10 으로 다시 냄
+  (`results.csv` 의 note `p3 (A10, H100 대기)`), `@rand200000` 둘만 H100. A10 에서 tabpfn_v2 는 1만 행 tps 에 21~26분
+- 비용: Agent 10회 A10 하네스 시간 합 6.2시간 (+ 실행마다 설치), 입력 토큰 6,580만 (Codex 둘이 6,290만), 출력 53만.
+  FM 학습 시간 합 (준비·대기 제외) GPU 2.3시간 (A10 1.4 + H100 0.95), GBDT CPU 2.9시간 (leaf catboost 99 클래스 84분, tps catboost F0 53분)
 
 ## 트랙 B 실행 환경 (2026-11-09 결정)
 
