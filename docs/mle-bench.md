@@ -126,7 +126,7 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 - 메달 기준선은 원래 Kaggle 리더보드, 채점은 다시 나눈 test → 근사. tabular playground 는 아주 작은 차이로 메달이 갈림
 - LLM 이 공개 Kaggle 풀이를 학습했을 수 있음 (FM 은 아님)
 - P0·P1·P3 의 Agent 는 아무도 FM 을 쓰지 않음 (환경에 미리 깔지 않음). C2 에서 바꿈
-- C2 의 AIDE × Sonnet +fm 3개는 프록시 문제 (#10) 로 실패해 결과에서 뺌 (`fab mleb agent exclude`). #10 을 고친 뒤 다시 돌림
+- C2 의 AIDE × Sonnet +fm 3개는 프록시 문제 (#10) 로 실패해 결과에서 뺌 (`fab mleb agent exclude`). 프록시는 고침 (아래 "FM API 호환 처리"), 다시 돌리는 건 남음
 
 ### 결과 파일
 
@@ -534,7 +534,7 @@ content 를 파트 목록으로 답했고 프록시가 그대로 넘겨 AIDE 의
 - tps: 첫 응답에서 → AIDE 가 종료 코드 1 로 끝남 (하네스 24초, 제출 없음)
 - nomad (3번째 응답)·leaf (15번째): 예외 뒤 AIDE 기록이 끊겼는데 (AIDE 첫 기록부터 nomad 는 25초, leaf 는 13분 뒤) 프로세스가 끝나지 않아
   1시간 제한에서 강제 종료됨 (`timed_out`, exit 없음). 그 전에 저장된 제출은 채점됐음 (nomad 0.06189, leaf 0.02965) → 표에 안 넣음
-- #10 을 고친 뒤 다시 돌림
+- 프록시는 고침 (2026-11-12, "FM API 호환 처리"). 다시 돌려 아래 표에 넣는 건 남음
 
 아래 표에서 실패한 실행의 FM 칸은 "–" (판단하지 않음). "안 씀" 은 끝까지 돈 실행에서 FM import 가 없었다는 뜻.
 
@@ -688,6 +688,7 @@ RMSLE ↓, 금 0.05589
 | AIDE 피드백 단계의 함수 호출 | Sonnet 은 강제 tool_choice·json_schema 를, GPT 는 Chat Completions 함수 도구를 거부 → 프록시가 도구를 "이 스키마의 JSON 만 답하라" 지시로 바꾸고 답을 함수 호출 응답으로 감쌈 (최대 3번). 원래 AIDE 는 네이티브 함수 호출 |
 | Claude Code 의 도구 검색 | `ENABLE_TOOL_SEARCH=false` (kaggle-master#40). 켜지면 첫 요청에 `anthropic-beta: advanced-tool-use-2025-11-20` 이 붙고 FM API 가 400 으로 거부 (P0 두 실행 모두 첫 요청 1회, 0.2초 뒤 다시 보내 결과엔 영향 없었음). 프록시에서 헤더만 빼면 지연 로드 도구가 검색 없이 남을 수 있어 기능 자체를 끔 → 처음부터 모든 도구를 넘김. 프록시가 요청마다 `beta`·`n_tools` 를 `proxy.jsonl` 에 기록 |
 | 429 (분당 입력 토큰 한도) | 프록시가 기다렸다 다시 보냄 (아래 "429") |
+| Chat Completions content 가 파트 목록 | 2026-11-12 (#10). 긴 프롬프트에서 Sonnet 이 `choices[].message.content` 를 문자열이 아닌 `[{"type": "text", "text": ...}]` 로 답함 (+fm 안내문이 붙은 AIDE 에서 일반 응답에도 나와 코드 추출이 `TypeError` 로 죽음). 프록시가 비스트리밍 Chat Completions 응답 (200) 을 다 받아 글 파트만 이어 붙인 문자열로 바꿔 넘기고, `proxy.jsonl` 에 본 파트 type 들을 `flattened` 로 기록. 글이 아닌 파트는 버림. GPT 는 문자열로 답해 바뀌지 않음. 스트리밍 Chat Completions 는 쓰는 하네스가 없어 그대로 넘김 |
 
 ### 429
 

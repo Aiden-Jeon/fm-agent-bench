@@ -618,6 +618,24 @@ def message_text(content) -> str:
     return content or ""
 
 
+def flatten_chat_content(data: bytes) -> tuple[bytes, list[str]] | None:
+    """비스트리밍 Chat Completions 응답 본문의 choices[].message.content 가 파트 목록이면 message_text 로 합친 문자열로 바꿈
+    → (새 본문, 본 파트 type 들). 바꿀 게 없거나 JSON 이 아니면 None. AIDE 는 content 를 문자열로 가정함 (#10: +fm 의 긴
+    프롬프트에서 Sonnet 이 일반 응답도 파트 목록으로 줘서 코드 추출이 TypeError 로 죽음). 글이 아닌 파트는 버림"""
+    try:
+        resp = json.loads(data)
+    except ValueError:
+        return None
+    types = set()
+    for choice in resp.get("choices") or [] if isinstance(resp, dict) else []:
+        msg = choice.get("message") if isinstance(choice, dict) else None
+        if isinstance(msg, dict) and isinstance(msg.get("content"), list):
+            types |= {str(p.get("type")) for p in msg["content"] if isinstance(p, dict)}
+            msg["content"] = message_text(msg["content"])
+            types.add("text")
+    return (json.dumps(resp).encode(), sorted(types)) if types else None
+
+
 def parse_tool_json(content, fn: dict) -> dict | None:
     m = re.search(r"\{.*\}", message_text(content), re.S)
     try:
@@ -698,7 +716,10 @@ def make_proxy(ws):
                        if k.lower() not in ("host", "authorization", "x-api-key", "content-length", "connection",
                                             "accept-encoding", "content-encoding", "traceparent", "tracestate")}
             headers |= {"Content-Length": str(len(body)), **upstream_headers(ctx)}
-            tail, status, waited, retries, conn = b"", None, 0, 0, None
+            # 비스트리밍 Chat Completions (AIDE) 는 다 받아서 content 파트 목록을 문자열로 바꿔 넘김 (flatten_chat_content).
+            # 스트리밍 Chat Completions 는 쓰는 하네스가 없어 그대로 넘김
+            buffered = path == "/openai/v1/chat/completions" and not req.get("stream")
+            tail, status, waited, retries, conn, flattened = b"", None, 0, 0, None, None
             try:
                 conn, resp, retries, waited = self.send(target, body, headers)
                 status = resp.status
@@ -707,7 +728,13 @@ def make_proxy(ws):
                     if k.lower() not in ("transfer-encoding", "content-length", "connection", "content-encoding"):
                         self.send_header(k, v)
                 self.end_headers()
-                while chunk := resp.read1(65536) if hasattr(resp, "read1") else resp.read(65536):
+                if buffered:
+                    data = resp.read()
+                    if status == 200 and (flat := flatten_chat_content(data)):
+                        data, flattened = flat
+                    self.wfile.write(data)
+                    tail = data[-200_000:]
+                while not buffered and (chunk := resp.read1(65536) if hasattr(resp, "read1") else resp.read(65536)):
                     self.wfile.write(chunk)
                     self.wfile.flush()
                     tail = (tail + chunk)[-200_000:]
@@ -721,9 +748,11 @@ def make_proxy(ws):
             err = text[:500] if status and status >= 400 else None
             self.record(dict(path=path, asked=asked, status=status, secs=round(time.time() - t, 1), **usage, **sent,
                              **({"error": err} if err else {}), **({"dropped": dropped} if dropped else {}),
+                             **({"flattened": flattened} if flattened else {}),
                              **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})))
             trace_llm(ctx, path, t, req, len(body), text, status, asked, usage,
-                      dict(sent, retries_429=retries, waited_429=round(waited, 1), dropped=",".join(dropped) or None))
+                      dict(sent, retries_429=retries, waited_429=round(waited, 1), dropped=",".join(dropped) or None,
+                           flattened=",".join(flattened or []) or None))
 
         def reject(self, status: int, path: str, message: str):
             body = json.dumps({"error": {"message": message[:500]}}).encode()
