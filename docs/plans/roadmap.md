@@ -38,11 +38,11 @@ TabArena 연동 전에 확인할 것
 | 단계 | 내용 | 완료 기준 |
 |---|---|---|
 | P0 ✓ | MLE-bench spaceship·nomad: FM 채점, Agent 4설정 × 1회 (+cont 2회) | [docs/mle-bench.md](../mle-bench.md) |
-| P1 ✓ | 신뢰도: Agent 2회째 (FM 시드 반복·부트스트랩은 안 함, 아래 "P1 범위") | [docs/mle-bench.md](../mle-bench.md) 의 P1 결과 |
-| P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 C1 결과 |
-| P3 ✓ | MLE-bench 표 형식 대회 확장: tps-may-2022, leaf-classification (FM × Agent 1회씩, 2026-11-12). 남은 대회 (s3e18·dec-2021·taxi) 는 나중에 | [docs/mle-bench.md](../mle-bench.md) 의 P3 결과 |
+| P1 ✓ | 신뢰도: Agent 2회째 (FM 시드 반복·부트스트랩은 안 함, 아래 "P1 범위") | [docs/mle-bench.md](../mle-bench.md) 의 "P1" |
+| P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 "C1" |
+| P3 ✓ | MLE-bench 표 형식 대회 확장: tps-may-2022, leaf-classification (FM × Agent 1회씩, 2026-11-12). 남은 대회 (s3e18·dec-2021·taxi) 는 나중에 | [docs/mle-bench.md](../mle-bench.md) 의 "P3" |
 | P4 | TabArena 연동 (위 확인 → `fab/bench/tabarena/`) | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
-| P5 | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`, 아래 "C2 규칙"). nomad 1회째 (Codex·Claude Code +cont, 2026-11-12, [docs/mle-bench.md](../mle-bench.md) 의 "C2 결과 1회째"). 마무리 (leaf·tps-may 4설정, nomad AIDE 2설정, 2026-11-12, "C2 마무리"). aide-sonnet+fm 3개는 #10 (프록시) 을 고친 뒤 다시 | Agent 와 C2 를 같은 대회·시드로 |
+| P5 | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`, 아래 "C2 규칙"). nomad 1회째 (Codex·Claude Code +cont, 2026-11-12, [docs/mle-bench.md](../mle-bench.md) 의 "C2"). 마무리 (leaf·tps-may 4설정, nomad AIDE 2설정, 2026-11-12, "C2 마무리"). aide-sonnet+fm 3개는 #10 (프록시) 을 고친 뒤 다시 | Agent 와 C2 를 같은 대회·시드로 |
 | P6 | 정리 | 방식 × 벤치마크 결과 문서 |
 
 kaggle-master 에 열려 있던 이슈 (그쪽에 남김, 진행할 때 이 저장소에 새로 엶):
@@ -133,7 +133,7 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 
 ## 정해야 할 것
 
-(정함) +cont 이어 가기 상한: 도구 0개 구간 연속 3번 + 전체 40번 (2026-11-11, [docs/mle-bench.md](../mle-bench.md) 의 +cont 결과)
+(정함) +cont 이어 가기 상한: 도구 0개 구간 연속 3번 + 전체 40번 (2026-11-11, [docs/mle-bench.md](../mle-bench.md) 의 "+cont")
 
 (정함) C2 의 FM 목록과 안내 문구: tabpfn_v2·tabicl·kumo, 이름 + 사용 예 (2026-11-12, 위 "C2 규칙")
 
