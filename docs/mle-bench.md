@@ -393,6 +393,21 @@ uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors clau
 - `tfm_at_submit` 고친 것: 처음엔 제출 파일 시각(`cp` 한 때)으로 봐서 Claude Code 가 빈칸이었음 → 작업 디렉터리에서 제출과
   내용이 같은 파일의 가장 이른 시각으로 봄
 
+## C2 마무리: leaf · tps-may · nomad (2026-11-12, 진행 중)
+
+C2 1회째 (nomad) 는 FM 과 GBDT 차이가 작은 대회라 "FM 을 줘서 나아졌나" 가 안 갈림 → FM 이 크게 앞서는 대회에서 돌림
+(leaf: FM 이 GBDT 의 1/8~1/20 오차, tps-may: kumo 20만 행 컨텍스트가 GBDT 보다 AUC 0.02 높음). 같은 설정의 Agent (P3·P0·P1) 와 비교.
+
+| 대회 | 설정 (`+fm`, rep 1) |
+|---|---|
+| leaf-classification | codex-gpt, aide-gpt, aide-sonnet, claude-code-sonnet+cont |
+| tabular-playground-series-may-2022 | codex-gpt, aide-gpt, aide-sonnet, claude-code-sonnet+cont |
+| nomad2018 (1회째에 없던 것) | aide-gpt, aide-sonnet |
+
+- 같은 LLM 엔드포인트끼리는 차례로 (GPT 줄 · Sonnet 줄을 하나씩 동시에), 2026-11-12 14:47 시작
+- 뺀 것: spaceship (FM·GBDT·Agent 차이가 test 흔들림 안), claude-code-sonnet 공식 설정 (몇 초 만에 스스로 끝나 FM 을 쓸 틈이 없음 → +cont 로 봄)
+- 볼 것: 점수 (같은 설정의 Agent 대비), FM 을 실제로 썼는지 (`tfm_runtime`), 제출에 들었는지 (`tfm_at_submit`)
+
 ## 트랙 B 실행 환경 (2026-11-09 결정)
 
 | 항목 | 결정 |
