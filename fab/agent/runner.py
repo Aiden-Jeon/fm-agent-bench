@@ -614,26 +614,27 @@ def tools_as_json_prompt(req: dict) -> tuple[dict, dict] | None:
 def message_text(content) -> str:
     """Chat Completions 의 content: 문자열, 또는 파트 목록 (긴 프롬프트에서 Claude 가 [{type: text, text}, ...] 로 답함)."""
     if isinstance(content, list):
-        return "".join(p.get("text", "") for p in content if isinstance(p, dict) and p.get("type") in (None, "text"))
+        return "".join(p.get("text") or "" for p in content if isinstance(p, dict) and p.get("type") in (None, "text"))
     return content or ""
 
 
-def flatten_chat_content(data: bytes) -> tuple[bytes, list[str]] | None:
+def flatten_chat_content(data: bytes) -> tuple[bytes, list[str], bool] | None:
     """비스트리밍 Chat Completions 응답 본문의 choices[].message.content 가 파트 목록이면 message_text 로 합친 문자열로 바꿈
-    → (새 본문, 본 파트 type 들). 바꿀 게 없거나 JSON 이 아니면 None. AIDE 는 content 를 문자열로 가정함 (#10: +fm 의 긴
-    프롬프트에서 Sonnet 이 일반 응답도 파트 목록으로 줘서 코드 추출이 TypeError 로 죽음). 글이 아닌 파트는 버림"""
+    → (새 본문, 본 파트 type 들 (type 없는 파트는 text), 합친 글이 빈 choice 가 있었는지). 바꿀 게 없거나 JSON 이 아니면 None.
+    AIDE 는 content 를 문자열로 가정함 (#10: +fm 의 긴 프롬프트에서 Sonnet 이 일반 응답도 파트 목록으로 줘서 코드 추출이
+    TypeError 로 죽음). 글이 아닌 파트는 버림 (글 파트가 없으면 빈 문자열: 빈 답과 같게 AIDE 가 처리)"""
     try:
         resp = json.loads(data)
     except ValueError:
         return None
-    types = set()
+    types, changed, empty = set(), False, False
     for choice in resp.get("choices") or [] if isinstance(resp, dict) else []:
         msg = choice.get("message") if isinstance(choice, dict) else None
         if isinstance(msg, dict) and isinstance(msg.get("content"), list):
-            types |= {str(p.get("type")) for p in msg["content"] if isinstance(p, dict)}
+            types |= {str(p.get("type") or "text") for p in msg["content"] if isinstance(p, dict)}
             msg["content"] = message_text(msg["content"])
-            types.add("text")
-    return (json.dumps(resp).encode(), sorted(types)) if types else None
+            changed, empty = True, empty or not msg["content"]
+    return (json.dumps(resp, ensure_ascii=False).encode(), sorted(types), empty) if changed else None
 
 
 def parse_tool_json(content, fn: dict) -> dict | None:
@@ -669,11 +670,7 @@ def make_proxy(ws):
                 self.record(dict(path=self.path, status=502, proxy_error=repr(e)[:500]),
                             "otel.jsonl" if otel else "proxy.jsonl")
                 try:
-                    body = json.dumps({"error": {"message": f"fab proxy error: {e!r}"[:500]}}).encode()
-                    self.send_response(502)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(body)
+                    self.respond(502, json.dumps({"error": {"message": f"fab proxy error: {e!r}"[:500]}}).encode())
                 except OSError:
                     pass
 
@@ -719,25 +716,29 @@ def make_proxy(ws):
             # 비스트리밍 Chat Completions (AIDE) 는 다 받아서 content 파트 목록을 문자열로 바꿔 넘김 (flatten_chat_content).
             # 스트리밍 Chat Completions 는 쓰는 하네스가 없어 그대로 넘김
             buffered = path == "/openai/v1/chat/completions" and not req.get("stream")
-            tail, status, waited, retries, conn, flattened = b"", None, 0, 0, None, None
+            tail, status, waited, retries, conn, flat = b"", None, 0, 0, None, None
             try:
                 conn, resp, retries, waited = self.send(target, body, headers)
                 status = resp.status
-                self.send_response(resp.status)
-                for k, v in resp.getheaders():
-                    if k.lower() not in ("transfer-encoding", "content-length", "connection", "content-encoding"):
-                        self.send_header(k, v)
-                self.end_headers()
+                passed = [(k, v) for k, v in resp.getheaders()
+                          if k.lower() not in ("transfer-encoding", "content-length", "connection", "content-encoding")]
                 if buffered:
+                    # 다 읽고 바꾼 뒤에 상태 줄을 보냄: 읽다 실패하면 (끊김·시간 초과) 아직 아무것도 안 보냈으니 do_POST 가
+                    # 깨끗한 502 를 줌 → AIDE 가 다시 요청
                     data = resp.read()
                     if status == 200 and (flat := flatten_chat_content(data)):
-                        data, flattened = flat
-                    self.wfile.write(data)
+                        data = flat[0]
+                    self.respond(status, data, passed)
                     tail = data[-200_000:]
-                while not buffered and (chunk := resp.read1(65536) if hasattr(resp, "read1") else resp.read(65536)):
-                    self.wfile.write(chunk)
-                    self.wfile.flush()
-                    tail = (tail + chunk)[-200_000:]
+                else:
+                    self.send_response(status)
+                    for k, v in passed:
+                        self.send_header(k, v)
+                    self.end_headers()
+                    while chunk := resp.read1(65536) if hasattr(resp, "read1") else resp.read(65536):
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                        tail = (tail + chunk)[-200_000:]
             except (BrokenPipeError, ConnectionResetError):
                 pass
             finally:
@@ -748,18 +749,23 @@ def make_proxy(ws):
             err = text[:500] if status and status >= 400 else None
             self.record(dict(path=path, asked=asked, status=status, secs=round(time.time() - t, 1), **usage, **sent,
                              **({"error": err} if err else {}), **({"dropped": dropped} if dropped else {}),
-                             **({"flattened": flattened} if flattened else {}),
+                             **({"flattened": flat[1]} if flat else {}), **({"flattened_empty": True} if flat and flat[2] else {}),
                              **({"retries_429": retries, "waited": round(waited, 1)} if retries else {})))
             trace_llm(ctx, path, t, req, len(body), text, status, asked, usage,
                       dict(sent, retries_429=retries, waited_429=round(waited, 1), dropped=",".join(dropped) or None,
-                           flattened=",".join(flattened or []) or None))
+                           flattened=",".join(flat[1]) if flat else None, flattened_empty=(flat[2] or None) if flat else None))
+
+        def respond(self, status: int, data: bytes, headers=(("Content-Type", "application/json"),)):
+            """다 만든 본문을 한 번에 보냄 (Content-Length 포함). 비스트리밍 응답·프록시 오류가 같이 씀."""
+            self.send_response(status)
+            for k, v in headers:
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
 
         def reject(self, status: int, path: str, message: str):
-            body = json.dumps({"error": {"message": message[:500]}}).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(body)
+            self.respond(status, json.dumps({"error": {"message": message[:500]}}).encode())
             self.record(dict(path=path, status=status, proxy_error=message[:500]))
 
         def send(self, target: str, body: bytes, headers: dict):
@@ -820,10 +826,7 @@ def make_proxy(ws):
                 status = 502
                 data = json.dumps({"error": {"message": f"fab proxy: no valid `{fn['name']}` JSON after "
                                                         f"{tries} tries"}}).encode()
-            self.send_response(status or 502)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(data)
+            self.respond(status or 502, data)
             self.record(dict(path=self.path, asked=asked, status=status, secs=round(time.time() - t, 1),
                              tool_json=fn["name"], tool_tries=tries, tool_ok=obj is not None,
                              **{k: v for k, v in usage.items() if k in USAGE_KEYS},

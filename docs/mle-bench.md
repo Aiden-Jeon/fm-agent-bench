@@ -688,7 +688,7 @@ RMSLE ↓, 금 0.05589
 | AIDE 피드백 단계의 함수 호출 | Sonnet 은 강제 tool_choice·json_schema 를, GPT 는 Chat Completions 함수 도구를 거부 → 프록시가 도구를 "이 스키마의 JSON 만 답하라" 지시로 바꾸고 답을 함수 호출 응답으로 감쌈 (최대 3번). 원래 AIDE 는 네이티브 함수 호출 |
 | Claude Code 의 도구 검색 | `ENABLE_TOOL_SEARCH=false` (kaggle-master#40). 켜지면 첫 요청에 `anthropic-beta: advanced-tool-use-2025-11-20` 이 붙고 FM API 가 400 으로 거부 (P0 두 실행 모두 첫 요청 1회, 0.2초 뒤 다시 보내 결과엔 영향 없었음). 프록시에서 헤더만 빼면 지연 로드 도구가 검색 없이 남을 수 있어 기능 자체를 끔 → 처음부터 모든 도구를 넘김. 프록시가 요청마다 `beta`·`n_tools` 를 `proxy.jsonl` 에 기록 |
 | 429 (분당 입력 토큰 한도) | 프록시가 기다렸다 다시 보냄 (아래 "429") |
-| Chat Completions content 가 파트 목록 | 2026-11-12 (#10). 긴 프롬프트에서 Sonnet 이 `choices[].message.content` 를 문자열이 아닌 `[{"type": "text", "text": ...}]` 로 답함 (+fm 안내문이 붙은 AIDE 에서 일반 응답에도 나와 코드 추출이 `TypeError` 로 죽음). 프록시가 비스트리밍 Chat Completions 응답 (200) 을 다 받아 글 파트만 이어 붙인 문자열로 바꿔 넘기고, `proxy.jsonl` 에 본 파트 type 들을 `flattened` 로 기록. 글이 아닌 파트는 버림. GPT 는 문자열로 답해 바뀌지 않음. 스트리밍 Chat Completions 는 쓰는 하네스가 없어 그대로 넘김 |
+| Chat Completions content 가 파트 목록 | 2026-11-12 (#10). 긴 프롬프트에서 Sonnet 이 `choices[].message.content` 를 문자열이 아닌 `[{"type": "text", "text": ...}]` 로 답함 (+fm 안내문이 붙은 AIDE 에서 일반 응답에도 나와 코드 추출이 `TypeError` 로 죽음). 프록시가 비스트리밍 Chat Completions 응답 (200) 을 다 받아 글 파트만 이어 붙인 문자열로 바꿔 넘기고, `proxy.jsonl` 에 본 파트 type 들을 `flattened` 로 기록. 글이 아닌 파트는 버림 (글 파트가 없어 빈 문자열이 되면 `flattened_empty`). 상태 줄은 다 읽고 바꾼 뒤에 보냄 (읽다 실패하면 502 → AIDE 가 다시 요청). GPT 는 문자열로 답해 바뀌지 않음. 스트리밍 Chat Completions 는 쓰는 하네스가 없어 그대로 넘김 |
 
 ### 429
 
