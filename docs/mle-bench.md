@@ -8,6 +8,75 @@ kaggle-master 의 `docs/plans/mle-bench.md` 를 옮긴 것 (2026-11-10 까지의
 1. ML 에이전트(하네스 × LLM)가 몇 시간 들여 만든 풀이와, 튜닝 없는 TFM 한 번 추론의 성능이 얼마나 차이 나는가
 2. 에이전트가 만든 전처리(피처)를 TFM 에 넣으면 TFM 성능이 오르는가 — 오른다면 GBDT 보다 더 오르는가
 
+## 대회별 결과 요약 (P0~P3·C1·C2, 2026-11-12 기준)
+
+README 의 성능 표를 대회별로 펼친 것. MLE-bench test 점수, 괄호는 원래 Kaggle 리더보드에서의 위치. FM·GBDT 는 튜닝 없음. Agent 는 1회째 / 2회째.
+자세한 표·해석은 아래 P0·P1·C1·P3·C2 결과. P3 (tps·leaf) 의 Agent 는 1회째만.
+
+nomad2018-predict-transparent-conductors (열별 RMSLE 평균 ↓, 879팀, 금 0.05589)
+
+| 방식 | 점수 | 시간 |
+|---|---|---|
+| **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04523 (1위)** / 0.04803 (1위) | 15분 / 1분 (피처 계산 포함) |
+| Agent: Codex × GPT | 0.04847 (1위) / 0.04567 (1위) | 59분 / 57분 |
+| FM 을 깐 Agent (C2): Codex × GPT +fm | 0.04589 (1위) | 57분 (kumo 를 계속 씀) |
+| GBDT + Agent 피처 (C1): catboost~f2s | 0.04976 (1위) | 23분 |
+| Agent: Claude Code × Sonnet +cont | 0.05267 (4위) / 0.05157 (2위) | 5분 / 19분 |
+| Agent: AIDE × GPT | 제출 없음 / 0.05308 (5위) | 60분 |
+| Agent: AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | 60분 |
+| FM: kumo (원본 열) | 0.05734 (17위) | 22초 |
+| FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.13875 (833위) | 6분 (TabPFN·TabICL 을 씀, 학습·test 열 순서가 어긋난 에이전트 버그) |
+| Agent: Claude Code × Sonnet | 0.06134 (42위) / 0.06253 (53위) | 20초 / 40초 (스스로 끝냄) |
+
+spaceship-titanic (accuracy ↑, 2288팀, test 870행)
+
+| 방식 | 점수 | 시간 |
+|---|---|---|
+| GBDT: catboost / FM: kumo / FM: tabpfn_v2 | **0.8241 (2위)** / 0.8218 (6위) / 0.8207 (11위) | 26초 / 47초 / 100초 |
+| Agent: Codex × GPT | 0.8184 (41위) / 0.8241 (2위) | 58분 |
+| Agent: AIDE × GPT | 0.8184 (41위) / 0.8149 (77위) | 60분 |
+| Agent: Claude Code × Sonnet | 0.8161 (58위) / 0.8058 (375위) | 18초 / 16초 |
+| Agent: AIDE × Sonnet | 0.8115 (199위) / 0.8115 (199위) | 60분 |
+| Agent: Claude Code × Sonnet +cont | 0.8115 (199위) / 0.8103 (217위) | 3분 / 2분 |
+
+tabular-playground-series-may-2022 (AUC ↑, 1152팀, 금 0.99823, test 10만 행)
+
+| 방식 | 점수 | 시간 |
+|---|---|---|
+| Agent: Codex × GPT | **0.99734 (240위)** | 59분 |
+| Agent: Claude Code × Sonnet +cont | 0.99658 (311위) | 38분 |
+| FM: kumo@rand200000~f1 (사람 피처, 컨텍스트 20만) | 0.99232 (417위) | 25분 |
+| Agent: AIDE × GPT / Claude Code × Sonnet / AIDE × Sonnet | 0.99156 (434위) / 0.99145 (436위) / 0.99137 (437위) | 60분 / 1분 / 60분 |
+| GBDT: catboost~f1 | 0.97223 (581위) | 13분 |
+| FM: kumo (원본 열, 컨텍스트 1만) | 0.93168 (708위) | 10분 |
+
+leaf-classification (99 클래스 logloss ↓, 1596팀, 금 0.0, test 99행)
+
+| 방식 | 점수 | 시간 |
+|---|---|---|
+| Agent: Codex × GPT | **0.00000 (1위)** (분할 구조를 씀, 아래) | 23분 |
+| Agent: AIDE × Sonnet | 0.00385 (33위) | 60분 |
+| Agent: AIDE × GPT | 0.01821 (193위) | 60분 |
+| FM: kumo / tabicl | 0.01998 (219위) / 0.05069 (619위) | 3분 / 1분 |
+| Agent: Claude Code × Sonnet +cont / Claude Code × Sonnet | 0.04197 (569위) / 0.06297 (682위) | 10분 / 2분 |
+| GBDT: lgbm (최고) | 0.40629 (1015위) | 6분 |
+
+- 표 밖의 정보가 있는 nomad 는 원본 열만 쓴 FM 보다 에이전트가 앞섬: Codex 가 결정 구조 파일(`geometry.xyz`)로 피처를 만듦.
+  그 피처를 FM 에 넣으면 (C1) FM 한 번이 에이전트 1시간을 넘음 (kumo~f2 0.04523). 다만 GBDT 도 비슷하게 좋아져서
+  "FM 에 특히 도움" 은 kumo × 전체 피처 하나뿐
+- 순수 표 형식인 spaceship 은 방식 사이 차이가 대부분 test 크기에서 오는 흔들림(정확도 표준오차 약 0.013) 안 → 뚜렷한 차이 없음.
+  밖인 건 Claude Code × Sonnet 2회째 (0.8058, 최고 0.8241 과 0.018 차이, 16초 만에 스스로 끝낸 실행)
+- 에이전트 2회째에도 설정 순위는 같음 (nomad). 어느 에이전트도 FM 을 쓰지 않음 (환경에 미리 깔지 않음, C2 에서 바꿈)
+- tps: 컨텍스트를 20만 행으로 늘린 kumo 가 GBDT 최고보다 AUC 0.020 높고 Sonnet·AIDE 에이전트보다 위. Codex·Claude Code +cont 는
+  교차 피처·신경망으로 그보다 위 (메달은 없음)
+- leaf: 클래스당 약 7행이라 GBDT 는 안 되고 FM 이 크게 앞섬. Codex 의 0.0 은 "원래 종마다 10장" 에서 test 의 종별 개수를 계산해
+  test 행을 1:1 로 배정한 결과 (외부 데이터 아님, nomad 의 정답 섞기와 같은 종류라 따로 읽음)
+- 1시간 예산이라 공개 리더보드(24시간)와 섞어 순위 매기지 않음
+
+결과 표: `results/mlebench.csv` (FM 채점), `results/mlebench_runs.csv` (에이전트 실행), `results/mlebench_agents.csv`
+(공개 리더보드 에이전트), `results/results.csv` (FM 의 CV). `mlebench_agents.csv` 를 뺀 셋은 원본이 Volume 의 `tables/` 이고
+로컬 파일은 `fab sync` 로 받은 사본 (README 의 "사용").
+
 ## 전제
 
 - MLE-bench(`openai/mle-bench`)는 원래 train 을 다시 나눠 자체 test(private 정답)를 만들고 `mlebench grade-sample` 로 채점.
