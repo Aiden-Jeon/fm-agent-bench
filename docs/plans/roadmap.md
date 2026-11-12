@@ -110,7 +110,7 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 | 깔 TFM | `tabpfn_v2` (tabpfn 9.2.0), `tabicl` (2.2.0), `kumo` (structured-data-models 0.2.1, `nvidia/Kumo-Tabular` v1.0.1) | C1 의 TFM 셋. 셋 다 라이선스 동의 없이 받음 (TabPFN 은 v2 만, Kumo 는 Apache-2.0). 버전은 FM 실행 이미지와 같게 |
 | 가중치 | 하네스 시작 전에 받아 둠 (HOME 캐시) | 받는 시간을 1시간에 넣지 않음. 설치·사전 점검도 1시간 밖 (공식 설정의 패키지 설치와 같은 자리) |
 | 지시문 | 공식 지시문 + 추가 안내 뒤, 대회 설명 앞에 `fab/agent/fm_notes.txt` (영어 약 3,300자): 이름·제약 (TabPFN 1만 행·10 클래스 등) + 그대로 도는 사용 예. "optional" 이라고 적고 쓰라고 권하지 않음 | 이름만 주면 TabPFN 기본값(최신 버전)이 브라우저 라이선스 동의에서 실패하고 Kumo 는 `TableTensor` API 를 찾아야 해서, "FM 이 도움이 되나" 대신 "API 를 찾아내나" 를 잼 |
-| 사전 점검 | `fab/agent/fm_warmup.py` 가 안내문의 사용 예를 **그대로** 합성 데이터(3 클래스 + 회귀)로 실행. 하나라도 실패하면 하네스를 시작하지 않음 (meta.json 의 `fm`) | 에이전트가 받은 예가 실제로 돎을 보장, 실행마다 받은 TFM 이 달라지지 않게 |
+| 사전 점검 | `fab/agent/fm_warmup.py` 가 안내문의 사용 예를 **그대로** 합성 데이터(3 클래스 + 회귀)로 실행. 하나라도 실패하면 하네스를 시작하지 않음 (meta.json 의 `fm_warmup`) | 에이전트가 받은 예가 실제로 돎을 보장, 실행마다 받은 TFM 이 달라지지 않게 |
 | Kumo 컴파일 도구 | gcc·Python.h 가 없으면 apt 로 설치 시도 (meta.json 의 `fm_build_tools`) | FM 실행 이미지에서 베이스에 없어 넣었던 것 (docs/known-issues.md). 에이전트 노드는 이미지가 아닌 기본 환경 |
 | 썼는지 | 실행 중 import 기록 (`fab/agent/fm_audit.py`, 모든 실행에 깖, 에이전트에게는 안 알림) + 코드 검사 | 아래 열 |
 
@@ -121,9 +121,11 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 | `fm_offered` | +fm 이 깔아 준 TFM (사전 점검 통과). 공식 설정은 비어 있음 |
 | `tfm_imported` | 작업 디렉터리 코드의 import 문 (Kumo 는 `sdm`). `tfm_in_code` 는 이름만 (주석 포함, `KumoTabular` 도 이제 셈) |
 | `tfm_runtime`·`tfm_runtime_procs` | 실행 중 하네스와 그 자식 프로세스가 실제로 import 한 TFM, 그런 프로세스 수 (모듈 실행이 끝나야 셈: 설치 여부만 보는 `find_spec` 은 안 셈) |
-| `tfm_at_submit` | 마지막 `submission.csv` 를 쓴 시각에 살아 있던, TFM 을 import 한 프로세스의 TFM. 근사: TFM 예측을 파일로 남기고 다른 프로세스에서 섞으면 빠지고, TFM 을 import 만 한 프로세스가 다른 모델로 제출하면 잡힘 → 최종 풀이 코드로 확인 |
+| `tfm_at_submit` | 마지막 `submission.csv` 를 쓴 시각에 살아 있던, TFM 을 import 한 프로세스의 TFM. 끝난 시각은 exit 줄, 없으면 (강제 종료·`os._exit`: AIDE 의 코드 실행 프로세스, multiprocessing 자식) 30초마다 남기는 alive 줄로 어림. 근사: TFM 예측을 파일로 남기고 다른 프로세스에서 섞으면 빠지고, TFM 을 import 만 한 프로세스가 다른 모델로 제출하면 잡힘 → 최종 풀이 코드로 확인 |
 
-- 이 기록 이전 실행(P0·P1)은 `tfm_runtime`·`tfm_at_submit` 가 비어 있음 (None). `fab mleb agent recheck` 로 다시 계산해도 같음
+- 이 기록 이전 실행(P0·P1)은 `tfm_runtime`·`tfm_at_submit` 가 비어 있음 (None). `fab mleb agent recheck` 로 다시 계산해도 같음.
+  CSV 에서는 None 과 빈 목록(기록은 있는데 안 씀)이 둘 다 빈칸 → 가르는 건 `tfm_runtime_procs` (빈칸 = 기록 없음, 0 = 안 씀)
+- import 기록은 loader 클래스를 바꾸지 않고 그 모듈 loader 인스턴스의 `exec_module` 만 감쌈 (pkg_resources 처럼 loader 종류로 고르는 코드가 그대로 동작)
 - +fm 실행은 지시문에 TFM 이름이 있어 `tfm_mentions` 가 늘 참 → 보지 않음
 - 환경 차이: TFM 설치가 공유 의존성(torch·numpy 등)의 버전을 바꿀 수 있음 → 같은 대회의 공식 설정 실행과 `pip_before.txt` 를 비교해 적음
 - 읽는 법: C2 점수 − 같은 설정 Agent 점수 (1·2회째). FM 을 썼으면 C1 (같은 대회의 "에이전트 피처 + FM") 과도 비교:

@@ -45,6 +45,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from fab.agent.fm_audit import HEARTBEAT, WATCH
 from fab.core.results import OUTPUTS, RESULTS, table_lock
 from fab.remote import items, submit_item
 from fab.remote import settings as remote_settings
@@ -60,7 +61,9 @@ CONFIGS = {
 }
 CONTINUE_SUFFIX = "+cont"  # --continue 로 돌린 별도 설정의 이름 꼬리표 (공식 설정과 결과 표에서 섞이지 않게)
 FM_SUFFIX = "+fm"  # --fm (C2): 환경에 TFM 을 깐 설정
-FM_EXTRA_MINUTES = 30  # --fm 의 작업 시간 여유 더하기: TFM 설치·가중치 받기·사전 점검 (하네스 1시간 밖)
+# --fm 의 작업 시간 여유 더하기 (하네스 1시간 밖): TFM pip 설치 + apt (runner.py 의 APT_TIMEOUT × 2) + 사전 점검
+# (FM_WARMUP_TIMEOUT × 3) 최악 합 약 60분에 여유. 작업 시간 상한이라 넉넉해도 비용은 실제로 쓴 만큼
+FM_EXTRA_MINUTES = 75
 GATEWAY_SUFFIX = "+gw"  # gateway: true 로 돌린 실행의 꼬리표 (분당 한도·거부 조건이 FM API 와 달라 섞지 않게, llm_route 열과 같은 뜻)
 HARNESS_VERSIONS = {"aide": "v6.3.3", "claude-code": "2.1.319", "codex": "0.167.0"}  # MLE-bench 의 AIDE 포크 태그
 ACCELERATOR = "GPU_1xA10"
@@ -70,10 +73,9 @@ HERE = Path(__file__).parent
 # 사후 검사: 에이전트가 TFM 을 썼는지, Kaggle 풀이·토론을 봤는지 (기록에서 찾음)
 # 단어 경계: "carte" 가 "Cartesian" 에 걸렸음 (2026-11-09 nomad Codex). Kumo 는 코드에 KumoTabular 로 나옴 → kumo 로 셈
 TFM_PATTERN = re.compile(r"\b(tabpfn|tabicl|kumo(?:tabular)?|autogluon|mitra|limix|exaone|tabdpt|carte)\b", re.I)
-# 코드의 import 문 (주석·문자열의 이름은 안 셈). 모듈 → TFM 이름은 fm_audit.py 의 WATCH 와 같게 (Kumo 의 모듈은 sdm)
-TFM_IMPORT = re.compile(r"^\s*(?:from|import)\s+(tabpfn|tabicl|sdm|autogluon|limix|exaonetabular|causilo|tabdpt|mitra)\b",
-                        re.M)
-TFM_MODULES = {"sdm": "kumo", "exaonetabular": "exaone"}
+# 코드의 import 문 (주석의 이름은 안 셈): `import a, b as c` 는 모듈마다, `from a.b import c` 는 a.
+# 모듈 → TFM 이름은 실행 중 기록과 같은 표 (fm_audit.WATCH, Kumo 의 모듈은 sdm)
+IMPORT_LINE = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\b|import\s+([\w., ]+))", re.M)
 # databricks fs ls 가 경로 없음으로 실패할 때의 메시지 (그 밖의 실패는 일시적 오류로 봄)
 MISSING = re.compile(r"no such (?:file|directory)|not found|does not exist|RESOURCE_DOES_NOT_EXIST", re.I)
 KAGGLE_PATTERN = re.compile(r"kaggle\.com/(?:code|competitions/[^/\s\"']+/(?:discussion|code))", re.I)
@@ -213,22 +215,50 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
 
 
 def tfm_names(found) -> list[str]:
-    return sorted({TFM_MODULES.get(m.lower(), m.lower()).removesuffix("tabular") for m in found})
+    """코드에서 찾은 이름 → TFM 이름 (KumoTabular → kumo)."""
+    return sorted({m.lower().removesuffix("tabular") for m in found})
+
+
+def tfm_imports(code: str) -> list[str]:
+    """코드의 import 문이 부르는 TFM (fm_audit.WATCH 의 최상위 모듈)."""
+    mods = []
+    for frm, names in IMPORT_LINE.findall(code):
+        mods += [frm] if frm else [n.split()[0] for n in names.split(",") if n.strip()]
+    return sorted({WATCH[m.split(".")[0]] for m in mods if m.split(".")[0] in WATCH})
+
+
+def code_text(name: str, raw: bytes) -> str:
+    """작업 디렉터리 파일 → 코드 글. .ipynb 는 코드 셀 source 만 이어 붙임 (JSON 그대로면 줄이 따옴표로 시작해
+    import 문 검사에 안 걸림). 깨진 노트북은 원문 그대로."""
+    text = raw.decode("utf-8", "replace")
+    if name.endswith(".ipynb"):
+        try:
+            cells = json.loads(text).get("cells", [])
+            return "\n".join("".join(c["source"]) if isinstance(c.get("source"), list) else str(c.get("source", ""))
+                             for c in cells if c.get("cell_type") == "code")
+        except (ValueError, AttributeError, KeyError, TypeError):
+            return text
+    return text
 
 
 def tfm_runtime(d: Path, meta: dict) -> dict:
     """fm_audit.jsonl (실행 중 TFM import 기록, runner.py 의 install_audit) → 실제로 import 한 TFM, 그런 프로세스 수,
-    마지막 제출 파일을 쓴 시각에 살아 있던 (import 뒤 ~ 종료 전) 프로세스가 import 한 TFM (tfm_at_submit).
+    마지막 제출 파일을 쓴 시각에 살아 있던 (import 뒤 ~ 끝) 프로세스가 import 한 TFM (tfm_at_submit). 끝 = exit 줄,
+    없으면 (강제 종료·os._exit) 마지막 alive + HEARTBEAT, 그것도 없으면 import + HEARTBEAT.
     tfm_at_submit 은 근사: TFM 예측을 파일로 저장하고 다른 프로세스에서 섞어 제출하면 안 잡힘, 오래 사는 프로세스가 TFM 을
-    import 만 하고 제출은 다른 모델로 하면 잡힘 → 최종 풀이 코드로 확인. 이 기록 이전 실행은 모두 None."""
+    import 만 하고 제출은 다른 모델로 하면 잡힘 → 최종 풀이 코드로 확인. 이 기록 이전 실행은 모두 None
+    (CSV 에서는 None 과 빈 목록이 둘 다 빈칸 → 기록이 있었는지는 tfm_runtime_procs 로: 빈칸 = 기록 없음, 0 = 안 씀)."""
     rows = read_jsonl(d / "fm_audit.jsonl")
     if not rows and (not meta.get("fm_audit") or str(meta["fm_audit"]).startswith("error")):
         return dict(tfm_runtime=None, tfm_runtime_procs=None, tfm_at_submit=None)
     imports = [r for r in rows if r.get("event") == "import"]
+    last = {}  # pid → 마지막으로 살아 있던 시각
+    for r in rows:
+        last[r["pid"]] = max(last.get(r["pid"], 0), r["t"])
     exits = {r["pid"]: r["t"] for r in rows if r.get("event") == "exit"}
-    end = (meta.get("harness_started_at") or 0) + (meta.get("harness_seconds") or 0)
     sub_t = meta.get("submission_mtime")
-    at_submit = {r["tfm"] for r in imports if sub_t is not None and r["t"] <= sub_t <= exits.get(r["pid"], end)}
+    at_submit = {r["tfm"] for r in imports if sub_t is not None
+                 and r["t"] <= sub_t <= exits.get(r["pid"], last[r["pid"]] + HEARTBEAT)}
     return dict(tfm_runtime=sorted({r["tfm"] for r in imports}), tfm_runtime_procs=len({r["pid"] for r in imports}),
                 tfm_at_submit=sorted(at_submit))
 
@@ -246,7 +276,7 @@ def posthoc(d: Path) -> dict:
         with tarfile.open(d / "workspace.tgz") as tar:
             for m in tar.getmembers():
                 if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")):
-                    code.append(tar.extractfile(m).read().decode("utf-8", "replace"))
+                    code.append(code_text(m.name, tar.extractfile(m).read()))
     logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl")
             if p.name not in ("proxy.jsonl", "otel.jsonl", "fm_audit.jsonl")]
     code_blob, blob = "\n".join(code), "\n".join(code + logs)
@@ -260,8 +290,8 @@ def posthoc(d: Path) -> dict:
 
     return dict(tfm_in_code=tfm_names(TFM_PATTERN.findall(code_blob)),
                 tfm_mentions=tfm_names(TFM_PATTERN.findall(blob)),
-                tfm_imported=tfm_names(TFM_IMPORT.findall(code_blob)), **tfm_runtime(d, meta),
-                fm_offered=sorted(k for k, v in (meta.get("fm") or {}).items() if v.get("ok")),
+                tfm_imported=tfm_imports(code_blob), **tfm_runtime(d, meta),
+                fm_offered=sorted(k for k, v in (meta.get("fm_warmup") or {}).items() if v.get("ok")),
                 pip_added=sorted(after - before), kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
                 retries_429=sum(c.get("retries_429", 0) for c in calls),
                 waited_429=round(sum(c.get("waited", 0) for c in calls), 1),  # 흔들기로 소수 → 합의 부동소수 잡음 제거
@@ -343,8 +373,8 @@ def recheck_table():
             t.loc[have, c] = checks[c]
         print(f"사후 검사 다시 계산: {len(have)}/{len(t)}행 (나머지는 회수 기록이 없어 그대로)")
         fill_defaults(t).to_csv(TABLE, index=False)
-    print(t[["mlebench", "config", "score", "tfm_in_code", "tfm_imported", "tfm_runtime", "tfm_at_submit",
-             "pip_added"]].to_string(index=False))
+    cols = ["mlebench", "config", "score", "tfm_in_code", "tfm_imported", "tfm_runtime", "tfm_at_submit", "pip_added"]
+    print(t[[c for c in cols if c in t]].to_string(index=False))  # 회수 기록이 하나도 없으면 새 열이 아직 없음
 
 
 def runs(main_cfg) -> dict[str, dict]:

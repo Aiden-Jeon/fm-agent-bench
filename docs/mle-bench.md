@@ -356,7 +356,7 @@ tabular-playground-series-may-2022 (AUC ↑, 1,152팀, 금 0.99823 · 동 0.9981
 
 확인한 것 (로컬): import 기록 (실제 import 만 남고 `importlib.util.find_spec` 은 안 남음, `importlib.resources` 정상),
 사후 검사 열 (합성 기록), 안내문 조각 나누기·코드 블록 파싱, CLI. **사용 예 실행(사전 점검)은 로컬에서 못 돌림** →
-첫 원격 실행의 `meta.json` 의 `fm`·`fm_build_tools` 로 확인 (실패하면 하네스를 시작하지 않아 LLM 비용은 안 듦, 행은 `exclude`).
+첫 원격 실행의 `meta.json` 의 `fm_warmup`·`fm_build_tools` 로 확인 (실패하면 하네스를 시작하지 않아 LLM 비용은 안 듦, 행은 `exclude`).
 
 실행 (P0·P1 과 같은 순서: Sonnet 줄과 GPT 줄을 하나씩 동시에). 먼저 nomad (C1 에서 "에이전트 피처 + FM" 이 강했던 대회),
 그다음 spaceship. 비교 대상은 같은 설정의 1·2회째

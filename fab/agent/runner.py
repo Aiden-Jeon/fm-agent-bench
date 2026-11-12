@@ -61,7 +61,9 @@ ML_PACKAGES = ["numpy", "pandas", "scipy", "scikit-learn", "lightgbm", "xgboost"
 # 준비 (하네스 시작 전, 1시간에 안 들어감): 설치 → fm_warmup.py 가 fm_notes.txt 의 사용 예를 합성 데이터로 실행 (가중치가
 # HOME 캐시에 남음, 예가 실제로 도는지 확인). 하나라도 실패하면 하네스를 시작하지 않음 (실행마다 받은 모델이 달라지지 않게)
 FM_PACKAGES = {"tabpfn_v2": ["tabpfn==9.2.0"], "tabicl": ["tabicl==2.2.0"], "kumo": ["structured-data-models==0.2.1"]}
-FM_WARMUP_TIMEOUT = 600  # 초, 모델 하나 (가중치 받기 포함). 셋 합 30분 = 작업 여유 FM_EXTRA_MINUTES 안
+FM_WARMUP_TIMEOUT = 600  # 초, 모델 하나 (가중치 받기 포함)
+APT_TIMEOUT = 600  # 초, apt-get 한 번 (update·install). 최악 합: apt 20분 + 사전 점검 30분 + pip → 작업 여유
+#   (fab/agent/__init__.py 의 FM_EXTRA_MINUTES) 안
 AIDE_PACKAGES = ["openai", "anthropic", "google-generativeai", "backoff", "black", "coolname", "dataclasses-json",
                  "funcy", "genson", "humanize", "python-igraph", "jsonschema", "omegaconf", "rich", "shutup"]
 
@@ -913,7 +915,7 @@ def build_tools() -> str:
     pkgs = ["gcc", "libc6-dev", f"python{sys.version_info.major}.{sys.version_info.minor}-dev"]
     try:
         for args in (["update", "-q"], ["install", "-y", "-q", "--no-install-recommends", *pkgs]):
-            res = sh([*apt, *args], capture_output=True, text=True, timeout=900,
+            res = sh([*apt, *args], capture_output=True, text=True, timeout=APT_TIMEOUT,
                      env={**os.environ, "DEBIAN_FRONTEND": "noninteractive"})
             if res.returncode:
                 return f"apt-get {args[0]} failed ({res.returncode}): {(res.stderr or res.stdout)[-300:]}"
@@ -922,8 +924,21 @@ def build_tools() -> str:
     return f"installed {' '.join(pkgs)} (gcc={bool(shutil.which('gcc'))}, Python.h={header.exists()})"
 
 
+def warmup_result(stdout: str, name: str) -> dict:
+    """사전 점검 출력에서 결과 줄 ({"model": name, ...} JSON). 라이브러리가 뒤에 다른 줄을 찍어도 찾음."""
+    for line in reversed(stdout.splitlines()):
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict) and row.get("model") == name:
+            return {k: v for k, v in row.items() if k not in ("ok", "total_seconds", "error")}
+    return {"error": f"no result line: {stdout[-500:]}"}
+
+
 def prepare_fm(meta: dict) -> str:
-    """TFM 설치 + 사용 예 실행 (가중치 받기) → 지시문에 넣을 글. 결과는 meta["fm"] = {모델: {ok, seconds, ...}}.
+    """TFM 설치 + 사용 예 실행 (가중치 받기) → 지시문에 넣을 글. 결과는 meta["fm_warmup"] = {모델: {ok, seconds, ...}}
+    (meta["fm"] 은 run.json 의 설정값 true 그대로: 여기서 실패해도 사후 검사가 dict 로 잘못 읽지 않게 키를 나눔).
     사전 점검은 모델마다 새 프로세스 (FAB_FM_AUDIT 없이 → import 기록에 안 남음, GPU 메모리도 프로세스와 함께 풀림)."""
     import fm_warmup  # 실행기 코드 폴더 (SRC) 에 같이 올라옴
 
@@ -933,23 +948,21 @@ def prepare_fm(meta: dict) -> str:
     step(f"TFM 설치 ({', '.join(FM_PACKAGES)}), 컴파일 도구: {meta['fm_build_tools']}")
     head, secs = fm_warmup.sections((SRC / "fm_notes.txt").read_text())
     env = {k: v for k, v in os.environ.items() if k != "FAB_FM_AUDIT"}
-    meta["fm"] = {}
+    meta["fm_warmup"] = {}
     for name in FM_PACKAGES:
         t = time.time()
         try:
             res = sh([sys.executable, "-u", str(SRC / "fm_warmup.py"), str(SRC / "fm_notes.txt"), name],
                      capture_output=True, text=True, timeout=FM_WARMUP_TIMEOUT, cwd=SRC, env=env)
-            last = (res.stdout.strip().splitlines() or [""])[-1]
-            info = json.loads(last) if res.returncode == 0 else {"error": (res.stderr or res.stdout)[-3000:]}
+            info = warmup_result(res.stdout, name) if res.returncode == 0 else \
+                {"error": (res.stderr or res.stdout)[-3000:]}
         except subprocess.TimeoutExpired:
             info = {"error": f"timeout {FM_WARMUP_TIMEOUT}s"}
-        except ValueError:
-            info = {"error": f"no result line: {res.stdout[-500:]}"}
-        meta["fm"][name] = dict(ok="error" not in info, total_seconds=round(time.time() - t, 1), **info)
+        meta["fm_warmup"][name] = dict(ok="error" not in info, total_seconds=round(time.time() - t, 1), **info)
         step(f"TFM 사전 점검 {name}: {'ok' if 'error' not in info else 'FAILED'} "
              f"{json.dumps(info, ensure_ascii=False)[-600:]}")
-    if failed := [n for n, v in meta["fm"].items() if not v["ok"]]:
-        raise RuntimeError(f"TFM 사전 점검 실패 {failed} → 하네스를 시작하지 않음 (meta.json 의 fm)")
+    if failed := [n for n, v in meta["fm_warmup"].items() if not v["ok"]]:
+        raise RuntimeError(f"TFM 사전 점검 실패 {failed} → 하네스를 시작하지 않음 (meta.json 의 fm_warmup)")
     return head + "\n" + "\n".join(secs[n] for n in FM_PACKAGES)
 
 
