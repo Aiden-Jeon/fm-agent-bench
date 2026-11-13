@@ -32,7 +32,7 @@ MLE-bench 의 표 형식 대회에서 FM·GBDT·Agent·C1·C2 를 비교한 결�
 
 ## 대회별 결과
 
-2026-11-12 기준 (P0~P3·C1·C2). FM·GBDT 는 튜닝 없음. Agent 는 "1회째 / 2회째" (tps·leaf 는 1회째만).
+2026-11-13 기준 (P0~P3·C1·C2). FM·GBDT 는 튜닝 없음. Agent·C2 는 "1회째 / 2회째" (tps 와 leaf 의 Claude Code 공식 설정은 1회째만).
 단계별 자세한 표·해석은 [단계별 결과 상세](#단계별-결과-상세).
 
 ### nomad2018-predict-transparent-conductors
@@ -42,25 +42,27 @@ MLE-bench 의 표 형식 대회에서 FM·GBDT·Agent·C1·C2 를 비교한 결�
 | 방식 | 점수 | 시간 |
 |---|---|---|
 | **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04523 (1위)** / 0.04803 (1위) | 15분 / 1분 (피처 계산 포함) |
-| FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.04554 (1위) | 60분 (kumo 를 제출에 넣음) |
+| FM 을 깐 Agent (C2): Codex × GPT +fm | 0.04589 (1위) / 0.04545 (1위) | 57분 / 57분 (FM 을 제출에 넣음: kumo / TabPFN·TabICL) |
+| FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.04554 (1위) / 0.04729 (1위) | 60분 (kumo / 세 FM 모두를 제출에 넣음) |
 | Agent: Codex × GPT | 0.04847 (1위) / 0.04567 (1위) | 59분 / 57분 |
-| FM 을 깐 Agent (C2): Codex × GPT +fm | 0.04589 (1위) | 57분 (kumo 를 계속 씀) |
 | GBDT + Agent 피처 (C1): catboost~f2s | 0.04976 (1위) | 23분 |
+| FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.13875 (833위) / 0.05006 (1위) | 6분 / 32분 (1회째 에이전트 버그, 2회째 Kumo 약 85% 를 섞어 제출) |
 | Agent: Claude Code × Sonnet +cont | 0.05267 (4위) / 0.05157 (2위) | 5분 / 19분 |
 | Agent: AIDE × GPT | 제출 없음 / 0.05308 (5위) | 60분 |
 | FM 을 깐 Agent (C2): AIDE × GPT +fm | 0.05306 (5위) | 60분 (FM 안 씀) |
 | Agent: AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | 60분 |
 | FM: kumo (원본 열) | 0.05734 (17위) | 22초 |
 | Agent: Claude Code × Sonnet | 0.06134 (42위) / 0.06253 (53위) | 20초 / 40초 (스스로 끝냄) |
-| FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.13875 (833위) | 6분 (TabPFN·TabICL 을 씀, 에이전트 버그) |
 
 - 원본 열만 쓴 FM 보다 Agent 가 앞섬. 이 대회에는 표 밖의 정보(결정 구조 파일 `geometry.xyz`)가 있고, Codex 는 이걸로 피처를 만듦
 - 그 피처를 FM 에 넣으면 (C1) FM 한 번이 에이전트 1시간을 넘음 (kumo~f2 0.04523)
 - 다만 GBDT 도 비슷하게 좋아짐. "FM 에 특히 도움" 이라 할 만한 건 kumo × 전체 피처 하나뿐
 - Agent 2회째에도 설정 순위는 같음
-- C2 의 Claude Code 0.13875 는 FM 탓이 아님: 학습·test 의 열 순서가 어긋난 에이전트 버그 ([C2](#c2-fm-을-깐-agent-nomad-1회째-2026-11-12))
-- C2 의 AIDE × Sonnet +fm (0.04554) 은 kumo 를 제출에 넣어 같은 설정의 Agent (0.05494 / 0.05568) 와 FM 한 번 (kumo 0.05734) 보다 좋음.
-  Agent 최고 (Codex 2회째 0.04567) 와는 0.0001 차이 (1회씩이라 같은 수준으로 봄)
+- C2 의 Claude Code 1회째 0.13875 는 FM 탓이 아님: 학습·test 의 열 순서가 어긋난 에이전트 버그 ([C2](#c2-fm-을-깐-agent-nomad-1회째-2026-11-12)).
+  2회째는 같은 류 버그 없이 0.05006 (Agent 두 번 0.05267 / 0.05157 보다 좋음)
+- C2 의 AIDE × Sonnet +fm 은 두 번 다 FM 을 제출에 넣어 같은 설정의 Agent 두 번과 FM 한 번 (kumo 0.05734) 보다 좋음 (2회째에도 재현)
+- C2 최고는 Codex 2회째 0.04545 지만 Codex Agent 2회째 (0.04567) 와 같은 수준. C1 의 kumo~f2 (0.04523) 를 넘은 C2 실행은 없음
+  ([C2 2회째](#c2-2회째-leaf--nomad-2026-11-13))
 
 ### spaceship-titanic
 
@@ -105,15 +107,15 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 
 | 방식 | 점수 | 시간 |
 |---|---|---|
-| Agent: Codex × GPT | **0.00000 (1위)** (분할 구조를 씀, 아래) | 23분 |
-| FM 을 깐 Agent (C2): Codex × GPT +fm | 0.00002 (25위) | 29분 (FM 시험만, 제출엔 안 넣음) |
-| Agent: AIDE × Sonnet | 0.00385 (33위) | 60분 |
-| FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.01392 (142위) | 60분 (kumo 를 제출에 넣음) |
-| Agent: AIDE × GPT | 0.01821 (193위) | 60분 |
+| Agent: Codex × GPT | **0.00000 (1위)** / **0.00000 (1위)** (분할 구조를 씀, 아래) | 23분 / 56분 |
+| FM 을 깐 Agent (C2): Codex × GPT +fm | 0.00002 (25위) / **0.00000 (1위)** | 29분 / 58분 (분할 구조. 1회째 FM 시험만, 2회째 TabICL 확률로 배정) |
+| FM 을 깐 Agent (C2): AIDE × GPT +fm | 0.03090 (399위) / **0.00000 (1위)** | 60분 (1회째 tabicl 시험만, 2회째 FM 안 쓰고 분할 구조) |
+| Agent: AIDE × Sonnet | 0.00385 (33위) / 0.00195 (29위) | 60분 |
+| FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.01392 (142위) / 0.01748 (179위) | 60분 (두 번 다 kumo 를 제출에 넣음) |
+| Agent: AIDE × GPT | 0.01821 (193위) / 0.01436 (148위) | 60분 |
+| FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.02348 (268위) / 0.01989 (219위)¹ | 37분 / 14분 (kumo·tabicl / kumo 를 제출에 넣음) |
 | FM: kumo | 0.01998 (219위) | 3분 |
-| FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.02348 (268위) | 37분 (kumo·tabicl 을 제출에 넣음) |
-| FM 을 깐 Agent (C2): AIDE × GPT +fm | 0.03090 (399위) | 60분 (tabicl 시험만, 제출엔 안 넣음) |
-| Agent: Claude Code × Sonnet +cont | 0.04197 (569위) | 10분 |
+| Agent: Claude Code × Sonnet +cont | 0.04197 (569위) / 0.05077 (619위) | 10분 / 5분 |
 | FM: tabicl | 0.05069 (619위) | 1분 |
 | Agent: Claude Code × Sonnet | 0.06297 (682위) | 2분 |
 | GBDT: lgbm (최고) | 0.40629 (1015위) | 6분 |
@@ -121,8 +123,13 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 - 클래스당 약 7행이라 GBDT 는 거의 못 배우고 FM 이 크게 앞섬
 - Codex 의 0.0 은 데이터 수집 방식을 쓴 결과: "원래 종마다 10장" 에서 test 의 종별 개수를 계산해 test 행을 1:1 로 배정.
   외부 데이터는 아님. nomad 의 정답 섞기와 같은 종류라 따로 읽음
-- FM 을 깔아 주면 (C2) 네 설정 모두 FM 을 씀. 제출에 넣은 건 Claude Code +cont (0.042 → 0.023, FM 한 번 kumo 0.020 에는 못 미침) 와
-  AIDE × Sonnet (0.0039 → 0.0139, Agent 보다 나쁘지만 FM 한 번보다는 좋음)
+- FM 을 깔아 주면 (C2) 1회째는 네 설정 모두 FM 을 씀, 2회째는 AIDE × GPT 만 안 씀. 두 번 다 제출에 넣은 건 Claude Code +cont
+  (Agent 0.042 / 0.051 → 0.023 / 0.020, FM 한 번 kumo 0.020 수준) 와 AIDE × Sonnet (Agent 0.0039 / 0.0020 → 0.0139 / 0.0175, 두 번 다
+  Agent 보다 나쁘지만 FM 한 번보다는 좋음)
+- 0.0 네 번 (Codex Agent 두 번, Codex +fm 2회째, AIDE × GPT +fm 2회째) 과 Codex +fm 1회째 0.00002 는 모두 분할 구조 배정.
+  이 설정들의 C2 − Agent 차이는 FM 이 아니라 이 배정을 찾았는지로 갈림
+- ¹ 2회째 4번째 시도. 하네스 14분째 AI Runtime 플랫폼 오류로 노드가 죽어 그때까지 저장한 제출로 채점 (`run_crashed`, 앞 3번은 제출 없이 죽어 뺌,
+  [C2 2회째](#c2-2회째-leaf--nomad-2026-11-13))
 
 ### 모든 대회 공통 주의
 
@@ -581,6 +588,8 @@ RMSLE ↓, 금 0.05589
 
 #### 해석
 
+1회째 기준. leaf · nomad 를 2회째까지 보고 다시 읽은 것은 [C2 2회째](#c2-2회째-leaf--nomad-2026-11-13) 의 해석.
+
 - **FM 을 쓰는지는 대회에 따라 갈림**: leaf 는 네 설정 모두 FM 을 import 함 (P3 의 Agent 는 아무도 안 씀). tps 는 아무도 안 씀 —
   코드 import 0, 메시지에서도 언급 없음 (Codex·Claude Code 확인). 이유는 확인 안 함: train 80만 행이고, 안내문에 TabPFN 1만 행 제약을
   적었으며, FM 이 앞서려면 20만 행 컨텍스트를 줘야 함 (P3). nomad 는 Codex·Claude Code (위 1회째)·AIDE × Sonnet 이 씀, AIDE × GPT 는 안 씀
@@ -618,6 +627,85 @@ AIDE 는 1시간 입력이 1.7만~61만 토큰 (`results/mlebench_runs.csv` 의 
 - 하위 10% 출력 속도는 동시 쪽이 조금 낮지만 혼자 쪽 범위 (71~) 와 겹침. 3개 · 1회라 작은 차이는 못 가름
 - → AIDE 실행끼리는 같은 엔드포인트에서 동시에 돌려도 조건이 바뀌지 않는다고 봄. Codex 는 1시간 입력이 4,200만~4,500만 토큰 (P0 에서 429)
   이라 그대로 한 번에 하나
+
+### C2 2회째: leaf · nomad (2026-11-13)
+
+C2 마무리의 결과가 모두 1회라 "FM 을 제출에 넣어 같은 설정의 Agent 보다 좋아진 두 실행" (leaf × Claude Code +cont, nomad × AIDE × Sonnet) 과
+반대 방향 (leaf × AIDE × Sonnet) 이 반복해도 나오는지 봄 (#13). 1시간 · A10 · rep 2. leaf 는 공식 설정 Agent 도 1회뿐이라 Agent 2회째도 같이 돌림.
+뺀 것: tps-may (1회째 아무도 FM 을 안 씀), spaceship (차이가 test 흔들림 안), nomad × AIDE × GPT +fm (1회째 FM 을 안 씀).
+
+- 순서: GPT 줄은 Codex 셋 (leaf +fm → leaf → nomad +fm) 을 하나씩, 그 뒤 leaf × AIDE × GPT 둘 (+fm·Agent) 을 동시에.
+  Sonnet 줄은 AIDE 셋 (leaf +fm·leaf·nomad +fm) 을 동시에, Claude Code +cont 셋을 그 사이에 하나씩 ("동시 실행 부하 확인")
+- 429 는 nomad × Codex +fm 만 84번 (대기 6분). 다른 실행은 0
+- leaf × Claude Code +cont +fm 은 4번 돌림: 플랫폼 오류 (아래 "실행 메모") 로 앞 3번은 제출 없이 죽어 `exclude`, 4번째는 실행기에
+  "진행 중 제출 사본" 을 넣은 뒤라 죽기 전 마지막 제출로 채점 (`run_crashed`)
+
+"쓴 FM" 은 `tfm_runtime` (실행 중 import). "제출에 든 FM" 의 2회째는 최종 풀이 코드·AIDE 기록으로 확인한 것. `tfm_at_submit` (근사) 과
+다른 곳: leaf × AIDE × Sonnet (`tabicl`, 실제는 Kumo 단독: 블렌드 탐색이 Kumo 가중치 1.0 을 고름, Kumo 는 하위 프로세스라 안 잡힘),
+leaf × Claude Code (`kumo · tabicl`, 실제는 Kumo 단독: Kumo 를 돌린 프로세스가 tabicl 도 import), nomad × Codex·Claude Code (빈칸,
+실제는 FM 예측을 파일로 저장해 다른 프로세스에서 섞음).
+
+#### 결과: leaf-classification
+
+logloss ↓, 금 0.0 · 동 0.01526. "1회째 / 2회째"
+
+| 설정 | Agent | C2 (+fm) | 쓴 FM (2회째) | 제출에 든 FM (1회째 / 2회째) |
+|---|---|---|---|---|
+| Claude Code × Sonnet +cont | 0.04197 / 0.05077 | **0.02348 / 0.01989**¹ | kumo · tabicl | kumo · tabicl / kumo |
+| Codex × GPT | 0.00000 / 0.00000 | 0.00002 / 0.00000 | kumo · tabicl · tabpfn | 없음 / tabicl (분할 구조 배정의 확률) |
+| AIDE × GPT | 0.01821 / 0.01436 | 0.03090 / 0.00000 | 안 씀 | 없음 / 없음 (2회째 분할 구조 배정) |
+| AIDE × Sonnet | 0.00385 / 0.00195 | 0.01392 / 0.01748 | kumo · tabicl · tabpfn | kumo / kumo |
+| (참고) FM 한 번: kumo / tabicl | 0.01998 / 0.05069 | | | |
+
+¹ 2회째는 하네스 14분째 (이어 가기 7번째 구간) 에 노드가 죽음. 그때 제출은 Kumo 단독 (에이전트 CV 0.0179). 남은 46분은 못 씀.
+  `results/mlebench_runs.csv` 의 `continues` 6 은 고치기 전 회수 규칙 (돌던 구간을 안 셈) 의 값, 실행기 기록으로는 7
+
+#### 결과: nomad2018
+
+RMSLE ↓, 금 0.05589. "1회째 / 2회째"
+
+| 설정 | Agent | C2 (+fm) | 쓴 FM (2회째) | 제출에 든 FM (1회째 / 2회째) |
+|---|---|---|---|---|
+| Codex × GPT | 0.04847 / 0.04567 | 0.04589 / **0.04545** | kumo · tabicl · tabpfn (88 프로세스) | kumo / TabPFN·TabICL 저장 예측을 섞음 |
+| AIDE × Sonnet | 0.05494 / 0.05568 | **0.04554 / 0.04729** | kumo · tabicl · tabpfn | kumo / kumo · tabicl · tabpfn |
+| Claude Code × Sonnet +cont | 0.05267 / 0.05157 | 0.13875 / **0.05006** | kumo · tabicl · tabpfn | tabicl · tabpfn (열 순서 버그) / Kumo 약 85% |
+| (참고) FM 한 번: kumo / C1: kumo~f2 | 0.05734 / 0.04523 | | | |
+
+- nomad × Claude Code +cont +fm 2회째 (32분, 이어 가기 13번): 1회째 같은 열 순서 버그 없음. 최종 제출은 Kumo 예측 셋 (결정 구조 피처 포함,
+  `kf.py`·`k.py`) 0.35·0.35·0.15 + 앞 블렌드 (`sub6.csv`) 0.15
+
+#### 해석
+
+- **세 방향 모두 2회째에도 같음**:
+  - leaf × Claude Code +cont: 두 번 다 FM 을 제출에 넣고 (kumo·tabicl / kumo) Agent 두 번보다 좋음 (0.042 / 0.051 → 0.023 / 0.020).
+    점수는 FM 한 번 (kumo 0.01998) 수준이고, 2회째는 14분에 끝난 실행
+  - nomad × AIDE × Sonnet: 두 번 다 kumo 를 제출에 넣고 Agent 두 번보다 좋음 (0.0549 / 0.0557 → 0.0455 / 0.0473), FM 한 번 (0.0573) 보다도 좋음
+  - leaf × AIDE × Sonnet: 두 번 다 kumo 를 제출에 넣고 Agent 두 번보다 나쁨 (0.0039 / 0.0020 → 0.0139 / 0.0175). FM 한 번보다는 좋음.
+    이 설정의 Agent 는 FM 없이 FM 한 번보다 10배 좋아서, FM 으로 바꾸면 오히려 손해
+- 새로 본 것: nomad × Claude Code +cont 도 2회째는 Kumo 를 제출에 넣고 Agent 두 번보다 좋음 (0.0527 / 0.0516 → 0.0501). 1회째는 버그라 비교 못 함
+- FM 을 쓰고도 같은 설정의 Agent 와 같은 수준: nomad × Codex (Agent 0.0485 / 0.0457, C2 0.0459 / 0.0455). 두 번 다 FM 을 제출에 넣었지만
+  Agent 2회째와 차이 0.0002 안
+- leaf 의 0.0 은 FM 과 무관: Codex 는 Agent·+fm 모두, AIDE × GPT 는 +fm 2회째에 분할 구조 배정을 찾음 (AIDE × GPT +fm 2회째는 FM 을 안 씀).
+  AIDE × GPT 의 C2 − Agent 가 1회째 +0.013, 2회째 −0.014 로 부호가 바뀐 것도 FM 이 아니라 이 배정을 찾았는지 차이
+- **쓰는지 (질문 3)**: 1회째에 FM 을 쓴 7 설정 중 6 개가 2회째에도 씀 (leaf 넷 중 AIDE × GPT 만 안 씀, nomad 셋 모두 씀).
+  제출에 넣는 FM 은 실행마다 바뀌기도 함 (nomad × Codex kumo → TabPFN·TabICL, nomad × Claude Code TabICL·TabPFN → Kumo,
+  nomad × AIDE × Sonnet kumo → 세 FM)
+- **FM 한 번 · C1 대비**: nomad 에서 FM 을 제출에 넣은 C2 는 모두 FM 한 번 (kumo 0.05734) 보다 좋지만 C1 의 kumo~f2 (0.04523) 를 넘은 건 없음
+  (최고 Codex 2회째 0.04545). leaf 에서 FM 을 제출에 넣은 실행 중 (분할 구조 배정인 Codex 2회째는 빼고) FM 한 번 (0.01998) 보다 뚜렷이 좋은 건 AIDE × Sonnet 둘,
+  Claude Code 는 1회째가 나쁘고 2회째가 같은 수준
+- 지금 답: FM 을 깔아 주면 에이전트는 대부분 다시 씀. Agent 가 FM 한 번보다 약하거나 비슷한 설정 (leaf × Claude Code +cont: 0.042~0.051
+  대 0.020 / nomad × AIDE × Sonnet: 0.055 대 0.057) 은 FM 을 제출에 넣어 두 번 다 좋아짐 (nomad × Claude Code +cont: 0.052 대 0.057 은
+  버그 없는 2회째만). Agent 가 FM 한 번보다 훨씬 강한
+  설정 (leaf × AIDE × Sonnet: 0.002~0.004 대 0.020) 은 FM 을 넣어 반복해서 나빠짐. 2회씩이라 규칙이라기보다 지금까지의 모양
+
+#### 실행 메모
+
+- **leaf × Claude Code +cont +fm 이 4번 모두 AI Runtime 플랫폼 오류로 죽음**: 2분째 SIGTERM (exit 143) 1번, `Your compute failed because of a
+  Databricks platform issue` 3번 (12·15·14분째). 뒤 3번은 모두 에이전트가 leaf (99 클래스) 에 Kumo 분류를 `num_estimators` 를 8 에서 16·24 로
+  올려 돌리던 중 (GPU 메모리를 잡은 채 사용률 0%, 시스템 메모리 약 6GB 로 OOM 아님). 같은 시간대의 다른 실행 10개 (Kumo 를 쓴 실행 포함) 는 정상
+  → 이 조합에서 노드가 죽는 것으로 보임 (원인은 확인 안 함, 같은 조건 재현 시험 안 함)
+- 실행기가 진행 중 제출 사본을 남기게 고침 ("구현" 의 "진행 중 제출 사본"). 4번째 시도는 2분마다 제출 사본이 올라간 것을 확인했고, 노드가 죽은 뒤
+  정리 작업이 그 사본으로 채점함
 
 ## 에이전트 실행 환경 (트랙 B)
 
@@ -706,6 +794,16 @@ AIDE 는 1시간 입력이 1.7만~61만 토큰 (`results/mlebench_runs.csv` 의 
   - CPU 수 (`os.cpu_count`·affinity·cgroup 한도), 메모리 (물리·`/proc/meminfo`·cgroup 한도), `/tmp`·HOME 디스크 여유, GPU (이름·메모리)
   - CPU·메모리는 호스트·affinity·cgroup 한도 중 가장 작은 값. 항목마다 따로 재서 하나가 실패해도 나머지는 남음, `nvidia-smi` 는 30초 제한
   - 큰 대회 (taxi·tps-dec-2021·tps-may-2022) 판단에 씀
+- **진행 중 제출 사본** (2026-11-13, `sync_progress`): 2분마다 진행 기록 (`progress/`) 을 올릴 때 같이 올림
+  - `meta.json`: 회차마다 그때까지의 meta (노드 사양·사전 점검·구간 수 `segments_started`·`harness_seconds`)
+  - `submission.csv` + `submission.json`: 제출이 바뀌면 (읽는 사이 바뀌었으면 다음 회차에). json (경로·mtime·크기·sha256·형식 검사) 은
+    csv 를 다 쓴 뒤에 쓰고, 새 csv 를 쓰기 전에 지움 → sha256 이 맞는 쌍만 씀 (쓰다 죽은 csv 는 안 씀)
+  - `workspace.tgz`: 10분마다 (`WORKSPACE_EVERY`, gzip 이 에이전트와 CPU 를 나눠 써서 회차마다는 안 함). 실패해도 제출 사본과 무관
+  - `pip_before.txt`·`full_instructions.txt`: 한 번
+  - 컨테이너가 중간에 죽어 마지막 회수 (`meta.json`) 가 없는 실행은 정리 작업이 이 사본으로 회수·채점하고 `run_crashed` 열에 True
+    (`recover_from_progress`). 시간 초과 실행이 그때까지 저장한 제출로 채점되는 것과 같은 규칙. 죽을 때 돌던 구간까지 이어 가기로 셈,
+    `timed_out` 은 빈칸, `pip_added` 는 빈칸 (`pip_after.txt` 없음). 잘린 meta·tgz 는 안 씀
+  - 못 건지는 것: 마지막 2분 안에 바뀐 제출, 마지막 10분 안의 코드. 이 열 이전 실행은 False (실행기가 죽은 실행은 exclude 로 뺐음)
 - **로컬 확인 (2026-11-09)**: 프록시의 Anthropic Messages·Responses 스트리밍, Chat Completions, 모델 고정, 사용량 기록, 형식 검사.
   이 노트북의 Claude Code·Codex 는 회사 관리 설정이 공급자를 강제해서 로컬 하네스 시험은 대표성이 없음 → 원격에서 확인
 
@@ -755,6 +853,10 @@ AIDE 는 1시간 입력이 1.7만~61만 토큰 (`results/mlebench_runs.csv` 의 
 제외한 실행 (`fab mleb agent exclude`, 사유는 Volume 의 `state/agent/<key>.done.json`, 2026-11-10 이전은 `runs.json`)
 
 - 런처 시작 실패 4회, 프록시 Accept-Encoding 버그 1회, AIDE temperature 거부·빈 messages 2회, Codex 429 로 27분에 중단 1회 (점수 0.8092)
+- 2026-11-13 AI Runtime 플랫폼 오류 4회 (모두 leaf × Claude Code +cont +fm 2회째, 같은 시간대의 다른 실행 10개는 정상):
+  하네스 2분째 SIGTERM (exit 143) 1회, `Your compute failed because of a Databricks platform issue` 3회 (12·15·14분째, 모두 Kumo
+  분류를 돌리던 중 GPU 메모리를 잡은 채 사용률 0%, 시스템 메모리 6GB 로 OOM 아님). 앞 3회는 에이전트가 저장해 둔 제출도 컨테이너와
+  같이 사라져 뺌 → 위 "진행 중 제출 사본" 을 넣고 다시 돌림, 4회째는 그 사본으로 채점 ([C2 2회째](#c2-2회째-leaf--nomad-2026-11-13))
 
 ### 참고: 실행 위치를 정하기 전의 비교
 

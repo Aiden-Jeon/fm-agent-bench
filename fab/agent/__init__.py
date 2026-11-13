@@ -34,6 +34,7 @@ databricks.local.yaml 의 mleb_agent 블록 (git 제외):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -308,7 +309,8 @@ def posthoc(d: Path) -> dict:
                 tfm_mentions=tfm_names(TFM_PATTERN.findall(blob)),
                 tfm_imported=tfm_imports(code_blob), **tfm_runtime(d, meta),
                 fm_offered=sorted(k for k, v in (meta.get("fm_warmup") or {}).items() if v.get("ok")),
-                pip_added=sorted(after - before), kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
+                pip_added=sorted(after - before) if (d / "pip_after.txt").exists() else None,  # 없음 = 끝까지 안 감 (run_crashed)
+                kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
                 retries_429=sum(c.get("retries_429", 0) for c in calls),
                 waited_429=round(sum(c.get("waited", 0) for c in calls), 1),  # 흔들기로 소수 → 합의 부동소수 잡음 제거
                 llm_calls=len(calls), llm_errors=sum(1 for c in calls if (c.get("status") or 0) >= 400),
@@ -344,7 +346,47 @@ def fill_defaults(t: pd.DataFrame) -> pd.DataFrame:
     if "continues" in t:
         t["continues"] = t["continues"].fillna(0).astype(int)
         t["first_exit_seconds"] = t["first_exit_seconds"].fillna(t["harness_seconds"])
+    if "run_crashed" in t:  # 이 열 이전 실행: 실행기가 죽은 실행은 exclude 로 뺐음
+        t["run_crashed"] = t["run_crashed"].eq(True)  # 빈칸·False → False (fillna 는 object 열에서 경고)
     return t
+
+
+def read_json(path: Path) -> dict:
+    """JSON 파일 → dict. 없거나 쓰다 죽어 잘린 파일은 {} (정리 작업이 같은 오류로 계속 실패하지 않게)."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def recover_from_progress(d: Path) -> bool:
+    """실행기가 마지막 회수 (meta.json) 전에 죽은 실행 (컨테이너가 사라짐): progress/ 의 사본으로 회수 폴더를 채움
+    (runner.sync_progress). 기록 (*.jsonl)·pip_before.txt 는 그대로, meta 는 마지막 회차의 것, 제출은 submission.json 의
+    sha256 과 맞을 때만 (쓰다 죽은 csv 는 안 씀), workspace.tgz 는 열리면 → 그 제출로 채점 (시간 초과 실행처럼 그때까지
+    저장한 제출). 죽은 때 돌던 구간까지 이어 가기로 셈 (segments_started), timed_out·exit_code 는 None (끝까지 안 감).
+    pip_after.txt 가 없어 pip_added 는 빈칸 (posthoc). meta 의 run_crashed 로 표에 남김. 회수할 게 없으면 False."""
+    prog = d / "progress"
+    if (d / "meta.json").exists() or not prog.is_dir():
+        return False
+    for f in [*prog.glob("*.jsonl"), prog / "pip_before.txt", prog / "full_instructions.txt"]:
+        if f.exists() and not (d / f.name).exists():
+            shutil.copy(f, d / f.name)
+    meta = read_json(prog / "meta.json")
+    sub, info = prog / "submission.csv", read_json(prog / "submission.json")
+    if info and sub.exists() and hashlib.sha256(sub.read_bytes()).hexdigest() == info.get("sha256"):
+        shutil.copy(sub, d / "submission.csv")
+        meta.update({k: info[k] for k in ("submission_from", "submission_mtime", "format_ok", "format_msg") if k in info})
+    if (tgz := prog / "workspace.tgz").exists():
+        try:
+            with tarfile.open(tgz) as tar:
+                tar.getmembers()  # 끝까지 읽혀야 씀 (쓰다 죽은 사본이면 사후 검사가 깨짐)
+            shutil.copy(tgz, d / "workspace.tgz")
+        except (OSError, tarfile.TarError, EOFError):
+            pass
+    started = meta.get("segments_started") or len(meta.get("segments") or []) + 1  # 죽을 때 늘 한 구간이 돌고 있었음
+    meta.update(run_crashed=True, continues=started - 1, timed_out=None, exit_code=None)
+    (d / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+    return True
 
 
 def append_run(row: dict):
@@ -364,7 +406,8 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
                harness_seconds=meta.get("harness_seconds"), format_ok=meta.get("format_ok"), **node_columns(meta),
                # 이어 가기: 횟수와 첫 종료 시각. 이 기능 이전 실행(meta 에 없음)은 이어 가지 않았으므로 0 과 harness_seconds
                continues=meta.get("continues", 0),
-               first_exit_seconds=meta.get("first_exit_seconds", meta.get("harness_seconds")))
+               first_exit_seconds=meta.get("first_exit_seconds", meta.get("harness_seconds")),
+               run_crashed=bool(meta.get("run_crashed")))  # 실행기가 중간에 죽어 progress/ 사본으로 채점 (recover_from_progress)
     if report is not None:
         row.update({k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal", "above_median",
                                                "lb_rank", "lb_teams"]})
