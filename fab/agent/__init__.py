@@ -34,6 +34,7 @@ databricks.local.yaml 의 mleb_agent 블록 (git 제외):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -308,7 +309,8 @@ def posthoc(d: Path) -> dict:
                 tfm_mentions=tfm_names(TFM_PATTERN.findall(blob)),
                 tfm_imported=tfm_imports(code_blob), **tfm_runtime(d, meta),
                 fm_offered=sorted(k for k, v in (meta.get("fm_warmup") or {}).items() if v.get("ok")),
-                pip_added=sorted(after - before), kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
+                pip_added=sorted(after - before) if (d / "pip_after.txt").exists() else None,  # 없음 = 끝까지 안 감 (run_crashed)
+                kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
                 retries_429=sum(c.get("retries_429", 0) for c in calls),
                 waited_429=round(sum(c.get("waited", 0) for c in calls), 1),  # 흔들기로 소수 → 합의 부동소수 잡음 제거
                 llm_calls=len(calls), llm_errors=sum(1 for c in calls if (c.get("status") or 0) >= 400),
@@ -349,21 +351,40 @@ def fill_defaults(t: pd.DataFrame) -> pd.DataFrame:
     return t
 
 
+def read_json(path: Path) -> dict:
+    """JSON 파일 → dict. 없거나 쓰다 죽어 잘린 파일은 {} (정리 작업이 같은 오류로 계속 실패하지 않게)."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
 def recover_from_progress(d: Path) -> bool:
-    """실행기가 마지막 회수 (meta.json) 전에 죽은 실행 (컨테이너가 사라짐): progress/ 의 사본으로 회수 폴더를 채움.
-    기록 (*.jsonl) 은 늘, 제출·작업 디렉터리 코드·meta 는 실행기가 제출이 바뀔 때마다 남긴 마지막 사본 (runner.sync_progress)
-    → 그 제출로 채점 (시간 초과 실행처럼 그때까지 저장한 제출). meta 의 run_crashed 로 표에 남김. 회수할 게 없으면 False."""
+    """실행기가 마지막 회수 (meta.json) 전에 죽은 실행 (컨테이너가 사라짐): progress/ 의 사본으로 회수 폴더를 채움
+    (runner.sync_progress). 기록 (*.jsonl)·pip_before.txt 는 그대로, meta 는 마지막 회차의 것, 제출은 submission.json 의
+    sha256 과 맞을 때만 (쓰다 죽은 csv 는 안 씀), workspace.tgz 는 열리면 → 그 제출로 채점 (시간 초과 실행처럼 그때까지
+    저장한 제출). 죽은 때 돌던 구간까지 이어 가기로 셈 (segments_started), timed_out·exit_code 는 None (끝까지 안 감).
+    pip_after.txt 가 없어 pip_added 는 빈칸 (posthoc). meta 의 run_crashed 로 표에 남김. 회수할 게 없으면 False."""
     prog = d / "progress"
     if (d / "meta.json").exists() or not prog.is_dir():
         return False
-    for f in prog.glob("*.jsonl"):
-        if not (d / f.name).exists():
+    for f in [*prog.glob("*.jsonl"), prog / "pip_before.txt", prog / "full_instructions.txt"]:
+        if f.exists() and not (d / f.name).exists():
             shutil.copy(f, d / f.name)
-    meta = json.loads((prog / "meta.json").read_text()) if (prog / "meta.json").exists() else {}
-    for name in ("submission.csv", "workspace.tgz"):
-        if (prog / name).exists() and meta:  # meta 를 제출 뒤에 씀 → meta 가 있으면 그 제출은 다 써진 것
-            shutil.copy(prog / name, d / name)
-    meta.update(run_crashed=True, continues=max(len(meta.get("segments") or [None]) - 1, 0))
+    meta = read_json(prog / "meta.json")
+    sub, info = prog / "submission.csv", read_json(prog / "submission.json")
+    if info and sub.exists() and hashlib.sha256(sub.read_bytes()).hexdigest() == info.get("sha256"):
+        shutil.copy(sub, d / "submission.csv")
+        meta.update({k: info[k] for k in ("submission_from", "submission_mtime", "format_ok", "format_msg") if k in info})
+    if (tgz := prog / "workspace.tgz").exists():
+        try:
+            with tarfile.open(tgz) as tar:
+                tar.getmembers()  # 끝까지 읽혀야 씀 (쓰다 죽은 사본이면 사후 검사가 깨짐)
+            shutil.copy(tgz, d / "workspace.tgz")
+        except (OSError, tarfile.TarError, EOFError):
+            pass
+    started = meta.get("segments_started") or len(meta.get("segments") or []) + 1  # 죽을 때 늘 한 구간이 돌고 있었음
+    meta.update(run_crashed=True, continues=started - 1, timed_out=None, exit_code=None)
     (d / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
     return True
 

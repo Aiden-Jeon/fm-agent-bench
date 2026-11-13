@@ -19,6 +19,7 @@ fab 을 import 하지 않음. 같은 디렉터리의 run.json 이 설정 (fab/ag
 """
 
 import functools
+import hashlib
 import http.client
 import json
 import os
@@ -1216,6 +1217,7 @@ def run_harness(cmd: list[str], env: dict, log: Path, meta: dict):
     with open(log, "w") as out, open(OUT / "harness_stderr.txt", "w") as err:
         while True:
             seg_t, seg_off = time.time(), log.stat().st_size  # 구간 시작 바이트 (하네스가 이 파일 끝에 이어 씀)
+            meta["segments_started"] = len(meta["segments"]) + 1  # 진행 중 사본용: segments 는 구간이 끝나야 늘어남
             proc = subprocess.Popen(cmd, cwd=WORK, env={**os.environ, **env}, stdout=out, stderr=err,
                                     stdin=subprocess.DEVNULL, start_new_session=True)
             try:
@@ -1305,13 +1307,20 @@ def main():
         step(f"회수 → {dst}")
 
 
+WORKSPACE_EVERY = 600  # 진행 중 작업 디렉터리 사본 간격 (초). 회차마다 묶으면 gzip 이 에이전트와 CPU 를 나눠 씀
+
+
 def sync_progress(stop: threading.Event, meta: dict):
     """실행 중에도 2분마다 기록(프록시·형식 검사·하네스 출력)을 Volume 의 out/progress/ 에 복사 → fab mleb agent peek.
-    제출 파일이 바뀌면 그 제출·작업 디렉터리 코드·그때까지의 meta 도 progress/ 에 둠: 컨테이너가 중간에 죽으면
-    (AI Runtime 플랫폼 오류, 2026-11-13 leaf Claude Code +fm 3번) 마지막 회수가 안 돌아 제출이 사라짐 → 정리 작업이
-    이 사본으로 채점 (시간 초과 실행이 그때까지 저장한 제출로 채점되는 것과 같게)."""
+    컨테이너가 중간에 죽으면 (AI Runtime 플랫폼 오류, 2026-11-13 leaf Claude Code +fm 3번) 마지막 회수가 안 돌아 제출이
+    사라짐 → 정리 작업이 progress/ 사본으로 채점 (recover_from_progress, 시간 초과 실행이 그때까지 저장한 제출로 채점되는 것과 같게):
+    - meta.json: 회차마다 그때까지의 meta (노드 사양·사전 점검·구간 수·harness_seconds)
+    - submission.csv + submission.json: 제출이 바뀌면. json (경로·mtime·크기·sha256·형식 검사) 은 csv 를 다 쓴 뒤에 쓰고,
+      새 csv 를 쓰기 전에 지움 → 정리 작업은 sha256 이 맞는 쌍만 씀 (쓰다 죽은 csv 는 안 씀)
+    - workspace.tgz: WORKSPACE_EVERY 마다 (첫 회차 포함, 실패해도 제출 사본과 무관)
+    - pip_before.txt·full_instructions.txt: 한 번"""
     dst = Path(CFG["out"]) / "progress"
-    snap = None  # 마지막으로 복사한 제출 (경로, mtime, 크기)
+    snap, packed_at, once = None, 0.0, False  # snap: 마지막으로 올린 제출 (경로, mtime, 크기)
     while not stop.wait(120):
         try:
             dst.mkdir(parents=True, exist_ok=True)
@@ -1323,21 +1332,42 @@ def sync_progress(stop: threading.Event, meta: dict):
                 if (OUT / f).exists():
                     (dst / f).write_bytes((OUT / f).read_bytes()[-200_000:])
             (dst / "elapsed.txt").write_text(f"{time.time() - T0:.0f}\n")
-            if (sub := find_submission()) and (now := (str(sub), sub.stat().st_mtime, sub.stat().st_size)) != snap:
-                data = sub.read_bytes()  # 에이전트가 쓰는 도중이면 다음 회차에 다시 (mtime·크기가 또 바뀜)
-                part = dict(meta, submission_from=str(sub), submission_mtime=round(now[1], 2),
-                            harness_seconds=round(time.time() - meta["harness_started_at"], 1),
-                            snapshot_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
-                SNAP.mkdir(exist_ok=True)  # OUT 밖 (마지막 회수가 OUT 을 통째로 올림)
-                (SNAP / "submission.csv").write_bytes(data)
-                part["format_ok"], part["format_msg"] = check_submission(SNAP / "submission.csv")
-                pack_workspace(SNAP / "workspace.tgz")
-                shutil.copy(SNAP / "workspace.tgz", dst / "workspace.tgz")
-                shutil.copy(SNAP / "submission.csv", dst / "submission.csv")
-                (dst / "meta.json").write_text(json.dumps(part, indent=2, ensure_ascii=False, default=str))  # 제출 뒤에
-                snap = now
+            if not once:
+                for f in ("pip_before.txt", "full_instructions.txt"):
+                    if (OUT / f).exists():
+                        shutil.copy(OUT / f, dst / f)
+                once = True
+            part = dict(meta, harness_seconds=round(time.time() - meta["harness_started_at"], 1),
+                        snapshot_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+            (dst / "meta.json").write_text(json.dumps(part, indent=2, ensure_ascii=False, default=str))
         except Exception as e:  # noqa: BLE001 - 이 스레드가 죽으면 진행 기록이 멈춤 (meta 를 읽는 중 main 이 바꾸는 경우 등) → 다음 회차에
             print(f"[agent-runner] 진행 기록 복사 실패: {e!r}", flush=True)
+        try:
+            if (sub := find_submission()) and (st := sub.stat()) and (key := (str(sub), st.st_mtime, st.st_size)) != snap:
+                data = sub.read_bytes()
+                st2 = sub.stat()
+                if (st2.st_mtime, st2.st_size) == key[1:] and len(data) == st2.st_size:  # 읽는 사이 바뀌었으면 다음 회차에
+                    SNAP.mkdir(exist_ok=True)  # OUT 밖 (마지막 회수가 OUT 을 통째로 올림)
+                    (SNAP / "submission.csv").write_bytes(data)
+                    ok, msg = check_submission(SNAP / "submission.csv")
+                    info = dict(submission_from=str(sub), submission_mtime=round(st.st_mtime, 2), size=len(data),
+                                sha256=hashlib.sha256(data).hexdigest(), format_ok=ok, format_msg=msg,
+                                harness_seconds=round(time.time() - meta["harness_started_at"], 1),
+                                snapshot_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+                    (dst / "submission.json").unlink(missing_ok=True)  # 짝이 안 맞는 (쓰다 죽은) csv 를 정리 작업이 안 쓰게
+                    shutil.copy(SNAP / "submission.csv", dst / "submission.csv")
+                    (dst / "submission.json").write_text(json.dumps(info, indent=2, ensure_ascii=False))
+                    snap = key
+        except Exception as e:  # noqa: BLE001
+            print(f"[agent-runner] 제출 사본 실패: {e!r}", flush=True)
+        try:
+            if time.time() - packed_at >= WORKSPACE_EVERY:
+                SNAP.mkdir(exist_ok=True)
+                pack_workspace(SNAP / "workspace.tgz")
+                shutil.copy(SNAP / "workspace.tgz", dst / "workspace.tgz")
+                packed_at = time.time()
+        except Exception as e:  # noqa: BLE001 - 에이전트가 파일을 쓰고 지우는 중이면 tar 가 실패할 수 있음 → 다음 회차에
+            print(f"[agent-runner] 작업 디렉터리 사본 실패: {e!r}", flush=True)
 
 
 def run(meta: dict):
