@@ -330,44 +330,13 @@ def _compute(name: str, train: pd.DataFrame, test: pd.DataFrame, data_dir: Path)
     return {name: _stack(res, name)}
 
 
-def _read_cache(cache: Path, ids: np.ndarray) -> dict[str, np.ndarray] | None:
-    if not cache.exists():
-        return None
-    try:
-        with np.load(cache) as z:
-            if np.array_equal(z["_ids"], ids):
-                return {k: z[k] for k in z.files if k != "_ids"}
-    except (OSError, ValueError, KeyError) as e:
-        print(f"[features] 캐시 읽기 실패 → 다시 계산: {e!r}")
-    return None
-
-
 def block(name: str, train: pd.DataFrame, test: pd.DataFrame, data_dir: Path) -> dict[str, np.ndarray]:
     """블록 하나를 train+test 전체에 대해 계산. {열 이름 접두어: 행렬}.
-    data_dir/_features/ 에 캐시하고, 블록마다 파일 잠금: 모델별 작업자가 동시에 시작해도 한 프로세스만 계산하고 나머지는
-    기다렸다가 캐시를 읽음. 캐시 폴더를 못 쓰면 잠금·캐시 없이 계산."""
-    import fcntl
+    data_dir/_features/ 에 블록마다 캐시하고 파일 잠금 (fab.core.features.cached)."""
+    from fab.core.features import cached
 
     ids = np.r_[train.id.to_numpy(), test.id.to_numpy()]
-    cache = Path(data_dir) / "_features" / f"{name}_v{CACHE_VERSION}.npz"
-    try:
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        lock = open(cache.with_suffix(".lock"), "w")
-    except OSError as e:
-        print(f"[features] 캐시 폴더를 못 씀 → 캐시 없이 계산: {e!r}")
-        return _compute(name, train, test, data_dir)
-    with lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        if (out := _read_cache(cache, ids)) is not None:
-            return out
-        out = _compute(name, train, test, data_dir)
-        try:
-            tmp = cache.with_name(f".{cache.stem}.{os.getpid()}.npz")  # 임시 파일 → 교체 (잠금 밖에서 읽는 경우 대비)
-            np.savez(tmp, _ids=ids, **out)
-            os.replace(tmp, cache)
-        except OSError as e:  # 캐시는 있으면 좋은 것
-            print(f"[features] 캐시 저장 실패 (무시): {e!r}")
-    return out
+    return cached(f"{name}_v{CACHE_VERSION}", ids, data_dir, lambda: _compute(name, train, test, data_dir))
 
 
 def lattice(rows: pd.DataFrame) -> pd.DataFrame:

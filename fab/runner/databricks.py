@@ -249,7 +249,10 @@ def ensure_data(comp, profile: str, volume: str) -> str:
     if not (comp.data_dir / comp.train_file).exists():
         download(comp)
     print(f"데이터 업로드: {comp.data_dir} → {remote}")
-    databricks(profile, "fs", "cp", "-r", "--overwrite", str(comp.data_dir), f"dbfs:{remote}", timeout=3600)
+    for entry in sorted(comp.data_dir.iterdir()):  # _features/ 등 _ 로 시작하는 로컬 캐시는 올리지 않음 (원격에서 새로 만듦)
+        if not entry.name.startswith("_"):
+            databricks(profile, "fs", "cp", *(["-r"] if entry.is_dir() else []), "--overwrite", str(entry),
+                       f"dbfs:{remote}/{entry.name}", timeout=3600)
     return remote
 
 
