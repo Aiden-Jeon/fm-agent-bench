@@ -39,7 +39,7 @@ TabArena 연동 전에 확인할 것
 |---|---|---|
 | P0 ✓ | MLE-bench spaceship·nomad: FM 채점, Agent 4설정 × 1회 (+cont 2회) | [docs/mle-bench.md](../mle-bench.md) |
 | P1 ✓ | 신뢰도: Agent 2회째 (FM 시드 반복·부트스트랩은 안 함, 아래 "P1 범위") | [docs/mle-bench.md](../mle-bench.md) 의 "P1" |
-| P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 "C1" |
+| P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost}. 확장 (#12, 2026-11-13): leaf × AIDE × Sonnet · tps-may × Codex 의 `~f2` × {tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 "C1"·"C1 확장" |
 | P3 ✓ | MLE-bench 표 형식 대회 확장: tps-may-2022, leaf-classification (FM × Agent 1회씩, 2026-11-12). 남은 대회 (s3e18·dec-2021·taxi) 는 나중에 | [docs/mle-bench.md](../mle-bench.md) 의 "P3" |
 | P4 | TabArena 연동 (위 확인 → `fab/bench/tabarena/`) | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
 | P5 ✓ | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`, 아래 "C2 규칙"). nomad 1회째 (Codex·Claude Code +cont, 2026-11-12, [docs/mle-bench.md](../mle-bench.md) 의 "C2"). 마무리 (leaf·tps-may 4설정, nomad AIDE 2설정, 2026-11-12, "C2 마무리"). aide-sonnet+fm 3개는 #10 (프록시) 을 고친 뒤 다시 돌림 (2026-11-12, 동시 실행). 2회째: leaf 4설정 (+ Agent 2회째)·nomad 3설정 (#13, 2026-11-13, "C2 2회째") | Agent 와 C2 를 같은 대회·시드로 |
