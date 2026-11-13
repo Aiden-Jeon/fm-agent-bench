@@ -42,6 +42,7 @@ MLE-bench 의 표 형식 대회에서 FM·GBDT·Agent·C1·C2 를 비교한 결�
 | 방식 | 점수 | 시간 |
 |---|---|---|
 | **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04523 (1위)** / 0.04803 (1위) | 15분 / 1분 (피처 계산 포함) |
+| FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.04554 (1위) | 60분 (kumo 를 제출에 넣음) |
 | Agent: Codex × GPT | 0.04847 (1위) / 0.04567 (1위) | 59분 / 57분 |
 | FM 을 깐 Agent (C2): Codex × GPT +fm | 0.04589 (1위) | 57분 (kumo 를 계속 씀) |
 | GBDT + Agent 피처 (C1): catboost~f2s | 0.04976 (1위) | 23분 |
@@ -58,6 +59,8 @@ MLE-bench 의 표 형식 대회에서 FM·GBDT·Agent·C1·C2 를 비교한 결�
 - 다만 GBDT 도 비슷하게 좋아짐. "FM 에 특히 도움" 이라 할 만한 건 kumo × 전체 피처 하나뿐
 - Agent 2회째에도 설정 순위는 같음
 - C2 의 Claude Code 0.13875 는 FM 탓이 아님: 학습·test 의 열 순서가 어긋난 에이전트 버그 ([C2](#c2-fm-을-깐-agent-nomad-1회째-2026-11-12))
+- C2 의 AIDE × Sonnet +fm (0.04554) 은 kumo 를 제출에 넣어 같은 설정의 Agent (0.05494 / 0.05568) 와 FM 한 번 (kumo 0.05734) 보다 좋음.
+  Agent 최고 (Codex 2회째 0.04567) 와는 0.0001 차이 (1회씩이라 같은 수준으로 봄)
 
 ### spaceship-titanic
 
@@ -84,6 +87,7 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 | Agent: Codex × GPT | **0.99734 (240위)** | 59분 |
 | FM 을 깐 Agent (C2): Codex × GPT +fm | 0.99681 (296위) | 60분 (FM 안 씀) |
 | Agent: Claude Code × Sonnet +cont | 0.99658 (311위) | 38분 |
+| FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.99582 (351위) | 60분 (FM 안 씀) |
 | FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.99255 (410위) | 53분 (FM 안 씀) |
 | FM: kumo@rand200000~f1 (사람 피처, 컨텍스트 20만) | 0.99232 (417위) | 25분 |
 | FM 을 깐 Agent (C2): AIDE × GPT +fm | 0.99174 (428위) | 60분 (FM 안 씀) |
@@ -104,6 +108,7 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 | Agent: Codex × GPT | **0.00000 (1위)** (분할 구조를 씀, 아래) | 23분 |
 | FM 을 깐 Agent (C2): Codex × GPT +fm | 0.00002 (25위) | 29분 (FM 시험만, 제출엔 안 넣음) |
 | Agent: AIDE × Sonnet | 0.00385 (33위) | 60분 |
+| FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.01392 (142위) | 60분 (kumo 를 제출에 넣음) |
 | Agent: AIDE × GPT | 0.01821 (193위) | 60분 |
 | FM: kumo | 0.01998 (219위) | 3분 |
 | FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.02348 (268위) | 37분 (kumo·tabicl 을 제출에 넣음) |
@@ -116,8 +121,8 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 - 클래스당 약 7행이라 GBDT 는 거의 못 배우고 FM 이 크게 앞섬
 - Codex 의 0.0 은 데이터 수집 방식을 쓴 결과: "원래 종마다 10장" 에서 test 의 종별 개수를 계산해 test 행을 1:1 로 배정.
   외부 데이터는 아님. nomad 의 정답 섞기와 같은 종류라 따로 읽음
-- FM 을 깔아 주면 (C2) 끝까지 돈 세 설정 (Codex·Claude Code +cont·AIDE × GPT) 모두 FM 을 씀. 제출에 넣어 좋아진 건 Claude Code +cont
-  하나 (0.042 → 0.023) 이고, FM 한 번 (kumo 0.020) 에는 못 미침
+- FM 을 깔아 주면 (C2) 네 설정 모두 FM 을 씀. 제출에 넣은 건 Claude Code +cont (0.042 → 0.023, FM 한 번 kumo 0.020 에는 못 미침) 와
+  AIDE × Sonnet (0.0039 → 0.0139, Agent 보다 나쁘지만 FM 한 번보다는 좋음)
 
 ### 모든 대회 공통 주의
 
@@ -126,7 +131,7 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 - 메달 기준선은 원래 Kaggle 리더보드, 채점은 다시 나눈 test → 근사. tabular playground 는 아주 작은 차이로 메달이 갈림
 - LLM 이 공개 Kaggle 풀이를 학습했을 수 있음 (FM 은 아님)
 - P0·P1·P3 의 Agent 는 아무도 FM 을 쓰지 않음 (환경에 미리 깔지 않음). C2 에서 바꿈
-- C2 의 AIDE × Sonnet +fm 3개는 프록시 문제 (#10) 로 실패해 결과에서 뺌 (`fab mleb agent exclude`). #10 을 고친 뒤 다시 돌림
+- C2 의 AIDE × Sonnet +fm 은 처음 3개가 프록시 문제 (#10) 로 실패해 결과에서 빼고 (`fab mleb agent exclude`), 프록시를 고친 뒤 다시 돌린 결과 (2026-11-12)
 
 ### 결과 파일
 
@@ -528,15 +533,17 @@ nomad 는 FM 과 GBDT 차이가 작아 "FM 을 줘서 나아졌나" 가 안 갈�
 tps-may: kumo 20만 행 컨텍스트가 GBDT 보다 AUC 0.02 높음). 1시간 · A10 · rep 1. 비교는 같은 설정의 Agent (P3·P0·P1).
 뺀 것: spaceship (차이가 test 흔들림 안), claude-code-sonnet 공식 설정 (몇 초 만에 스스로 끝나 FM 을 쓸 틈이 없음 → +cont 로 봄).
 
-**aide-sonnet+fm 3개는 실패라 결과에서 뺌 (#10, `fab mleb agent exclude`)**: Sonnet 이 긴 프롬프트(+fm 안내문)에 Chat Completions
+**aide-sonnet+fm 은 처음 3개가 실패라 결과에서 빼고 다시 돌림 (#10)**: Sonnet 이 긴 프롬프트(+fm 안내문)에 Chat Completions
 content 를 파트 목록으로 답했고 프록시가 그대로 넘겨 AIDE 의 코드 추출이 `TypeError` 를 냄.
 
 - tps: 첫 응답에서 → AIDE 가 종료 코드 1 로 끝남 (하네스 24초, 제출 없음)
 - nomad (3번째 응답)·leaf (15번째): 예외 뒤 AIDE 기록이 끊겼는데 (AIDE 첫 기록부터 nomad 는 25초, leaf 는 13분 뒤) 프로세스가 끝나지 않아
   1시간 제한에서 강제 종료됨 (`timed_out`, exit 없음). 그 전에 저장된 제출은 채점됐음 (nomad 0.06189, leaf 0.02965) → 표에 안 넣음
-- #10 을 고친 뒤 다시 돌림
+- 프록시를 고치고 (2026-11-12, "FM API 호환 처리") 세 대회를 다시 돌림 (`…__aide-sonnet-fm__r1__20261112-2259`·`-2311`·`-2312`).
+  셋 다 1시간 끝까지 돎, 파트 목록 응답을 문자열로 바꾼 호출이 leaf 3 · tps 11 · nomad 18 번 (`proxy.jsonl` 의 `flattened`)
+- 다시 돌린 3개는 **동시에** 돌림 ("같은 엔드포인트는 한 번에 하나" 의 예외, 아래 "동시 실행 부하 확인")
 
-아래 표에서 실패한 실행의 FM 칸은 "–" (판단하지 않음). "안 씀" 은 끝까지 돈 실행에서 FM import 가 없었다는 뜻.
+"안 씀" 은 끝까지 돈 실행에서 FM import 가 없었다는 뜻.
 
 #### 결과: leaf-classification
 
@@ -547,7 +554,7 @@ logloss ↓, 금 0.0 · 동 0.01526
 | Claude Code × Sonnet +cont | 0.04197 (569위) | **0.02348 (268위)** | kumo · tabicl | kumo · tabicl |
 | Codex × GPT | 0.00000 (1위, 금) | 0.00002 (25위, 은) | kumo · tabicl | 없음 |
 | AIDE × GPT | 0.01821 (193위) | 0.03090 (399위) | tabicl | 없음 |
-| AIDE × Sonnet | 0.00385 (33위, 은) | 실패 (#10), 다시 돌림 | – | – |
+| AIDE × Sonnet | 0.00385 (33위, 은) | 0.01392 (142위, 동) | kumo · tabicl · tabpfn | kumo |
 | (참고) FM 한 번: kumo / tabicl | 0.01998 / 0.05069 | | | |
 
 #### 결과: tabular-playground-series-may-2022
@@ -559,7 +566,7 @@ AUC ↑, 동 0.99818
 | Codex × GPT | 0.99734 (240위) | 0.99681 (296위) | 안 씀 |
 | Claude Code × Sonnet +cont | 0.99658 (311위) | 0.99255 (410위) | 안 씀 |
 | AIDE × GPT | 0.99156 (434위) | 0.99174 (428위) | 안 씀 |
-| AIDE × Sonnet | 0.99137 (437위) | 실패 (#10), 다시 돌림 | – |
+| AIDE × Sonnet | 0.99137 (437위) | 0.99582 (351위) | 안 씀 |
 | (참고) FM 한 번: kumo@rand200000~f1 | 0.99232 (417위) | | |
 
 #### 결과: nomad2018 (AIDE 두 설정)
@@ -569,23 +576,48 @@ RMSLE ↓, 금 0.05589
 | 설정 | Agent 1회째 / 2회째 | C2 (+fm) | 쓴 FM |
 |---|---|---|---|
 | AIDE × GPT | 제출 없음 / 0.05308 (5위) | 0.05306 (5위) | 안 씀 |
-| AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | 실패 (#10), 다시 돌림 | – |
+| AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | **0.04554 (1위, 금)** | kumo · tabicl · tabpfn (kumo 를 제출에 넣음) |
+| (참고) FM 한 번: kumo | 0.05734 (17위) | | |
 
 #### 해석
 
-- **FM 을 쓰는지는 대회에 따라 갈림**: leaf 는 끝까지 돈 세 설정 모두 FM 을 import 함 (P3 의 Agent 는 아무도 안 씀). tps 는 아무도 안 씀 —
+- **FM 을 쓰는지는 대회에 따라 갈림**: leaf 는 네 설정 모두 FM 을 import 함 (P3 의 Agent 는 아무도 안 씀). tps 는 아무도 안 씀 —
   코드 import 0, 메시지에서도 언급 없음 (Codex·Claude Code 확인). 이유는 확인 안 함: train 80만 행이고, 안내문에 TabPFN 1만 행 제약을
-  적었으며, FM 이 앞서려면 20만 행 컨텍스트를 줘야 함 (P3). nomad 는 Codex·Claude Code 가 씀 (위 1회째), AIDE × GPT 는 안 씀
-- **FM 을 제출에 넣어 같은 설정의 Agent 보다 좋아진 건 leaf × Claude Code +cont 하나** (0.0420 → 0.0235, 작업 10분 → 37분).
-  그래도 FM 한 번 (kumo 0.01998) 에는 못 미침.
+  적었으며, FM 이 앞서려면 20만 행 컨텍스트를 줘야 함 (P3). nomad 는 Codex·Claude Code (위 1회째)·AIDE × Sonnet 이 씀, AIDE × GPT 는 안 씀
+- **FM 을 제출에 넣어 같은 설정의 Agent 보다 좋아진 건 둘**: leaf × Claude Code +cont (0.0420 → 0.0235, 작업 10분 → 37분, FM 한 번
+  kumo 0.01998 에는 못 미침) 와 nomad × AIDE × Sonnet (0.0549 / 0.0557 → 0.0455, FM 한 번 kumo 0.0573 보다도 좋음).
+  반대로 leaf × AIDE × Sonnet 은 kumo 를 제출에 넣고 Agent 보다 나빠짐 (0.0039 → 0.0139, 그래도 FM 한 번보다는 좋음).
   Codex 는 leaf 에서 FM 을 시험만 하고 분할 구조 배정 (P3) 으로 다시 거의 0 점, nomad 에서는 Kumo 를 제출에 넣었지만 2회째와 같은 수준
 - 나머지 차이는 FM 탓으로 볼 수 없음: FM 을 제출에 안 넣은 실행끼리의 차이 (leaf × AIDE × GPT 0.018 → 0.031, tps × Claude Code +cont
-  0.9966 → 0.9926) 는 실행마다의 흔들림이거나, 안내문을 읽고 FM 을 시험하는 데 1시간 일부를 쓴 몫 (1회씩이라 못 가름)
-- 질문 3 의 지금 답: FM 을 깔아 주면 FM 이 앞서는 작은 데이터(leaf)에서는 에이전트가 쓰고, 한 설정은 그 덕에 같은 설정의 Agent 보다
-  좋아짐. FM 이 큰 컨텍스트를 줘야 앞서는 큰 데이터(tps)에서는 아무도 안 씀
-- FM 을 쓴 C2 실행 중 FM 한 번보다 좋은 건 Codex 둘 (nomad 0.04589 < kumo 0.05734, leaf 0.00002 < kumo 0.01998). 다만 nomad 는
-  Codex 의 Agent 2회째 (0.04567) 와 같은 수준이고 leaf 는 FM 을 제출에 안 넣은 분할 구조 배정이라, FM 덕이라고 할 근거는 없음.
-  같은 대회의 다른 Agent 최고 (nomad Codex 2회째 0.04567, leaf Codex 0.0, tps Codex 0.99734) 를 넘은 C2 실행은 없음
+  0.9966 → 0.9926, tps × AIDE × Sonnet 0.9914 → 0.9958) 는 실행마다의 흔들림이거나, 안내문을 읽고 FM 을 시험하는 데 1시간 일부를 쓴 몫 (1회씩이라 못 가름)
+- 질문 3 의 지금 답: FM 을 깔아 주면 FM 이 앞서는 작은 데이터(leaf)와 nomad 에서는 에이전트가 쓰고, 두 실행은 그 덕에 같은 설정의
+  Agent 보다 좋아짐 (한 실행은 나빠짐, 1회씩). FM 이 큰 컨텍스트를 줘야 앞서는 큰 데이터(tps)에서는 아무도 안 씀
+- FM 을 쓴 C2 실행 중 FM 한 번보다 좋은 건 Codex 둘 (nomad 0.04589 < kumo 0.05734, leaf 0.00002 < kumo 0.01998) 과 AIDE × Sonnet 둘
+  (nomad 0.04554, leaf 0.01392). Codex 는 nomad 에서 Agent 2회째 (0.04567) 와 같은 수준이고 leaf 는 FM 을 제출에 안 넣은 분할 구조
+  배정이라 FM 덕이라고 할 근거는 없음. AIDE × Sonnet 은 두 대회 다 kumo 를 제출에 넣음
+- 같은 대회의 다른 Agent 최고 (nomad Codex 2회째 0.04567, leaf Codex 0.0, tps Codex 0.99734) 를 뚜렷이 넘은 C2 실행은 없음.
+  nomad × AIDE × Sonnet +fm (0.04554) 이 0.0001 앞서지만 1회씩이라 같은 수준으로 봄
+
+#### 동시 실행 부하 확인 (2026-11-12)
+
+aide-sonnet+fm 3개 (leaf · tps · nomad) 를 같은 워크스페이스·Sonnet 엔드포인트에서 동시에 돌리고, 혼자 돈 aide-sonnet 실행 7개의
+`proxy.jsonl` 과 비교. 혼자 7개 = P1 2개 (nomad·spaceship `r2`) + P3 2개 (leaf·tps) + C2 첫 시도 3개 (#10 으로 실패한 것, 실패 전까지의
+호출: leaf 15 · nomad 3 · tps 1번). P0 의 aide-sonnet 2개는 실행별 진행 기록 (`state/agent`) 이전이라 `proxy.jsonl` 을 못 받아 뺌.
+AIDE 는 1시간 입력이 1.7만~61만 토큰 (`results/mlebench_runs.csv` 의 AIDE 18개) 이라 분당 한도 (약 150만) 를 거의 안 씀.
+동시 3개의 입력 합도 1시간 약 102만 (분당 평균 약 1.7만)
+
+| | 혼자 (7개) | 동시 (3개) |
+|---|---|---|
+| 429 | 0 | 0 |
+| 호출당 지연 중앙값 | 6.8~12.4초 | 2.9~9.3초 |
+| 출력 속도 중앙값 (출력 토큰/초) | 115~166 | 114~165 |
+| 출력 속도 하위 10% | 71~133 | 67~91 |
+
+- 부하 없음: 429 없고 출력 속도 중앙값이 혼자일 때 범위 안. nomad 의 지연 p90 (32초, 혼자 16초) 은 답이 길어서 (출력 p90 6,469 토큰,
+  혼자 3,110)
+- 하위 10% 출력 속도는 동시 쪽이 조금 낮지만 혼자 쪽 범위 (71~) 와 겹침. 3개 · 1회라 작은 차이는 못 가름
+- → AIDE 실행끼리는 같은 엔드포인트에서 동시에 돌려도 조건이 바뀌지 않는다고 봄. Codex 는 1시간 입력이 4,200만~4,500만 토큰 (P0 에서 429)
+  이라 그대로 한 번에 하나
 
 ## 에이전트 실행 환경 (트랙 B)
 
@@ -617,7 +649,7 @@ RMSLE ↓, 금 0.05589
 | 시간 예산 | 벽시계 1시간 하나. 설치 후 하네스 시작부터 셈 (LLM 대기·429 대기·학습 포함). 늘리지 않음 | `harness_seconds` |
 | 스스로 끝냄 | 시간이 남아도 이어 가게 하지 않음 (`--resume`·"계속하라" 재지시 없음). 하네스 그대로의 동작으로 봄. 이어 가는 건 별도 설정 `+cont` 뿐이고 섞지 않음 | `timed_out` (False = 스스로 끝냄), `continues` |
 | 429 대기 | 프록시가 기다렸다 다시 보내고, 기다린 시간도 1시간에 들어감. 대기만큼 예산을 늘리지 않음 (AIDE 는 자기 `time_limit` 을 벽시계로 세서, 실행기가 시간을 늘려도 AIDE 에는 적용이 안 됨 → 늘리면 하네스마다 조건이 달라짐) | `retries_429`·`waited_429` |
-| 동시 실행 | 같은 FM 엔드포인트를 쓰는 실행은 한 번에 하나 (분당 토큰 한도를 나눠 쓰지 않게) | – |
+| 동시 실행 | 같은 FM 엔드포인트를 쓰는 실행은 한 번에 하나 (분당 토큰 한도를 나눠 쓰지 않게). 예외: C2 의 aide-sonnet+fm 다시 돌리기 3개는 동시에 (부하 없음 확인, "동시 실행 부하 확인") | `retries_429` |
 
 결과를 읽을 때
 
@@ -688,6 +720,7 @@ RMSLE ↓, 금 0.05589
 | AIDE 피드백 단계의 함수 호출 | Sonnet 은 강제 tool_choice·json_schema 를, GPT 는 Chat Completions 함수 도구를 거부 → 프록시가 도구를 "이 스키마의 JSON 만 답하라" 지시로 바꾸고 답을 함수 호출 응답으로 감쌈 (최대 3번). 원래 AIDE 는 네이티브 함수 호출 |
 | Claude Code 의 도구 검색 | `ENABLE_TOOL_SEARCH=false` (kaggle-master#40). 켜지면 첫 요청에 `anthropic-beta: advanced-tool-use-2025-11-20` 이 붙고 FM API 가 400 으로 거부 (P0 두 실행 모두 첫 요청 1회, 0.2초 뒤 다시 보내 결과엔 영향 없었음). 프록시에서 헤더만 빼면 지연 로드 도구가 검색 없이 남을 수 있어 기능 자체를 끔 → 처음부터 모든 도구를 넘김. 프록시가 요청마다 `beta`·`n_tools` 를 `proxy.jsonl` 에 기록 |
 | 429 (분당 입력 토큰 한도) | 프록시가 기다렸다 다시 보냄 (아래 "429") |
+| Chat Completions content 가 파트 목록 | 2026-11-12 (#10). 긴 프롬프트에서 Sonnet 이 `choices[].message.content` 를 문자열이 아닌 `[{"type": "text", "text": ...}]` 로 답함 (+fm 안내문이 붙은 AIDE 에서 일반 응답에도 나와 코드 추출이 `TypeError` 로 죽음). 프록시가 비스트리밍 Chat Completions 응답 (200) 을 다 받아 글 파트만 이어 붙인 문자열로 바꿔 넘기고, `proxy.jsonl` 에 본 파트 type 들을 `flattened` 로 기록. 글이 아닌 파트 (`text` 가 문자열이 아닌 것 포함) 는 버리고 앞 500자를 `flattened_dropped` 로, 글 파트가 없어 빈 문자열이 되면 `flattened_empty`. trace 에는 FM API 가 준 원래 본문. 상태 줄은 다 읽고 바꾼 뒤에 보냄: FM API 연결·읽기가 실패하면 (끊김·시간 초과, 스트리밍도 보내기 전이면) 502 + `proxy.jsonl` 의 `proxy_error` → 하네스가 다시 요청. GPT 는 문자열로 답해 바뀌지 않음. 스트리밍 Chat Completions 는 쓰는 하네스가 없어 그대로 넘김 |
 
 ### 429
 

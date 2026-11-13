@@ -29,14 +29,14 @@
 
 | 대회 (지표) | FM | GBDT | Agent | FM + Agent 피처 (C1) | FM 을 깐 Agent (C2) |
 |---|---|---|---|---|---|
-| nomad2018 (RMSLE ↓) | 0.05734 (17위) | 0.06001 (31위) | 0.04567 (1위) | **0.04523 (1위)** | 0.04589 (1위) |
+| nomad2018 (RMSLE ↓) | 0.05734 (17위) | 0.06001 (31위) | 0.04567 (1위) | **0.04523 (1위)** | 0.04554 (1위)³ |
 | spaceship-titanic (accuracy ↑) | 0.8218 (6위) | **0.8241 (2위)** | **0.8241 (2위)** | – | – |
 | tps-may-2022 (AUC ↑) | 0.99232 (417위)¹ | 0.97223 (581위)¹ | **0.99734 (240위)** | – | 0.99681 (296위)³ |
 | leaf-classification (logloss ↓) | 0.01998 (219위) | 0.40629 (1015위) | **0.00000 (1위)**² | – | 0.00002 (25위)²·³ |
 
 FM·GBDT 는 튜닝 없음, Agent 는 1~2회 실행 중 최고, – 는 아직 안 돌림. ¹ 사람 피처(`~f1`), FM 은 컨텍스트 20만 행.
 ² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님).
-³ C2 최고는 Codex × GPT +fm 인데 제출에 FM 이 안 들어감 (tps 는 아무도 FM 을 안 씀, leaf 는 시험만).
+³ C2 최고: nomad 는 AIDE × Sonnet +fm (kumo 를 제출에 넣음), tps·leaf 는 Codex × GPT +fm 인데 제출에 FM 이 안 들어감 (tps 는 아무도 FM 을 안 씀, leaf 는 시험만).
 결과 표: `results/mlebench.csv` (FM·GBDT 채점), `results/mlebench_runs.csv` (Agent 실행), `results/results.csv` (CV) 는
 Volume 의 `tables/` 가 원본이고 `fab sync` 로 받은 사본. `results/mlebench_agents.csv` (공개 리더보드 에이전트) 는 로컬 `fab mleb agents` 로 만듦.
 
