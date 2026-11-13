@@ -344,7 +344,28 @@ def fill_defaults(t: pd.DataFrame) -> pd.DataFrame:
     if "continues" in t:
         t["continues"] = t["continues"].fillna(0).astype(int)
         t["first_exit_seconds"] = t["first_exit_seconds"].fillna(t["harness_seconds"])
+    if "run_crashed" in t:  # 이 열 이전 실행: 실행기가 죽은 실행은 exclude 로 뺐음
+        t["run_crashed"] = t["run_crashed"].eq(True)  # 빈칸·False → False (fillna 는 object 열에서 경고)
     return t
+
+
+def recover_from_progress(d: Path) -> bool:
+    """실행기가 마지막 회수 (meta.json) 전에 죽은 실행 (컨테이너가 사라짐): progress/ 의 사본으로 회수 폴더를 채움.
+    기록 (*.jsonl) 은 늘, 제출·작업 디렉터리 코드·meta 는 실행기가 제출이 바뀔 때마다 남긴 마지막 사본 (runner.sync_progress)
+    → 그 제출로 채점 (시간 초과 실행처럼 그때까지 저장한 제출). meta 의 run_crashed 로 표에 남김. 회수할 게 없으면 False."""
+    prog = d / "progress"
+    if (d / "meta.json").exists() or not prog.is_dir():
+        return False
+    for f in prog.glob("*.jsonl"):
+        if not (d / f.name).exists():
+            shutil.copy(f, d / f.name)
+    meta = json.loads((prog / "meta.json").read_text()) if (prog / "meta.json").exists() else {}
+    for name in ("submission.csv", "workspace.tgz"):
+        if (prog / name).exists() and meta:  # meta 를 제출 뒤에 씀 → meta 가 있으면 그 제출은 다 써진 것
+            shutil.copy(prog / name, d / name)
+    meta.update(run_crashed=True, continues=max(len(meta.get("segments") or [None]) - 1, 0))
+    (d / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+    return True
 
 
 def append_run(row: dict):
@@ -364,7 +385,8 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
                harness_seconds=meta.get("harness_seconds"), format_ok=meta.get("format_ok"), **node_columns(meta),
                # 이어 가기: 횟수와 첫 종료 시각. 이 기능 이전 실행(meta 에 없음)은 이어 가지 않았으므로 0 과 harness_seconds
                continues=meta.get("continues", 0),
-               first_exit_seconds=meta.get("first_exit_seconds", meta.get("harness_seconds")))
+               first_exit_seconds=meta.get("first_exit_seconds", meta.get("harness_seconds")),
+               run_crashed=bool(meta.get("run_crashed")))  # 실행기가 중간에 죽어 progress/ 사본으로 채점 (recover_from_progress)
     if report is not None:
         row.update({k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal", "above_median",
                                                "lb_rank", "lb_teams"]})

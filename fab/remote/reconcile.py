@@ -133,7 +133,7 @@ def step(name: str, items: dict, fn, state: State, tables: Tables, kind: str):
 def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
     from databricks.sdk import WorkspaceClient
 
-    from fab.agent import AGENT_RUNS, TABLE as AGENT_TABLE, grade_run, recheck_table
+    from fab.agent import AGENT_RUNS, TABLE as AGENT_TABLE, grade_run, recheck_table, recover_from_progress
     from fab.bench.mlebench import bench_comps, grade as grade_fm
     from fab.bench.mlebench.remote import Grader
     from fab.runner.run import load_target, merge_folds
@@ -215,6 +215,9 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             shutil.copytree(src, d, dirs_exist_ok=True)
         else:
             print(f"  {key}: {st['result']} — 결과 폴더 없음 ({st['message'][:200]})")
+        if recover_from_progress(d):
+            print(f"  {key}: 실행기가 끝까지 못 감 ({st['message'][:200]}) → progress/ 사본으로 회수"
+                  + (" (제출 있음)" if (d / "submission.csv").exists() else " (제출 사본 없음)"))
         report = None
         if (d / "submission.csv").exists():
             report = grader.grade(m["cid"], d / "submission.csv")

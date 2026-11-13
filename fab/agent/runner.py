@@ -44,6 +44,7 @@ CFG = json.loads((SRC / "run.json").read_text())
 HOME = Path("/tmp/mleb_home")  # MLE-bench 의 /home 자리 (data/, submission/, instructions.txt)
 WORK = Path("/tmp/mleb_work")  # 하네스 작업 디렉터리 (에이전트 코드가 여기 남음)
 OUT = Path("/tmp/mleb_out")
+SNAP = Path("/tmp/mleb_snap")  # 진행 중 제출 사본을 만드는 곳 (sync_progress)
 PROXY_PORT = 8765
 VALIDATE_PORT = 5000
 TIME_LIMIT = int(CFG["hours"] * 3600)
@@ -1209,7 +1210,7 @@ def run_harness(cmd: list[str], env: dict, log: Path, meta: dict):
     meta["harness_started_at"] = round(t, 2)  # epoch 초: fm_audit.jsonl 의 시각과 맞춰 보려고
     deadline = t + TIME_LIMIT
     stop = threading.Event()
-    threading.Thread(target=sync_progress, args=(stop,), daemon=True).start()
+    threading.Thread(target=sync_progress, args=(stop, meta), daemon=True).start()
     cont, sid, meta["segments"], idle = bool(CFG.get("continue")), None, [], 0
     # 이어 가기 구간도 같은 출력 파일에 덧붙임 → 사후 검사·토큰 집계가 전체를 봄
     with open(log, "w") as out, open(OUT / "harness_stderr.txt", "w") as err:
@@ -1260,14 +1261,14 @@ def find_submission() -> Path | None:
     return None
 
 
-def pack_workspace():
+def pack_workspace(dst: Path | None = None):
     """에이전트가 만든 코드·작은 파일 (20MB 넘는 파일과 데이터 링크는 뺌)."""
     def keep(t):
         if t.islnk() or t.issym() or "/.codex/" in f"/{t.name}/" or t.size > 20 * 2**20:
             return None
         return t
 
-    with tarfile.open(OUT / "workspace.tgz", "w:gz") as tar:
+    with tarfile.open(dst or OUT / "workspace.tgz", "w:gz") as tar:
         tar.add(WORK, arcname="workspace", filter=keep)
         tar.add(HOME / "submission", arcname="home_submission", filter=keep)
 
@@ -1304,9 +1305,13 @@ def main():
         step(f"회수 → {dst}")
 
 
-def sync_progress(stop: threading.Event):
-    """실행 중에도 2분마다 기록(프록시·형식 검사·하네스 출력)을 Volume 의 out/progress/ 에 복사 → fab mleb agent peek."""
+def sync_progress(stop: threading.Event, meta: dict):
+    """실행 중에도 2분마다 기록(프록시·형식 검사·하네스 출력)을 Volume 의 out/progress/ 에 복사 → fab mleb agent peek.
+    제출 파일이 바뀌면 그 제출·작업 디렉터리 코드·그때까지의 meta 도 progress/ 에 둠: 컨테이너가 중간에 죽으면
+    (AI Runtime 플랫폼 오류, 2026-11-13 leaf Claude Code +fm 3번) 마지막 회수가 안 돌아 제출이 사라짐 → 정리 작업이
+    이 사본으로 채점 (시간 초과 실행이 그때까지 저장한 제출로 채점되는 것과 같게)."""
     dst = Path(CFG["out"]) / "progress"
+    snap = None  # 마지막으로 복사한 제출 (경로, mtime, 크기)
     while not stop.wait(120):
         try:
             dst.mkdir(parents=True, exist_ok=True)
@@ -1318,7 +1323,20 @@ def sync_progress(stop: threading.Event):
                 if (OUT / f).exists():
                     (dst / f).write_bytes((OUT / f).read_bytes()[-200_000:])
             (dst / "elapsed.txt").write_text(f"{time.time() - T0:.0f}\n")
-        except OSError as e:
+            if (sub := find_submission()) and (now := (str(sub), sub.stat().st_mtime, sub.stat().st_size)) != snap:
+                data = sub.read_bytes()  # 에이전트가 쓰는 도중이면 다음 회차에 다시 (mtime·크기가 또 바뀜)
+                part = dict(meta, submission_from=str(sub), submission_mtime=round(now[1], 2),
+                            harness_seconds=round(time.time() - meta["harness_started_at"], 1),
+                            snapshot_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+                SNAP.mkdir(exist_ok=True)  # OUT 밖 (마지막 회수가 OUT 을 통째로 올림)
+                (SNAP / "submission.csv").write_bytes(data)
+                part["format_ok"], part["format_msg"] = check_submission(SNAP / "submission.csv")
+                pack_workspace(SNAP / "workspace.tgz")
+                shutil.copy(SNAP / "workspace.tgz", dst / "workspace.tgz")
+                shutil.copy(SNAP / "submission.csv", dst / "submission.csv")
+                (dst / "meta.json").write_text(json.dumps(part, indent=2, ensure_ascii=False, default=str))  # 제출 뒤에
+                snap = now
+        except Exception as e:  # noqa: BLE001 - 이 스레드가 죽으면 진행 기록이 멈춤 (meta 를 읽는 중 main 이 바꾸는 경우 등) → 다음 회차에
             print(f"[agent-runner] 진행 기록 복사 실패: {e!r}", flush=True)
 
 
