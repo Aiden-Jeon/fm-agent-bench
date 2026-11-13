@@ -31,13 +31,15 @@
 |---|---|---|---|---|---|
 | nomad2018 (RMSLE ↓) | 0.05734 (17위) | 0.06001 (31위) | 0.04567 (1위) | **0.04523 (1위)** | 0.04545 (1위)³ |
 | spaceship-titanic (accuracy ↑) | 0.8218 (6위) | **0.8241 (2위)** | **0.8241 (2위)** | – | – |
-| tps-may-2022 (AUC ↑) | 0.99232 (417위)¹ | 0.97223 (581위)¹ | **0.99734 (240위)** | – | 0.99681 (296위)³ |
-| leaf-classification (logloss ↓) | 0.01998 (219위) | 0.40629 (1015위) | **0.00000 (1위)**² | – | **0.00000 (1위)**²·³ |
+| tps-may-2022 (AUC ↑) | 0.99232 (417위)¹ | 0.97223 (581위)¹ | **0.99734 (240위)** | 0.99453 (382위)⁴ | 0.99681 (296위)³ |
+| leaf-classification (logloss ↓) | 0.01998 (219위) | 0.40629 (1015위) | **0.00000 (1위)**² | 0.00232 (29위)⁴ | **0.00000 (1위)**²·³ |
 
 FM·GBDT 는 튜닝 없음, Agent·C2 는 1~2회 실행 중 최고, – 는 아직 안 돌림. ¹ 사람 피처(`~f1`), FM 은 컨텍스트 20만 행.
 ² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님).
 ³ C2 최고: nomad 는 Codex × GPT +fm 2회째 (TabPFN·TabICL 을 제출에 섞음, Codex Agent 2회째와 같은 수준), leaf 는 Codex × GPT +fm 2회째와 AIDE × GPT +fm 2회째 (분할 구조 배정, AIDE 는 FM 안 씀),
   tps 는 Codex × GPT +fm (아무도 FM 을 안 씀). FM 을 제출에 넣어 같은 설정의 Agent 보다 두 번 다 좋아진 건 leaf × Claude Code +cont 와 nomad × AIDE × Sonnet ([C2 2회째](docs/mle-bench.md#c2-2회째-leaf--nomad-2026-11-13)).
+⁴ C1 의 피처: nomad·tps 는 Codex × GPT, leaf 는 AIDE × Sonnet 1회째 (그 에이전트 1·2회째 0.00385·0.00195, Codex 는 ² 라 안 씀). tps 는 kumo 컨텍스트 20만 행, leaf 는 tabicl.
+leaf 의 FM 향상 대부분은 test 99행 중 한 행이고 CV 로는 작음. leaf·tps 에서는 같은 피처의 GBDT 가 FM 보다 더 좋아짐 (질문 2 의 답은 아직 nomad × kumo 하나만 예).
 결과 표: `results/mlebench.csv` (FM·GBDT 채점), `results/mlebench_runs.csv` (Agent 실행), `results/results.csv` (CV) 는
 Volume 의 `tables/` 가 원본이고 `fab sync` 로 받은 사본. `results/mlebench_agents.csv` (공개 리더보드 에이전트) 는 로컬 `fab mleb agents` 로 만듦.
 
@@ -161,7 +163,7 @@ uv run --frozen fab mleb agent list                    # 처리 상태 (회수·
 포함한 전체 이름이고, `results.csv` 의 `features` (변형 이름, 기본은 `base`)·`n_features` (넣은 열 수) 에도 남음.
 `build(train, test, data_dir)` 처럼 `data_dir` 를 받으면 대회 데이터 폴더를 넘김 (표 밖 파일을 읽는 변형용).
 변형 파일의 `TFM_MAX_FEATURES` 는 그 변형의 TFM 피처 상한 (None = 상한 없음, 없으면 대회 설정 `tfm_max_features`),
-`PIP` 는 원격에서 더 설치할 패키지. nomad 의 `~f2s`·`~f2` 는 [docs/plans/roadmap.md](docs/plans/roadmap.md) 의 C1.
+`PIP` 는 원격에서 더 설치할 패키지. nomad 의 `~f2s`·`~f2`, leaf·tps-may 의 `~f2` 는 [docs/plans/roadmap.md](docs/plans/roadmap.md) 의 C1.
 
 ## 출처
 

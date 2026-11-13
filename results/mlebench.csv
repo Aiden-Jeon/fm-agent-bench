@@ -41,3 +41,11 @@ timestamp,mlebench,model,comps,runs,note,score,valid_submission,any_medal,gold_m
 2026-11-12T02:12:16,tabular-playground-series-may-2022,kumo~f1,mleb-tps-may-2022,2026-11-12T01:49:40,p3,0.97442,True,False,False,False,False,True,0.99823,0.99822,0.99818,0.972675,False,572,1152
 2026-11-12T02:12:22,tabular-playground-series-may-2022,kumo@rand200000~f1,mleb-tps-may-2022,2026-11-12T01:36:18,p3,0.99232,True,False,False,False,False,True,0.99823,0.99822,0.99818,0.972675,False,417,1152
 2026-11-12T02:12:27,tabular-playground-series-may-2022,tabicl@rand200000~f1,mleb-tps-may-2022,2026-11-12T02:08:29,p3,0.98189,True,False,False,False,False,True,0.99823,0.99822,0.99818,0.972675,False,534,1152
+2026-11-13T07:35:08,leaf-classification,kumo~f2,mleb-leaf-classification,2026-11-13T04:37:16,c1,0.00603,True,True,False,True,False,True,0.0,0.00791,0.01526,0.108345,True,58,1596
+2026-11-13T07:35:11,leaf-classification,tabicl~f2,mleb-leaf-classification,2026-11-13T04:38:30,c1,0.00232,True,True,False,True,False,True,0.0,0.00791,0.01526,0.108345,True,29,1596
+2026-11-13T07:35:14,leaf-classification,lgbm~f2,mleb-leaf-classification,2026-11-13T04:38:34,c1,0.36952,True,False,False,False,False,False,0.0,0.00791,0.01526,0.108345,True,1004,1596
+2026-11-13T07:35:18,leaf-classification,catboost~f2,mleb-leaf-classification,2026-11-13T06:08:17,c1,0.34624,True,False,False,False,False,False,0.0,0.00791,0.01526,0.108345,True,991,1596
+2026-11-13T07:35:23,tabular-playground-series-may-2022,kumo@rand200000~f2,mleb-tps-may-2022,2026-11-13T05:08:29,c1,0.99453,True,False,False,False,False,True,0.99823,0.99822,0.99818,0.972675,False,382,1152
+2026-11-13T07:35:29,tabular-playground-series-may-2022,tabicl@rand200000~f2,mleb-tps-may-2022,2026-11-13T07:28:32,c1,0.97019,True,False,False,False,False,False,0.99823,0.99822,0.99818,0.972675,False,593,1152
+2026-11-13T07:35:34,tabular-playground-series-may-2022,lgbm~f2,mleb-tps-may-2022,2026-11-13T04:53:31,c1,0.98367,True,False,False,False,False,True,0.99823,0.99822,0.99818,0.972675,False,529,1152
+2026-11-13T07:35:39,tabular-playground-series-may-2022,catboost~f2,mleb-tps-may-2022,2026-11-13T05:23:44,c1,0.98638,True,False,False,False,False,True,0.99823,0.99822,0.99818,0.972675,False,504,1152
