@@ -1,0 +1,16 @@
+# TabArena-v0.1 (OpenML task 363674) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 이진 · 2,400 행 · 피처 30 (모두 수치) · split 30. TabArena 에서 FM 이 크게 이기는 곳 (docs/tabarena.md 7)
+name: ta-hazelnut-spread-contaminant-detection
+tabarena:
+  dataset: hazelnut-spread-contaminant-detection
+  task_id: 363674
+  split: r0f0
+  anon_id: tabarena-p01
+  categorical: []
+task: binary
+target: Contaminated
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}

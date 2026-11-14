@@ -20,18 +20,23 @@
 
 | | MLE-bench | TabArena |
 |---|---|---|
-| 상태 | 연동됨 (P0) | 연동 전 |
-| 채점 | 다시 나눈 test (정답은 로컬 mlebench 캐시 + 채점용 내 Volume, 에이전트 SP 는 못 읽음. 채점은 serverless CPU 작업) | 확인 필요 |
-| 비교 대상 | 공개 리더보드 에이전트 (24시간, 실행별 점수만) | 확인 필요 (튜닝·앙상블한 모델 리더보드로 알고 있음) |
-| 범위 | 표 형식 대회 7개 (`fab/bench/mlebench/__init__.py` 의 `TABULAR`) | 확인 필요 |
+| 상태 | 연동됨 (P0) | 연동됨 (P4 파일럿, 2026-11-14, `fab/bench/tabarena/`, [docs/tabarena.md](../tabarena.md)) |
+| 채점 | 다시 나눈 test (정답은 로컬 mlebench 캐시 + 채점용 내 Volume, 에이전트 SP 는 못 읽음. 채점은 serverless CPU 작업) | OpenML task 의 고정 외부 분할 (3-fold 층화 × 반복 10번 (2,500 행 미만) 또는 3번 → 30·9 split, 합 816). 지표 이진 ROC AUC · 다중 log loss · 회귀 RMSE. 합치기는 Elo (기본 RandomForest = 1000) · 개선 여지 · 순위. 데이터가 타깃까지 공개라 정답 격리는 우리 쪽에서 (+ 사후 검사) |
+| 비교 대상 | 공개 리더보드 에이전트 (24시간, 실행별 점수만) | 모델 58개 (기본 / 튜닝 200개 / 튜닝 + 앙상블, 8-fold bag) + 시스템 8개 (AutoGluon 4시간 등, LLM 에이전트 시스템은 아직 없음). TFM 이미 있음 (TabPFNv2·TabICLv2·Kumo-Tabular 등, 기본 설정, test 는 train 전체로 refit). split 별 결과는 공개 parquet 로 받음 |
+| 범위 | 표 형식 대회 7개 (`fab/bench/mlebench/__init__.py` 의 `TABULAR`) | TabArena-v0.1 51개 (이진 30 · 다중 8 · 회귀 13), 748~150,000 행, 피처 5~1,777, 클래스 최대 8. 우리 FM 은 tabpfn_v2 33개 (공식 범위), tabicl·kumo 51개 |
 
-TabArena 연동 전에 확인할 것
+TabArena 연동 전에 확인할 것 (2026-11-13 조사, 답은 [docs/tabarena.md](../tabarena.md))
 
-- 데이터셋 목록·크기, 분할 방식(반복 CV 의 fold 수·반복 수), 지표 → `fab run` 의 고정 fold 와 맞출 수 있는지
-- 공개 리더보드의 기준선(모델·설정)을 그대로 비교 대상으로 쓸 수 있는지, FM 이 이미 리더보드에 있는지
-- 에이전트에게 줄 형식: MLE-bench 처럼 train/test csv + 설명(description.md) + sample_submission 을 만들어야 함.
-  정답(test fold 의 타깃)은 로컬에만 두고 Volume 에는 올리지 않음 (MLE-bench 와 같은 격리)
-- 비용: 데이터셋 × 설정 × 시드 × 1시간 → 데이터셋을 고를지 (먼저 MLE-bench 처럼 몇 개로 파일럿)
+- (답함) 데이터셋 목록·크기, 분할 방식(반복 CV 의 fold 수·반복 수), 지표 → `fab run` 의 고정 fold 와 맞출 수 있는지:
+  외부 split 하나를 대회 하나로, `fab run` 의 5-fold 는 그 train 안의 내부 CV 로 둠 ("2. 분할·평가 프로토콜")
+- (답함) 공개 리더보드의 기준선(모델·설정)을 그대로 비교 대상으로 쓸 수 있는지, FM 이 이미 리더보드에 있는지:
+  있음, split 별 결과를 받아 나란히 놓음. 전처리·앙상블 수가 달라 똑같이 나오진 않음 ("3. 리더보드·기준선")
+- (답함) 에이전트에게 줄 형식: MLE-bench 처럼 train/test csv + 설명(description.md) + sample_submission 을 만들어야 함.
+  정답(test fold 의 타깃)은 로컬에만 두고 Volume 에는 올리지 않음 (MLE-bench 와 같은 격리).
+  설명은 OpenML·원래 출처에서 우리가 씀. 데이터가 공개라 인터넷을 열면 사후 검사로만 막음.
+  데이터셋 이름·출처는 안 알림 ("모델링 실력" 비교, 2026-11-13 정함, "5" 의 "익명화")
+- (답함) 비용: 데이터셋 × 설정 × 시드 × 1시간 → 데이터셋을 고를지 (먼저 MLE-bench 처럼 몇 개로 파일럿):
+  Agent 는 Lite split (r0f0) 만, 파일럿 4개 (hazelnut · in_vehicle_coupon · Amazon_employee_access · physiochemical_protein), Agent 는 앞 둘부터 ("7")
 
 ## 단계
 
@@ -41,7 +46,7 @@ TabArena 연동 전에 확인할 것
 | P1 ✓ | 신뢰도: Agent 2회째 (FM 시드 반복·부트스트랩은 안 함, 아래 "P1 범위") | [docs/mle-bench.md](../mle-bench.md) 의 "P1" |
 | P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost}. 확장 (#12, 2026-11-13): leaf × AIDE × Sonnet · tps-may × Codex 의 `~f2` × {tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 "C1"·"C1 확장" |
 | P3 ✓ | MLE-bench 표 형식 대회 확장: tps-may-2022, leaf-classification (FM × Agent 1회씩, 2026-11-12). 남은 대회 (s3e18·dec-2021·taxi) 는 나중에 | [docs/mle-bench.md](../mle-bench.md) 의 "P3" |
-| P4 | TabArena 연동 (위 확인 → `fab/bench/tabarena/`) | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
+| P4 | TabArena 연동 (`fab/bench/tabarena/`, 2026-11-14). FM 맞춤: 39개 (2만 행 이하 + 파일럿) 모든 split 에서 tabicl·kumo·tabpfn_v2 모두 통과 (표준편차 안 91~95%, 비김을 뺀 승패 모두 같음. 비김 처리는 2026-11-14 정함). `kumo_e16` (앙상블 16) 도 결과가 같음. Agent 파일럿: hazelnut · in_vehicle r0f0 × 5설정 × 1회 ([docs/tabarena.md](../tabarena.md) 의 "파일럿 결과"). 남음: 큰 12개 (#16, 보류), Agent 2회째 (#17), 사후 검사·제출·채점 손보기 (#18~#20) | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
 | P5 ✓ | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`, 아래 "C2 규칙"). nomad 1회째 (Codex·Claude Code +cont, 2026-11-12, [docs/mle-bench.md](../mle-bench.md) 의 "C2"). 마무리 (leaf·tps-may 4설정, nomad AIDE 2설정, 2026-11-12, "C2 마무리"). aide-sonnet+fm 3개는 #10 (프록시) 을 고친 뒤 다시 돌림 (2026-11-12, 동시 실행). 2회째: leaf 4설정 (+ Agent 2회째)·nomad 3설정 (#13, 2026-11-13, "C2 2회째") | Agent 와 C2 를 같은 대회·시드로 |
 | P6 | 정리 | 방식 × 벤치마크 결과 문서 |
 
@@ -177,4 +182,10 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 
 (정함) C2 의 FM 목록과 안내 문구: tabpfn_v2·tabicl·kumo, 이름 + 사용 예 (2026-11-12, 위 "C2 규칙")
 
+(정함) TabArena 연동 (2026-11-13, [docs/tabarena.md](../tabarena.md) 의 "결정"): v0.1 51개, Agent 는 r0f0 split 하나,
+데이터셋 이름·출처는 안 알림 ("모델링 실력" 비교), FM 은 지금 설정 그대로 두고 TabArena 와의 차이를 기준 (데이터셋 80% 가
+split 표준편차 안 + 승패 방향 같음) 으로 봄, (데이터셋, split) 마다 대회, `openml`·`pyarrow` 는 옆 venv, GBDT 는 우리 것을 돌림
+
 - 해석 주의: Agent 는 LLM 이 공개 Kaggle 풀이를 학습했을 수 있음 (FM 은 아님). TabArena 데이터셋도 같은 문제가 있는지
+  → 있음: 51개 중 Kaggle 15 (대회 3), 교과서급 UCI 다수. 공개 풀이 수는 세지 않음 ([docs/tabarena.md](../tabarena.md) 의 "6. 오염").
+  TabArena 는 데이터셋 이름을 안 알려 정답 찾기를 줄이지만, 피처 이름으로 알아볼 수 있는 데이터는 남음

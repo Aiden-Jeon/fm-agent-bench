@@ -1,0 +1,16 @@
+# TabArena-v0.1 (OpenML task 363693) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 회귀 · 45,730 행 · 피처 9 · split 9. 큼: train 3만 (fold 학습 2.4만)
+# tfm_max_rows 없음: TabArena 의 TabICLv2·Kumo 가 train 전체를 컨텍스트로 씀 (맞춤 비교). TabPFNv2 는 TabArena 범위 밖
+name: ta-physiochemical-protein
+tabarena:
+  dataset: physiochemical_protein
+  task_id: 363693
+  split: r0f0
+  anon_id: tabarena-p04
+  categorical: []
+task: regression
+target: ResidualSize
+id_col: id
+metric: rmse
+cv: {n_splits: 5, seed: 42, stratify: false}

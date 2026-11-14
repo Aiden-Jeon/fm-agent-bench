@@ -6,6 +6,7 @@
   3. batch    --split-folds 묶음의 fold 실행이 다 끝나면 합침 (merge_folds, 메모리는 fold 수에 비례하지 않음)
   4. agent    끝난 에이전트 실행 → SP Volume 의 결과를 outputs/_mlebench/agents/<key>/ 로 복사 → 채점 → 사후 검사
   5. grade    FM 채점 요청 → 요청한 모델의 학습이 아직 돌고 있으면 기다림 → 제출 파일 → 채점 → mlebench.csv
+              (bench=tabarena 요청은 split 대회마다 fab 지표로 → tabarena.csv, fab/bench/tabarena)
   6. recheck  mlebench_runs.csv 의 사후 검사 열 다시 계산
 항목마다 결과표를 Volume 의 tables/ 에 쓴 뒤 <key>.done.json 을 남김 (중간에 죽으면 그 항목만 다음에 다시).
 항목 처리 중 예외(SystemExit 포함)가 나면 그 항목이 결과표에 쓴 행을 되돌리고 (다시 처리할 때 행이 겹치지 않게),
@@ -133,22 +134,26 @@ def step(name: str, items: dict, fn, state: State, tables: Tables, kind: str):
 def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
     from databricks.sdk import WorkspaceClient
 
-    from fab.agent import AGENT_RUNS, TABLE as AGENT_TABLE, grade_run, recheck_table, recover_from_progress
+    from fab.agent import AGENT_RUNS, TA_TABLE, TABLE as AGENT_TABLE, grade_run, recheck_table, recover_from_progress, \
+        run_table
     from fab.bench.mlebench import bench_comps, grade as grade_fm
     from fab.bench.mlebench.remote import Grader
+    from fab.bench.tabarena import grade as grade_ta
+    from fab.bench.tabarena.remote import Grader as TaGrader
     from fab.runner.run import load_target, merge_folds
 
     V = Path(volume)
     w = WorkspaceClient()
-    state, tables, grader = State(V), Tables(V), Grader(V)
+    state, tables, grader, ta_grader = State(V), Tables(V), Grader(V), TaGrader(V)
     link_data(V)
 
     def exclude(key, m):
         for k in m["keys"]:
             state.done("agent", k, excluded=m["reason"])
-        if AGENT_TABLE.exists():
-            t = pd.read_csv(AGENT_TABLE)
-            t[~t.key.isin(m["keys"])].to_csv(AGENT_TABLE, index=False)
+        for table in (AGENT_TABLE, TA_TABLE):
+            if table.exists():
+                t = pd.read_csv(table)
+                t[~t.key.isin(m["keys"])].to_csv(table, index=False)
         tables.flush()
         state.done("exclude", key, keys=m["keys"])
         print(f"  제외: {', '.join(m['keys'])} ({m['reason']})")
@@ -219,13 +224,19 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             print(f"  {key}: 실행기가 끝까지 못 감 ({st['message'][:200]}) → progress/ 사본으로 회수"
                   + (" (제출 있음)" if (d / "submission.csv").exists() else " (제출 사본 없음)"))
         report = None
-        if (d / "submission.csv").exists():
+        if (d / "submission.csv").exists() and m.get("bench") == "tabarena":
+            # TabArena: 대회 이름은 제출 기록에만 (cid = 익명 id). 형식이 틀린 제출은 오류가 아니라 무효 (valid_submission)
+            report = ta_grader.grade(m["comp"], d / "submission.csv")
+            if str(report.get("error", "")).startswith("정답 없음"):
+                raise RuntimeError(report["error"])
+        elif (d / "submission.csv").exists():
             report = grader.grade(m["cid"], d / "submission.csv")
             if report.get("error"):  # 채점 자체가 실패 → 다시 시도 (MAX_ATTEMPTS 까지)
                 raise RuntimeError(f"채점 실패:\n{report['error']}")
-        if AGENT_TABLE.exists():  # 예전 시도가 행을 쓰고 done 을 못 남겼으면 그 행을 지우고 다시 씀
-            t = pd.read_csv(AGENT_TABLE)
-            t[t.key != key].to_csv(AGENT_TABLE, index=False)
+        table = run_table(m)
+        if table.exists():  # 예전 시도가 행을 쓰고 done 을 못 남겼으면 그 행을 지우고 다시 씀
+            t = pd.read_csv(table)
+            t[t.key != key].to_csv(table, index=False)
         row = grade_run(key, m, report)
         tables.flush()
         state.done("agent", key, result=st["result"], score=row.get("score"))
@@ -237,11 +248,16 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
     def unfinished() -> set[tuple[str, str]]:
         """아직 처리가 안 끝난 (대회, 모델): 학습 중이거나, 끝났지만 합치기에 실패해 다시 시도할 FM 실행·fold 묶음.
         채점 요청은 이 모델들을 기다림 (끝난 줄 알고 예전 예측·없는 예측으로 채점하지 않게)."""
-        out = {(m["comp"], x) for m in state.pending("fm").values() for x in m["models"]}
-        return out | {(m["comp"], x) for k, ms in batches.items() if not state.is_done("batch", k)
-                      for m in ms for x in m["models"]}
+        def comps(m):  # TabArena 묶음 작업은 split 대회 여럿 (comps)
+            return m.get("comps") or [m["comp"]]
+
+        out = {(c, x) for m in state.pending("fm").values() for c in comps(m) for x in m["models"]}
+        return out | {(c, x) for k, ms in batches.items() if not state.is_done("batch", k)
+                      for m in ms for c in comps(m) for x in m["models"]}
 
     def grade(key, m):
+        if m.get("bench") == "tabarena":
+            return grade_tabarena(key, m)
         need = {(c.name, x) for c in bench_comps(m["cid"]) for g in m["groups"] for x in g}
         if waiting := need & unfinished():
             print(f"  {key}: 처리가 안 끝난 모델 기다림 {sorted(waiting)}")
@@ -265,6 +281,37 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
         if failed:  # 다시 시도 (MAX_ATTEMPTS 까지). 마지막엔 done 에 오류로 남음
             raise RuntimeError("채점 못 한 묶음:\n" + "\n".join(f"{k}: {v}" for k, v in failed.items()))
         state.done("grade", key, graded=graded)
+
+    def grade_tabarena(key, m):
+        """split 대회 × 모델. 끝난 대회는 진행 기록에 남겨 다시 시도할 때 건너뜀. 예측이 없는 (학습 실패) 것·채점에
+        실패한 것 (무효 제출, test.npy 의 NaN 등) 은 같은 입력이면 다시 해도 같으므로 그 (대회, 모델) 만 빼고 나머지는 씀
+        (done 의 missing · failed). 그 밖의 예외 (Volume 읽기 등) 는 대회째 되돌리고 다시 시도 (MAX_ATTEMPTS)."""
+        need = {(c, x) for c in m["comps"] for x in m["models"]}
+        if waiting := need & unfinished():
+            print(f"  {key}: 처리가 안 끝난 모델 기다림 {len(waiting)}개 (예: {sorted(waiting)[:3]})")
+            return
+        prog = state.root / "grade" / f"{key}.progress.json"
+        graded = json.loads(prog.read_text()) if prog.exists() else []
+        missing, failed = {}, {}
+        for c in m["comps"]:
+            if c in graded:
+                continue
+            tables.begin()
+            try:
+                rows, errors = grade_ta([c], m["models"], m.get("note", ""), ta_grader.grade)
+            except BaseException:
+                tables.rollback()
+                raise
+            missing |= {k: v for k, v in errors.items() if v == "test 예측 없음"}
+            failed |= {k: v for k, v in errors.items() if v != "test 예측 없음"}
+            tables.flush()
+            graded.append(c)
+            prog.write_text(json.dumps(graded))
+        state.done("grade", key, graded=len(graded), missing=missing, failed=failed)
+        print(f"  {key}: 대회 {len(graded)}개 채점" + (f", 예측 없음 {len(missing)}개" if missing else "")
+              + (f", 채점 실패 {len(failed)}개" if failed else ""))
+        for k, v in list(failed.items())[:10]:
+            print(f"    {k}: {v}")
 
     step("grade", state.pending("grade"), grade, state, tables, "grade")
 

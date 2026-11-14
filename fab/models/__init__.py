@@ -56,6 +56,7 @@ GATED = {"sap_rpt": [("SAP/sap-rpt-1-oss", "2025-11-04_sap-rpt-one-oss.pt")]}
 # 인자 중 max_features 는 대회 설정 tfm_max_features 대신 쓰고, 나머지는 팩토리로 전달
 VARIANTS = {
     "kumo_e4": ("kumo", dict(n_estimators=4)),
+    "kumo_e16": ("kumo", dict(n_estimators=16)),  # TabArena 의 Kumo-Tabular 와 같은 앙상블 수 (docs/tabarena.md 8, 결정 4)
     "sap_rpt8k": ("sap_rpt", dict(max_context_size=8192)),  # README 기본값, 80GB GPU 용
 }
 

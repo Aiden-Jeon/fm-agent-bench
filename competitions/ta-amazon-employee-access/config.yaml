@@ -1,0 +1,17 @@
+# TabArena-v0.1 (OpenML task 363613) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 이진 · 32,769 행 · 피처 9 (모두 고카디널리티 범주) · split 9. 기본 GBDT 가 모든 FM 보다 나은 유일한 곳, Kaggle 대회 (오염 대조군)
+# tfm_max_rows 없음 (train 2.2만, fold 학습 1.7만): TabArena 의 TabICLv2·Kumo 와 같은 전체 컨텍스트
+name: ta-amazon-employee-access
+tabarena:
+  dataset: Amazon_employee_access
+  task_id: 363613
+  split: r0f0
+  anon_id: tabarena-p03
+  categorical: [RESOURCE, MGR_ID, ROLE_ROLLUP_1, ROLE_ROLLUP_2, ROLE_DEPTNAME, ROLE_TITLE, ROLE_FAMILY_DESC, ROLE_FAMILY, ROLE_CODE]
+task: binary
+target: ResourceApproved
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}
