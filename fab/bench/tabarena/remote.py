@@ -15,6 +15,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import pandas as pd
+
 from fab.core.competition import Competition
 
 
@@ -67,17 +69,32 @@ def upload_answers(cfg, comps: list[str]):
 
 
 class Grader:
-    """정리 작업 안에서 채점. grade(대회, csv) → {score, metric_error, valid_submission} 또는 {valid_submission: False, error}."""
+    """정리 작업 안에서 채점. grade(대회, csv) → {score, metric_error, valid_submission} 또는 {valid_submission: False, error}
+    (에이전트 제출 파일). answers(대회) → (정답 표, 정보): FM 채점 (fab.bench.tabarena.grade) 이 대회마다 한 번 읽음."""
 
     def __init__(self, volume: Path):
-        self.answers = Path(volume) / "tabarena" / "answers"
+        self.dir = Path(volume) / "tabarena" / "answers"
 
-    def grade(self, comp: str, csv) -> dict:
+    def answers(self, comp: str):
         import json
 
-        from fab.bench.tabarena import score_submission
+        from fab.bench.tabarena import read_answers
 
-        info = self.answers / f"{comp}.json"
-        if not info.exists():
-            return dict(valid_submission=False, error=f"정답 없음: {info}")
-        return score_submission(Path(csv), self.answers / f"{comp}.csv", json.loads(info.read_text()))
+        f = self.dir / f"{comp}.json"
+        if not f.exists():
+            raise FileNotFoundError(f"정답 없음: {f}")
+        info = json.loads(f.read_text())
+        return read_answers(self.dir / f"{comp}.csv", info), info
+
+    def grade(self, comp: str, csv) -> dict:
+        from fab.bench.tabarena import score_frame
+
+        try:
+            ans, info = self.answers(comp)
+        except FileNotFoundError as e:
+            return dict(valid_submission=False, error=str(e))
+        try:
+            sub = pd.read_csv(csv)
+        except Exception as e:  # noqa: BLE001
+            return dict(valid_submission=False, error=f"읽기 실패: {e!r}")
+        return score_frame(sub, ans, info)

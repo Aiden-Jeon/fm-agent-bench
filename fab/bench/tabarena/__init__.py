@@ -307,13 +307,23 @@ def score_submission(sub_csv: Path, answers_csv: Path, info: dict) -> dict:
     """제출 파일 → {score, metric_error, valid_submission} 또는 {valid_submission: False, error}. 에이전트·FM 이 같이 씀.
     metric_error 는 TabArena 와 같은 꼴 (AUC 는 1 − AUC, logloss·rmse 는 그대로). 다중 분류는 확률을 [1e-15, 1] 로 자르고
     행 합을 1 로 맞춤 (Kaggle·MLE-bench 의 logloss 채점과 같음)."""
-    from fab.core.metrics import score
-
-    ans = pd.read_csv(answers_csv, dtype={info["target"]: str} if info["task"] != "regression" else None)
+    ans = read_answers(answers_csv, info)
     try:
         sub = pd.read_csv(sub_csv)
     except Exception as e:  # noqa: BLE001
         return dict(valid_submission=False, error=f"읽기 실패: {e!r}")
+    return score_frame(sub, ans, info)
+
+
+def read_answers(answers_csv: Path, info: dict) -> pd.DataFrame:
+    return pd.read_csv(answers_csv, dtype={info["target"]: str} if info["task"] != "regression" else None)
+
+
+def score_frame(sub: pd.DataFrame, ans: pd.DataFrame, info: dict) -> dict:
+    """제출 표 → 채점 (score_submission 의 계산. FM 채점은 파일 없이 바로, grade). sub 는 고치지 않음."""
+    from fab.core.metrics import score
+
+    sub = sub.copy()
     y = info["target"]
     want = [ID_COL, *(info["classes"] if info["task"] == "multiclass" else [y])]
     if list(map(str, sub.columns)) != want:
@@ -346,41 +356,67 @@ def score_submission(sub_csv: Path, answers_csv: Path, info: dict) -> dict:
     return dict(valid_submission=True, score=s, metric_error=1 - s if info["metric"] == "auc" else s)
 
 
-def grade_row(comp: Competition, model: str, report: dict, note: str = "") -> dict:
+def grade_row(comp: Competition, model: str, report: dict, note: str = "", info: dict | None = None) -> dict:
     from fab.core.results import test_info
 
     ta = comp.tabarena
     return dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"), comp=comp.name,
                 dataset=ta["dataset"], task_id=ta["task_id"], split=ta["split"], fold=fold_index(ta["split"]),
                 model=model, metric=comp.metric, score=report.get("score"), metric_error=report.get("metric_error"),
-                run=(test_info(comp.name, model) or {}).get("run"), note=note)
+                run=(info or test_info(comp.name, model) or {}).get("run"), note=note)
 
 
-def grade(comps: list[str], models: list[str], note: str, grade_fn) -> tuple[list[dict], dict[str, str]]:
-    """(대회, 모델) 마다 test.npy → 제출 파일 → grade_fn(대회, csv) 로 채점 → results/tabarena.csv.
-    원격 정리 작업이 부름 (grade_fn = remote.Grader.grade). 예측이 없거나 채점에 실패한 것은 표에 쓰지 않음."""
+def grade(comps: list[str], models: list[str], note: str, grader, write: bool = True,
+          timer: dict | None = None) -> tuple[list[dict], dict[str, str]]:
+    """(대회, 모델) 마다 test.npy → 제출 표 (파일로 쓰지 않음, submission_frame) → score_frame → results/tabarena.csv.
+    원격 정리 작업이 부름 (grader = remote.Grader: 정답을 대회마다 한 번 읽음). 대회의 test id 도 한 번만 읽음.
+    표는 끝에 한 번 씀 (write=False 면 안 씀: 부르는 쪽이 모아 씀). 예측이 없거나 채점에 실패한 것은 표에 쓰지 않음.
+    timer: 단계별 걸린 초를 더해 넣음 (#20 의 측정). 계산은 예전 경로 (make_submission → 제출 csv → score_submission) 와 같음."""
     from fab.core.results import test_info
-    from fab.submission import make_submission
+    from fab.submission import submission_frame
+
+    t = timer if timer is not None else {}
+
+    def tick(k, t0):
+        t[k] = t.get(k, 0.0) + time.perf_counter() - t0
+        return time.perf_counter()
 
     rows, errors = [], {}
     for name in comps:
+        t0 = time.perf_counter()
         comp = load_competition(name)
-        for m in models:
-            if test_info(name, m) is None:
-                errors[f"{name}/{m}"] = "test 예측 없음"
-                continue
+        infos = {m: test_info(name, m) for m in models}
+        t0 = tick("test_info", t0)
+        for m in [m for m in models if infos[m] is None]:
+            errors[f"{name}/{m}"] = "test 예측 없음"
+        if not (todo := [m for m in models if infos[m] is not None]):
+            continue
+        try:
+            ans, info = grader.answers(name)
+            t0 = tick("answers", t0)
+            ids = pd.read_csv(comp.data_dir / comp.test_file, usecols=[comp.id_col])[comp.id_col]
+            t0 = tick("test_ids", t0)
+        except Exception as e:  # noqa: BLE001 - 정답이 없는 등: 그 대회의 모델 모두
+            errors |= {f"{name}/{m}": f"채점 실패: {e!r}"[:500] for m in todo}
+            continue
+        for m in todo:
+            t0 = time.perf_counter()
             try:
-                report = grade_fn(name, make_submission(name, [m]))
+                sub = submission_frame(name, [m], test_ids=ids, info=infos[m])
+                t0 = tick("predictions", t0)
+                report = score_frame(sub, ans, info)
+                t0 = tick("score", t0)
             except Exception as e:  # noqa: BLE001 - 예: test.npy 에 NaN (normalize_proba), classes 불일치
                 errors[f"{name}/{m}"] = f"채점 실패: {e!r}"[:500]
                 continue
             if not report.get("valid_submission"):
                 errors[f"{name}/{m}"] = f"채점 실패: {report.get('error')}"
                 continue
-            rows.append(grade_row(comp, m, report, note))
-            print(f"{name} {m}: {comp.metric}={report['score']:.5f} (metric_error {report['metric_error']:.5f})")
-    if rows:
+            rows.append(grade_row(comp, m, report, note, infos[m]))
+    if rows and write:
+        t0 = time.perf_counter()
         append_rows(pd.DataFrame(rows), GRADES)
+        tick("table", t0)
     return rows, errors
 
 
@@ -658,6 +694,10 @@ def main(argv: list[str] | None = None):
     g.add_argument("--models", nargs="+", required=True)
     g.add_argument("--splits", default="all")
     g.add_argument("--note", default="")
+    tm = sub.add_parser("timing", help="원격 채점 시간 재기: 예전 경로 대 지금 경로 (결과표는 안 바뀜, #20)")
+    tm.add_argument("datasets", nargs="+")
+    tm.add_argument("--models", nargs="+", required=True)
+    tm.add_argument("--splits", default="all")
     sub.add_parser("reference", help="TabArena 공개 결과 (기본 설정) → results/tabarena_reference.csv")
     c = sub.add_parser("compare", help="우리 채점과 TabArena 결과 비교 (맞춤 기준)")
     c.add_argument("--models", nargs="*")
@@ -686,6 +726,19 @@ def main(argv: list[str] | None = None):
         check_models(args.models)
         comps = [c.name for ds in names(args.datasets) for c in make_comps(ds, pick_splits(ds, args.splits))]
         request_grade(comps, args.models, args.note)
+    elif args.cmd == "timing":
+        from datetime import datetime
+
+        from fab.bench.tabarena.remote import upload_answers
+        from fab.remote import settings, submit_item
+
+        check_models(args.models)
+        comps = [c.name for ds in names(args.datasets) for c in make_comps(ds, pick_splits(ds, args.splits))]
+        cfg = settings()
+        upload_answers(cfg, comps)
+        submit_item(cfg, "timing", f"tabarena__{datetime.now():%Y%m%d-%H%M%S}", dict(comps=comps, models=args.models))
+        print(f"시간 재기 요청: 대회 {len(comps)}개 × 모델 {len(args.models)}개 → fab remote kick, 결과는 fab remote status 뒤 "
+              "Volume 의 state/timing/")
     elif args.cmd == "reference":
         reference()
     elif args.cmd == "compare":
