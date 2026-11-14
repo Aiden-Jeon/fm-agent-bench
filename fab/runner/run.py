@@ -27,7 +27,7 @@ from sklearn.preprocessing import LabelEncoder
 from fab.core.competition import TRANSFORMS, build_features, get_folds, load_competition, load_data
 from fab.core.metrics import EXTRA, normalize_proba, score
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, warn_overwrite, write_test_info
-from fab.models import make_model, split_features
+from fab.models import is_refit, make_model, split_features
 from fab.runner.common import add_run_args, check_run_args, cpu_count, run_argv
 
 
@@ -88,7 +88,17 @@ def run_parallel(args: argparse.Namespace, n_gpus: int) -> list[str]:
 
 def run_model(name, comp, X, y, X_test, cat_cols, folds, max_folds=None, no_test=False, classes=None, fold=None,
               max_features=None):
-    """max_features: TFM 피처 상한 (build_features 가 정함: 피처 변형의 TFM_MAX_FEATURES 또는 대회 설정)."""
+    """max_features: TFM 피처 상한 (build_features 가 정함: 피처 변형의 TFM_MAX_FEATURES 또는 대회 설정).
+    refit 이름 (kumo_refit 등, fab.models.REFIT_SUFFIX): CV 없이 train 전체로 한 번 fit → test 만 예측. OOF 는 None."""
+    if is_refit(name):
+        t0 = time.time()
+        model = make_model(name, comp.task, cat_cols, seed=comp.cv["seed"], max_rows=comp.tfm_max_rows,
+                           max_features=max_features, metric=comp.metric)
+        model.fit(X, y)
+        t_pred = time.time()
+        test_pred = predict(model, X_test, comp.task)
+        print(f"  [{name}] refit (train 전체 {len(X)}행): fit {t_pred - t0:.0f}s, pred {time.time() - t_pred:.0f}s")
+        return None, test_pred, {}, [], time.time() - t0
     n_splits = folds.max() + 1
     run_folds = [fold] if fold is not None else range(n_splits if max_folds is None else max_folds)
     n_out = () if comp.task == "regression" else (len(np.unique(y)),)
@@ -145,10 +155,12 @@ def save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, not
              n_features=None):
     """전체 실행 결과: results/<대회>/<실행 이름>/{oof,test}.npy·meta.json·test.json + results.csv 한 줄.
     features = 피처 변형 (실행 이름의 ~<variant>, 없으면 base = 대회의 features.py), n_features = 모델에 넣은 열 수
-    (tfm_max_features 로 줄이기 전)."""
+    (tfm_max_features 로 줄이기 전). refit 실행은 oof = None (oof.npy 안 씀, CV 점수 NaN, n_folds 0)."""
     out = OUTPUTS / comp.name / name
     out.mkdir(parents=True, exist_ok=True)
-    np.save(out / "oof.npy", oof)
+    if oof is not None:
+        np.save(out / "oof.npy", oof)
+    cv = scores.get(comp.metric)
     features = split_features(name)[1] or "base"
     meta = dict(comp=comp.name, model=name, metric=comp.metric, scores=scores, fold_scores=fold_scores,
                 seconds=round(secs, 1), classes=classes, n_folds=len(fold_scores), note=note, features=features,
@@ -158,15 +170,17 @@ def save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, not
         warn_overwrite(out)
         clear_test_info(out)
         np.save(out / "test.npy", test_pred)
-        write_test_info(out, meta["timestamp"], scores[comp.metric], len(fold_scores), classes)
+        write_test_info(out, meta["timestamp"], cv, len(fold_scores), classes)
 
     row = dict(timestamp=meta["timestamp"], comp=comp.name, model=name, metric=comp.metric,
-               cv=scores[comp.metric], cv_std=float(np.std(fold_scores)), n_folds=len(fold_scores),
+               cv=np.nan if cv is None else cv, cv_std=float(np.std(fold_scores)) if fold_scores else np.nan,
+               n_folds=len(fold_scores),
                seconds=meta["seconds"], **{f"cv_{k}": v for k, v in scores.items() if k != comp.metric},
                note=note, test=not no_test, features=features, n_features=n_features,
                **({"where": where} if where else {}))
     append_rows(pd.DataFrame([row]))
-    print(f"=> {name}: {comp.metric}={scores[comp.metric]:.5f} ± {row['cv_std']:.5f}  ({secs:.0f}s)\n")
+    print(f"=> {name}: " + (f"{comp.metric}={cv:.5f} ± {row['cv_std']:.5f}" if cv is not None else "refit (CV 없음)")
+          + f"  ({secs:.0f}s)\n")
 
 
 def save_fold(comp, name, fold, oof, test_pred, fold_score, secs, classes, note, no_test, batch, n_features=None):

@@ -20,6 +20,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [8. 연동 설계 초안](#8-연동-설계-초안)
 - [9. 연동 (2026-11-14 구현)](#9-연동-2026-11-14-구현)
 - [파일럿 결과 (2026-11-14)](#파일럿-결과-2026-11-14)
+- [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
 - [부록: 데이터셋 51개](#부록-데이터셋-51개)
 
@@ -588,6 +589,107 @@ in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (�
 | 원격 채점 속도 (정리 작업 한 번 약 1시간) | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | |
 | physiochemical 의 `tabpfn_v2` (TabArena 범위 밖이라 비교에는 필요 없음) | – | 안 함 |
 | Kumo·TabICL 이 TabArena 보다 조금 나쁜 쪽으로 기우는 까닭 (컨텍스트 80% 대 refit) | – | 필요하면 |
+
+## 빠르게 돌리기 (2026-11-14)
+
+#16 (2만 행 넘는 12개 × 9 split × tabicl·kumo) 과 #17 (Agent 2회째) 을 빨리 돌릴 방법을 찾음.
+minipfn (TabArena-Lite 하네스) 에서 가져올 만한 것을 보고, 우리 쪽 병목을 잰 뒤, 작은 시험 (데이터셋 3개 × r0f0) 으로 전후를 잼.
+
+### 병목 (#16 첫 실행의 로그, H100)
+
+| 데이터셋 r0f0 | train × 피처 | test | split 하나 | tabicl | kumo | 나머지 (프로세스 2개) |
+|---|---|---|---|---|---|---|
+| GiveMeSomeCredit | 100,000 × 10 | 50,000 | 306초 | 107초 (fold 마다 fit 1 · 예측 20) | 188초 (fit 0 · 예측 36) | 약 11초 |
+| customer_satisfaction | 86,586 × 21 | 43,294 | 277초 | 105초 | 159초 | 약 13초 |
+| APSFailure | 50,667 × 170 | 25,333 | 265초 | 125초 (fit 9 · 예측 15) | 125초 (예측 23) | 약 15초 |
+
+- 시간 대부분이 **예측**. `fab run` 은 fold 5개마다 (검증 2만 + test 5만 행) 을 컨텍스트 8만 행으로 예측 → test 를 5번 예측하고 검증 행도 예측함
+- TabICL: 래퍼가 예측을 2만 행씩 나누는데 (`PREDICT_CHUNK`) KV 캐시가 꺼져 있어 **청크마다 컨텍스트 8만 행을 다시 계산** (7만 행 = 4번)
+- Kumo: 컨텍스트는 이미 한 번만 인코딩 (KV 캐시). 질의 청크 2048 은 T4 에 맞춘 값
+- 데이터셋 하나 (9 split) 는 H100 에서 약 40~46분. 12개 모두면 H100 5~7시간 어림 (작은 데이터셋은 더 짧음. 이슈의 10~20시간보다 짧음)
+- 노드 뜨기: 시험 작업 (아래) 은 로그가 나오기까지 약 15분 (작업 32분 중 split 셋 17분)
+
+### minipfn 에서 본 것
+
+| 아이디어 (minipfn) | 우리에게 | 까닭 |
+|---|---|---|
+| CV 없이 train 전체로 한 번 fit → test 예측 (`benchmarks/arena.py`, 기본 프로토콜) | **씀** (`_refit`) | 예측이 5번 → 1번, 검증 행 예측도 없음. TabArena 의 TFM test 예측 (`refit_folds=True`) 과 같은 꼴 |
+| KV 캐시 (`fit_with_cache`, `inference/rotation_ensemble.py`) · 큰 표 청크 추론 (#70) | **씀** (TabICL 패키지의 `kv_cache`, Kumo 질의 청크) | minipfn 구현은 자기 모델 전용. 같은 생각을 각 패키지의 옵션으로 |
+| 데이터셋을 GPU 여럿에 LPT 로 나눔 (`--shards`, #76: 8×H100 에서 35분 → 7분) | 안 씀 | refit 으로 #16 이 H100 약 1~2시간 어림. 지금 `--max-concurrent 5` 로 충분. 8×H100 쿼터는 확인 안 함, 실행기가 split 을 GPU 마다 나눠 돌리게 고쳐야 함 |
+| bf16 autocast | 안 씀 (이미 있음) | Kumo 는 float16 autocast, TabICL 은 `use_amp="auto"` (1만 행 넘으면 켜짐, H100 은 FA3 도) |
+| TF32 · `torch.compile` · fused Adam (#50) | 안 씀 | 학습 쪽 |
+| 넓은 표에서 멤버마다 피처 부분집합 (#71) | 안 씀 | 모델이 바뀜 (FM 설정 그대로, 결정 4) |
+| 추론 시간 측정 스크립트 (#80) | 참고만 | 저장소에 결과 숫자가 없음 |
+
+### 넣은 것
+
+- 모델 이름 끝 `_refit` (`fab/models` 의 `REFIT_SUFFIX`): `fab run` 이 CV 없이 train 전체로 fit 한 번 → test 만 예측. `oof.npy`·CV 점수 없음 (`results.csv` 의 `cv` 는 NaN, `n_folds` 0).
+  `--fold`·`--max-folds`·`--no-test` 와는 같이 못 씀. 채점·`compare` 는 그대로 (`kumo_refit` 의 비교 대상 = Kumo-Tabular). 원격 정리 작업은 고치지 않음 (모델 이름으로만 봄)
+- `tabicl_kv`: TabICL `kv_cache=True`. 캐시를 만들다 OOM 이면 캐시 없이 다시 fit
+- `kumo_c8k`·`kumo_c32k`: Kumo 질의 청크 8192·32768 (기본 2048)
+- 이름이 달라 지금 `tabicl`·`kumo` 결과를 덮어쓰지 않음. 예: `fab ta fm <데이터셋> --models tabicl_kv_refit kumo_c8k_refit --splits all`
+
+### 시험: 모델 시간 (초, split 하나)
+
+GiveMeSomeCredit · APSFailure · diamonds 의 r0f0 를 GPU 작업 하나에 (H100 하나 · A10 하나). "지금" 은 #16 첫 실행의 같은 데이터셋 로그.
+
+| 모델 | GMSC H100 | APS H100 | diamonds H100 | GMSC A10 | APS A10 | diamonds A10 |
+|---|---|---|---|---|---|---|
+| tabicl (지금, 5-fold) | 107~133 | 125 | | | | |
+| `tabicl_kv` (5-fold) | 47 | 99 | 14 | | | |
+| `tabicl_refit` | 57 | 31 | 5 | 160 | 149 | 13 |
+| `tabicl_kv_refit` | **14** | **25** | **5** | OOM | 111 | 13 |
+| kumo (지금, 5-fold) | 188~202 | 125 | | | | |
+| `kumo_c8k` (5-fold) | 146 | 116 | 33 | | | |
+| `kumo_refit` | 66 | 33 | 13 | 253 | 144 | 41 |
+| `kumo_c8k_refit` | **45** | **31** | **11** | 221 | 136 | 38 |
+| `kumo_c32k_refit` | 43 | 30 | 10 | | | |
+| **합: 지금 → `tabicl_kv_refit` + `kumo_c8k_refit`** | **295~335 → 59** | **250 → 56** | → 16 | | | |
+
+- refit + KV + 청크 8k 로 split 하나의 모델 시간이 약 1/5. 여기에 프로세스 시작 등이 모델 하나에 4~8초 (split 마다 10~15초) 더해짐 → split 하나 약 70초, 데이터셋 하나 (9 split) 약 11분
+- TabICL KV 캐시는 5-fold 에서도 2.3배 (GMSC). 컨텍스트가 크고 test 가 클수록 이득이 큼 (APS 는 청크 2개라 1.3배)
+- Kumo 청크 8192 는 2048 보다 6~32% 빠름 (refit). 32768 은 8192 와 거의 같음
+- A10 은 H100 보다 3~5배 느리고, TabICL KV 캐시는 컨텍스트 10만 행 (GMSC) 에서 fit 중 OOM (5만 × 170 은 들어감). → 큰 데이터는 H100
+
+### 시험: 점수 (test `metric_error`, r0f0, H100)
+
+| 데이터셋 | 모델 | 지금 (5-fold) | refit | TabArena r0f0 | TabArena split 표준편차 |
+|---|---|---|---|---|---|
+| GiveMeSomeCredit | tabicl | 0.12950 | 0.12948 (`kv`: 0.12948) | 0.12928 | 0.00251 |
+| | kumo | 0.12698 | 0.12691 (`c8k`: 0.12685) | 0.12693 | 0.00230 |
+| APSFailure | tabicl | 0.004665 | 0.004539 (`kv`: 0.004539) | 0.004578 | 0.00184 |
+| | kumo | 0.002674 | 0.002522 (`c8k`: 0.002652) | 0.002503 | 0.00146 |
+| diamonds | tabicl | 506.19 ¹ | 504.52 (`kv`: 504.51) | 502.96 | 8.83 |
+| | kumo | 483.10 ¹ | 481.45 (`c8k`: 481.42) | 481.24 | 7.51 |
+
+¹ 지금 방식의 diamonds 결과가 아직 없어 `tabicl_kv`·`kumo_c8k` 의 5-fold 로 (아래처럼 같거나 거의 같음)
+
+- KV 캐시는 점수가 같음: `tabicl_kv` (5-fold) 의 test 점수가 지금 `tabicl` 과 6자리까지 같고 (GMSC 0.129503 · APS 0.004665), fold 점수도 5자리까지 같음
+- Kumo 청크는 아주 조금 다름 (float16 계산 순서): 5-fold GMSC 0.126977 → 0.126991, refit APS 0.002522 → 0.002652 (TabArena 표준편차의 0.09배).
+  같은 `kumo_refit` 도 H100 과 A10 이 이만큼 다름 (APS 0.002522 대 0.002456)
+- refit 은 6개 모두 지금보다 TabArena 쪽으로 옮겨 감 (차이는 TabArena 표준편차의 0.01~0.22배). 9 의 "차이" 에서 본 "컨텍스트 80% 대 refit" 과 맞는 방향. 1 split 이라 크기는 못 가름
+- 시험 결과는 Volume 의 결과표·`tabarena.csv` 에도 들어감 (모델 이름 `*_refit`·`tabicl_kv`·`kumo_c8k` 등, note "speedup 시험"). H100·A10 이 같은 이름이라 표에는 나중에 합친 쪽만 남음 → 위 점수는 실행마다 예측을 받아 로컬에서 채점 (원격 채점과 같은 함수)
+
+### #17 (Agent)
+
+minipfn 에서 가져올 것 없음 (Agent 실행은 1시간 고정, GPU 계산이 병목이 아님). 줄일 곳은 동시 실행 수.
+
+| 1회째 (`results/tabarena_runs.csv`) | 1시간 입력 토큰 | 429 |
+|---|---|---|
+| Codex × GPT | 4,164만~4,691만 | 19~100번 |
+| AIDE × GPT · AIDE × Sonnet | 19만~48만 | 0 |
+| Claude Code × Sonnet (+cont) | 9만~64만 | 0 |
+
+- 분당 한도 (약 150만, [mle-bench.md](mle-bench.md) 의 "429") 를 쓰는 것은 Codex 뿐. AIDE 끼리 동시에 돌려도 부하가 없음은 확인함 ("동시 실행 부하 확인")
+- 안: Codex 둘 (hazelnut → in_vehicle) 만 GPT 엔드포인트에서 하나씩, 나머지 8개는 그와 동시에. 벽시계 약 4시간 30분 → 약 2시간 + 준비 (Codex 2번).
+  다만 AIDE × GPT 가 Codex 와 같은 엔드포인트를 동시에 씀 (1회째와 조건이 다름, 입력은 Codex 의 1% 쯤)
+- 2회째는 이미 진행 중 (hazelnut 5설정 제출, in_vehicle 남음, 2026-11-14 21시 기준). 적용은 사용자가 정함
+
+### 정할 것 (#16 의 남은 실행에 적용할 때)
+
+- refit 을 쓰면 39개 (5-fold) 와 프로토콜이 다름 → (a) 12개만 refit 으로 하고 표에 적음, (b) 39개도 refit 으로 다시 (H100 약 1시간 어림, "컨텍스트 80% 대 refit" 도 가려짐), (c) 지금대로 5-fold (H100 5~7시간 어림)
+- `tabicl` 의 KV 캐시를 기본으로 할지 (점수 같음, OOM 이면 캐시 없이). Kumo 청크 8192 를 기본으로 할지 (점수가 아주 조금 바뀜 → MLE-bench·C1·C2 와 같은 FM 이 아님, 결정 4)
+- GPU: H100 (A10 은 3~5배 느림)
 
 ## 결정 (2026-11-13)
 

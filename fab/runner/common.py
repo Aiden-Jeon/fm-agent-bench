@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from fab.core.competition import feature_pip, load_competition, load_features
-from fab.models import REMOTE_PIP, base_name, split_features
+from fab.models import REMOTE_PIP, base_name, is_refit, split_features
 
 CODE_PATHS = ["fab", "competitions"]  # 원격(fab databricks)에서는 이 위치를 cwd 로 두고 `python -m fab run` 실행
 
@@ -51,6 +51,8 @@ def check_run_args(ap: argparse.ArgumentParser, args: argparse.Namespace):
                 load_features(comp, variant)  # 이름·파일·build 확인 (무거운 import 는 build 안이라 로컬에서 읽힘)
         except (ValueError, FileNotFoundError, AttributeError) as e:
             ap.error(str(e))
+    if (refit := [m for m in args.models if is_refit(m)]) and (args.fold is not None or args.max_folds or args.no_test):
+        ap.error(f"refit 모델 {refit} 은 CV fold 가 없고 test 만 예측 → --fold·--max-folds·--no-test 와 같이 못 씀")
     if args.fold is None:
         return
     if args.max_folds:

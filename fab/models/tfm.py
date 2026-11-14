@@ -140,11 +140,42 @@ def make_tabpfn35(task, cat_cols, seed, **kw):
     return _tabpfn(task, cat_cols, seed, version="v3.5", **kw)
 
 
-def make_tabicl(task, cat_cols, seed):
+class _TabICLKV(BaseEstimator):
+    """KV 캐시를 켜고 fit, 캐시를 만들다 OOM 이면 캐시 없이 다시 fit (A10 24GB 에서 컨텍스트 10만 행 × 피처 10 이 OOM,
+    5만 × 170 은 들어감. 2026-11-14 측정, docs/tabarena.md "빠르게 돌리기")."""
+
+    def __init__(self, make):
+        self.make = make
+
+    def fit(self, X, y):
+        import torch
+
+        try:
+            self.model_ = self.make(kv_cache=True).fit(X, y)
+        except torch.cuda.OutOfMemoryError:
+            self.model_ = None
+            torch.cuda.empty_cache()
+            print("    [tabicl] KV 캐시 OOM → 캐시 없이 fit", flush=True)
+            self.model_ = self.make(kv_cache=False).fit(X, y)
+        return self
+
+    def predict(self, X):
+        return self.model_.predict(X)
+
+    def predict_proba(self, X):
+        return self.model_.predict_proba(X)
+
+
+def make_tabicl(task, cat_cols, seed, kv_cache=False):
+    """kv_cache: fit 에서 컨텍스트의 KV 를 한 번 만들어 둠 → 예측 청크 (PREDICT_CHUNK) 마다 컨텍스트를 다시 계산하지 않음
+    (꺼 두면 test 7만 행이 청크 4개 = 컨텍스트 4번). 점수는 끈 것과 같음 (H100 에서 test 점수 6자리까지, 2026-11-14).
+    캐시를 만들다 OOM 이면 캐시 없이 (_TabICLKV)."""
     from tabicl import TabICLClassifier, TabICLRegressor
 
     cls = TabICLRegressor if task == "regression" else TabICLClassifier
-    return _TFM(lambda cat_idx: cls(random_state=seed), cat_cols)
+    if not kv_cache:
+        return _TFM(lambda cat_idx: cls(random_state=seed), cat_cols)
+    return _TFM(lambda cat_idx: _TabICLKV(lambda **kw: cls(random_state=seed, **kw)), cat_cols)
 
 
 def _device() -> str:
@@ -249,11 +280,11 @@ def make_limix2m(task, cat_cols, seed):
     return _TFM(lambda cat_idx: _LimiX(task, cat_idx, "stable-ai/LimiX-1_2M", "LimiX-1_2M.ckpt"), cat_cols)
 
 
-def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None):
+def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=2048):
     # MAE 는 중앙값이 최적 점추정 (평균은 오른쪽 꼬리가 긴 타깃에서 위로 치우침, Allstate)
     point = "median" if metric == "mae" else "mean"
-    # 컨텍스트가 1만 행을 넘으면 질의 2만 행으로는 T4 메모리를 넘음 (S4E2 에서 13.7GiB 요청)
-    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point), cat_cols, chunk=2048)
+    # 컨텍스트가 1만 행을 넘으면 질의 2만 행으로는 T4 메모리를 넘음 (S4E2 에서 13.7GiB 요청) → 기본 질의 청크 2048
+    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point), cat_cols, chunk=chunk)
 
 
 class _Causilo(BaseEstimator):

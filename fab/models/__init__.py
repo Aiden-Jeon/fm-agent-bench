@@ -58,10 +58,18 @@ VARIANTS = {
     "kumo_e4": ("kumo", dict(n_estimators=4)),
     "kumo_e16": ("kumo", dict(n_estimators=16)),  # TabArena 의 Kumo-Tabular 와 같은 앙상블 수 (docs/tabarena.md 8, 결정 4)
     "sap_rpt8k": ("sap_rpt", dict(max_context_size=8192)),  # README 기본값, 80GB GPU 용
+    # 예측 속도 시험 (docs/tabarena.md "빠르게 돌리기"): TabICL 컨텍스트 KV 캐시 (예측 청크마다 컨텍스트를 다시 계산하지 않음),
+    # Kumo 질의 청크 (기본 2048 은 T4 기준)
+    "tabicl_kv": ("tabicl", dict(kv_cache=True)),
+    "kumo_c8k": ("kumo", dict(chunk=8192)),
+    "kumo_c32k": ("kumo", dict(chunk=32768)),
 }
 
 
 FEATURES_SEP = "~"
+# 모델 이름 (@spec 앞) 끝에 붙이면 CV 없이 train 전체로 한 번 fit → test 만 예측 (OOF·CV 점수 없음, fab run 의 run_model).
+# 예: kumo_refit, tabicl_kv_refit. TabArena 의 TFM 채점과 같은 방식이고 fit·예측이 5-fold 의 약 1/5 (docs/tabarena.md "빠르게 돌리기")
+REFIT_SUFFIX = "_refit"
 
 
 def split_features(name: str) -> tuple[str, str | None]:
@@ -72,8 +80,17 @@ def split_features(name: str) -> tuple[str, str | None]:
     return model, variant or None
 
 
+def strip_refit(model: str) -> str:
+    """REGISTRY·VARIANTS 이름 (@spec·~variant 를 뗀 것) 에서 REFIT_SUFFIX 를 뗌."""
+    return model.removesuffix(REFIT_SUFFIX)
+
+
+def is_refit(name: str) -> bool:
+    return split_features(name)[0].partition("@")[0].endswith(REFIT_SUFFIX)
+
+
 def base_name(name: str) -> str:
-    base = split_features(name)[0].partition("@")[0]
+    base = strip_refit(split_features(name)[0].partition("@")[0])
     return VARIANTS.get(base, (base,))[0]
 
 
@@ -83,6 +100,7 @@ def make_model(name: str, task: str, cat_cols: list[str], seed: int, max_rows: i
     GBDT 와 `@spec` 래퍼(컨텍스트를 직접 고름)에는 적용 안 함.
     metric: 대회 지표 (팩토리가 metric 인자를 받을 때만 전달. 예: kumo 는 mae 면 분포의 중앙값으로 예측)."""
     base, _, spec = split_features(name)[0].partition("@")  # 피처 변형은 fab run 이 피처를 만들 때 씀
+    base = strip_refit(base)  # refit 은 fab run 이 fit 방식으로 처리 (모델은 같음)
     base, kwargs = VARIANTS.get(base, (base, {}))
     kwargs = dict(kwargs)
     max_features = kwargs.pop("max_features", max_features)
