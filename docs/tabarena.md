@@ -328,8 +328,9 @@ LLM (Agent) 이 데이터셋과 풀이를 학습했을 수 있는지. 공개 풀
 | 명령 | 하는 일 |
 |---|---|
 | `fab ta prepare <데이터셋...\|all> --splits all` | OpenML 받기 → split 대회 (public 은 `data/`, 정답은 `FAB_TABARENA`). `fab download ta-<데이터셋>` 은 그 split 하나 |
-| `fab ta fm <데이터셋...> --models tabpfn_v2 tabicl kumo lgbm catboost --splits all [--accelerator GPU_1xA10]` | 데이터셋마다 GPU·CPU 작업 하나씩 + 채점 요청 |
+| `fab ta fm <데이터셋...> --models tabpfn_v2 tabicl kumo lgbm catboost --splits all [--accelerator GPU_1xA10] [--max-concurrent 5] [--retries 2]` | 데이터셋마다 GPU·CPU 작업 하나씩 + 채점 요청. 동시 GPU 작업은 `--max-concurrent` 개까지 (아래) |
 | `fab ta grade <데이터셋...> --models ...` | 채점 요청만 (원격 정리 작업) |
+| `fab ta timing <데이터셋...> --models ...` | 원격 채점 시간 재기: 예전 경로 대 지금 경로 (결과표는 안 바뀜, 아래 "원격 채점 속도") |
 | `fab ta reference` | TabArena 공개 결과 → `results/tabarena_reference.csv` |
 | `fab ta compare [--models ...] [--splits r0f0] [--detail]` | 데이터셋별 비교 + FM 맞춤 기준 판정 |
 | `fab ta agent run ta-<데이터셋> <설정>... [--continue] [--fm]` | Agent (r0f0, 익명 id). `list`·`peek`·`recheck`·`exclude` 는 `fab mleb agent` 와 같음 |
@@ -344,7 +345,15 @@ uv run --frozen fab remote kick && uv run --frozen fab sync
 uv run --frozen fab ta compare --detail
 ```
 
-- H100 은 동시에 7개쯤 넘게 내면 바로 실패함 (아래 "운영 기록") → 데이터셋이 많으면 몇 개씩 나눠 냄
+동시 GPU 작업 상한 (`--max-concurrent`, 2026-11-14, #19)
+
+- 워크스페이스의 GPU 쿼터 (H100 은 8노드, 다른 사람·다른 명령의 작업 포함) 를 넘기면 작업이 2초 만에 `System error ... Workspace has exceeded its GPU quota for GPU_1xH100` 으로 끝남 (아래 "운영 기록")
+- 기본 (`--max-concurrent 5`): 이 명령이 낸 GPU 작업의 상태를 `--poll` 초 (기본 60) 마다 보고, 5개 아래일 때만 다음 데이터셋을 냄. GBDT (CPU 작업) 는 세지 않음
+- 10분 안에 System error (쿼터 초과 포함) 로 끝난 GPU 작업은 GPU 쪽만 `--retries` 번 (기본 2) 다시 냄. 5분 × 다시 낸 횟수만큼 기다렸다가 (쿼터를 다른 작업이 쓰고 있으면 바로 내도 또 실패).
+  노드가 안 떠 45분 뒤 실패한 것 (`An error occurred during execution`) 은 다시 내지 않음 (같은 일이 되풀이될 수 있어 사람이 봄)
+- 채점 요청은 데이터셋의 GPU 작업이 (다시 내기까지) 끝난 뒤에 냄. 먼저 내면 정리 작업이 실패한 작업만 보고 "예측 없음" 으로 채점을 끝낼 수 있어서
+- **로컬 명령이 끝까지 떠 있어야 함** (데이터셋 12개면 몇 시간). 끊거나 제출이 실패하면 낸 작업은 원격에서 계속 돌고, 아직 안 낸 데이터셋·다시 낼 데이터셋·채점 요청을 아직 안 한 데이터셋을 출력 → `fab ta fm`·`fab ta grade` 로 이어서
+- 세는 것은 이 명령이 낸 GPU 작업뿐. Agent (A10) 나 다른 명령이 같은 GPU 종류를 쓰고 있으면 상한을 그만큼 낮춤. `--max-concurrent 0` = 예전처럼 한꺼번에 내고 바로 끝남
 
 익명화 (5 의 "익명화" 를 구현)
 
@@ -360,7 +369,38 @@ uv run --frozen fab ta compare --detail
 
 - `data_source_urls` (모든 에이전트 실행에 더함): `openml.org`·`import openml`·`from openml... import`·`fetch_openml`·`archive.ics.uci.edu`·`doi.org/10.24432` (UCI DOI)·`ucimlrepo`·`kaggle.com/datasets`·`kaggle.com/c/`·`kaggle.com/competitions/<x>/data`·`kagglehub`·`kaggle datasets|competitions download` 의 수 (코드 + 하네스 기록). MLE-bench 실행은 설명에 Kaggle 주소가 있어 뜻이 없음 → TabArena 실행에서만 봄
 - 처음 규칙의 `from\s+openml` 은 Codex 의 생각 글 ("trained on real datasets from OpenML") 에 걸려 import 문만으로 고침 (2026-11-14)
-- 빈틈: `pip install --target <폴더>` 로 깐 패키지는 `pip_added` (pip freeze 전·후 비교) 에 안 나옴. TFM 은 실행 중 import 기록 (`tfm_runtime`) 이 잡음 (아래 "Agent")
+- `pip install --target <폴더>` 로 깐 패키지는 `pip_added` (pip freeze 전·후 비교) 에 안 나옴 → `pip_target` 열을 더함 (2026-11-14, #18).
+  실행한 명령의 `pip install` 중 `--target`·`-t`·`--prefix`·`--root` 또는 실행 중 만든 가상환경의 pip 로 깐 패키지 이름. 규칙은 [mle-bench.md](mle-bench.md) 의 "구현" 사후 검사.
+  hazelnut × Codex 1회째는 `recheck` 로 tabpfn·tabicl·transformers·tokenizers·safetensors·scikit-learn·einops·huggingface-hub 이 잡힘. TFM 은 실행 중 import 기록 (`tfm_runtime`) 도 잡음
+
+원격 채점 속도 (2026-11-14, #20)
+
+- 먼저 잼: 지난 정리 작업 기록 (단계마다 시각을 찍음). 57분 걸린 것은 FM 합치기 (`fm`, 실행 29개) 28.5분 + 채점 약 27분 (1,809 (대회, 모델), 대회 약 600개).
+  43분 걸린 것 (kumo_e16, 모델 하나 × 708 대회) 도 채점 27분 → 모델 수보다 **대회 수에 비례** (대회마다 약 2.3초)
+- 대회마다 하던 것: 결과표 5개 읽기 → 모델마다 test.csv 읽기·제출 csv 를 Volume 에 쓰고 앞부분 출력·정답 csv·json 읽기·제출 csv 다시 읽기 → `tabarena.csv` 읽고 쓰기 →
+  결과표 5개를 Volume 에 쓰기 (`tables.flush`) → 진행 기록 쓰기
+- 고친 것
+  - 제출 파일을 만들지 않고 `test.npy` 로 바로 채점 (`submission_frame`·`score_frame`: 예전 `make_submission`·`score_submission` 과 같은 계산), 출력 없음
+  - 정답·test id 는 대회마다 한 번 (예전은 모델마다), `test_info` 는 (대회, 모델) 마다 한 번 (예전 세 번)
+  - 표는 채점 요청마다 한 번 씀. 되돌리기는 요청 단위 (실패하면 요청째 다시, 예전 진행 기록이 있으면 그 대회는 건너뜀)
+  - FM 합치기의 복사를 `copy2` → `copyfile` (권한·시각을 안 복사). 차이는 작음 (아래)
+- 재는 법: `fab ta timing <데이터셋> --models ...` → 정리 작업 안에서 같은 (대회, 모델) 을 지금 경로 → 예전 경로 → 지금 경로로 채점 (Volume 읽기 캐시 때문에 뒤에 도는 쪽이 빠를 수 있어 앞뒤로).
+  표는 Volume 의 임시 폴더에 쓰고 진짜 표는 되돌림. 두 경로의 점수를 비교
+
+같은 양 (hazelnut 30 split × tabpfn_v2·tabicl·kumo = 90) 을 정리 작업 안에서 두 번 잼 (초)
+
+| | 1번째 | 2번째 | 나눔 (2번째) |
+|---|---|---|---|
+| 예전 경로 | 65.4 | 62.9 | 표 쓰기 44.0 · 제출 파일·채점 18.8 |
+| 지금 경로 (예전보다 먼저) | 19.9 | 20.8 | `test_info` 7.2 · 예측 읽기 4.4 · test id 3.8 · 정답 3.5 · 표 1.5 · 계산 0.4 |
+| 지금 경로 (예전 다음, 캐시) | 10.4 | 9.4 | `test_info` 4.8 · 표 1.4 · 나머지 3.2 |
+| 두 경로 점수 | 90 / 90 같음 (차이 0) | 90 / 90 같음 | |
+
+- 채점은 약 3배 빠름 (대회당 2.1초 → 0.7초). 대회 600개면 약 21분 → 약 7분으로 어림 (대회 수에 비례한다고 보고)
+- 결과값: 로컬에서 예전 코드와 지금 코드로 같은 예측을 채점해 90 / 90 같음. 원격 표의 점수와는 1e-16 정도 차이 (원격·로컬 환경 차이, 예전 코드도 같은 차이). 측정을 돌린 뒤 `results/tabarena.csv` 그대로
+- FM 합치기 (실행 하나 = 파일 362개, 30 split × 3 모델 × 4 + results.csv): `copyfile` 83초 → `copy2` 88초 → `copyfile` 66초 (1번째 측정은 `copy2` 115초 → `copyfile` 66초).
+  순서 영향이 커서 `copyfile` 이 조금 빠른 정도로 봄. 파일마다 Volume 왕복 (약 0.2초) 이 대부분 → 남은 큰 몫은 합치기 (실행 30개면 30~60분). 줄이려면 복사하지 않고 실행 폴더에서 바로 읽거나 묶어 옮겨야 함 (안 함)
+- 정리 작업은 채점 요청마다 걸린 시간 (`seconds`·`timer`) 과 합치기 시간을 `state/{grade,fm}/<key>.done.json` 과 기록에 남김
 
 로컬 확인 (학습 없이, `uv run --frozen` + 저장소 밖 스크립트)
 
@@ -375,7 +415,7 @@ uv run --frozen fab ta compare --detail
 
 | 일 | 내용 | 처리 |
 |---|---|---|
-| H100 동시 7개쯤 | 작업을 한꺼번에 35개 냈더니 8번째부터 `System error occurred during execution` 으로 0분에 실패 (27개). 먼저 낸 7개는 돎, 하나가 끝난 뒤 낸 것은 돎 | 동시 GPU 작업 5개까지만 내는 순서 제출로 다시 (저장소 밖 스크립트) |
+| H100 동시 7개쯤 | 작업을 한꺼번에 35개 냈더니 8번째부터 `System error occurred during execution` 으로 0분에 실패 (27개). 먼저 낸 7개는 돎, 하나가 끝난 뒤 낸 것은 돎. 실패 메시지 끝에 까닭이 있었음: `Workspace has exceeded its GPU quota for GPU_1xH100. The quota limit for this workspace is 8 node(s)` (2초 만에 끝남, 나중에 확인) | 동시 GPU 작업 5개까지만 내는 순서 제출로 다시 (저장소 밖 스크립트) → `fab ta fm --max-concurrent` 로 넣음 (#19) |
 | H100 이 안 뜸 | `An error occurred during execution of task AI Runtime Task` 로 약 45분 뒤 실패, 로그가 하나도 없음 (physiochemical 2번, anneal 1번). 같은 anneal r0f0 를 다시 내도 H100 은 20분 동안 로그 0줄 (취소), A10 은 바로 떠서 split 하나 104초 | 우리 코드가 아니라 노드가 뜨지 않은 것으로 봄. 2만 행 이하 데이터셋은 A10 으로 (점수는 GPU 와 무관, 시간은 다름) |
 | zsh 인자 | `--models $m` (`m="tabicl kumo"`) 이 zsh 에서 안 나뉘어 모델 이름 "tabicl kumo" 로 제출됨 | 취소, 다시 냄. 그 채점 요청은 예측 없음으로 끝남 |
 | 로컬 확인 행 | 로컬 확인 스크립트가 가짜 모델 행 4개를 `results/tabarena.csv` 에 씀 (표 위치가 `FAB_OUTPUTS` 밖) | 그 로컬 표를 지우고 `fab sync` 로 원격 표를 받음. 스크립트는 임시 위치로 |
@@ -543,9 +583,9 @@ in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (�
 |---|---|---|
 | 2만 행 넘는 12개 데이터셋 (FM 맞춤 확인용, tabicl·kumo). H100 이 필요할 수 있음 (컨텍스트 최대 8만 행), 어림 H100 10~20시간 | [#16](https://github.com/Aiden-Jeon/fm-agent-bench/issues/16) | 보류 |
 | Agent 2회째 (결정 2: 같은 r0f0 에서, 10회) | [#17](https://github.com/Aiden-Jeon/fm-agent-bench/issues/17) | |
-| 사후 검사가 `pip install --target` 을 못 잡음 (9 의 "빈틈") | [#18](https://github.com/Aiden-Jeon/fm-agent-bench/issues/18) | |
-| `fab ta fm` 의 동시 GPU 작업 상한 (지금은 저장소 밖 스크립트) | [#19](https://github.com/Aiden-Jeon/fm-agent-bench/issues/19) | |
-| 원격 채점 속도 (정리 작업 한 번 약 1시간) | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | |
+| 사후 검사가 `pip install --target` 을 못 잡음 → `pip_target` 열 (9 의 "사후 검사") | [#18](https://github.com/Aiden-Jeon/fm-agent-bench/issues/18) | 완료 (2026-11-14) |
+| `fab ta fm` 의 동시 GPU 작업 상한 → `--max-concurrent` (9 의 "명령") | [#19](https://github.com/Aiden-Jeon/fm-agent-bench/issues/19) | 완료 (2026-11-14) |
+| 원격 채점 속도 (정리 작업 한 번 약 1시간) → 채점 약 3배 빠름, 남은 몫은 FM 합치기 (9 의 "원격 채점 속도") | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | 완료 (2026-11-14) |
 | physiochemical 의 `tabpfn_v2` (TabArena 범위 밖이라 비교에는 필요 없음) | – | 안 함 |
 | Kumo·TabICL 이 TabArena 보다 조금 나쁜 쪽으로 기우는 까닭 (컨텍스트 80% 대 refit) | – | 필요하면 |
 

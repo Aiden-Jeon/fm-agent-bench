@@ -8,6 +8,7 @@
   5. grade    FM 채점 요청 → 요청한 모델의 학습이 아직 돌고 있으면 기다림 → 제출 파일 → 채점 → mlebench.csv
               (bench=tabarena 요청은 split 대회마다 fab 지표로 → tabarena.csv, fab/bench/tabarena)
   6. recheck  mlebench_runs.csv 의 사후 검사 열 다시 계산
+  7. timing   TabArena 채점 시간 재기 (결과표는 안 바뀜, fab/bench/tabarena/timing.py)
 항목마다 결과표를 Volume 의 tables/ 에 쓴 뒤 <key>.done.json 을 남김 (중간에 죽으면 그 항목만 다음에 다시).
 항목 처리 중 예외(SystemExit 포함)가 나면 그 항목이 결과표에 쓴 행을 되돌리고 (다시 처리할 때 행이 겹치지 않게),
 <key>.attempts.json 에 세어 MAX_ATTEMPTS 번 실패하면 오류로 처리 끝냄 (같은 오류로 계속 돌지 않게).
@@ -180,9 +181,13 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             state.done("fm", key, status="no_results", result=st["result"], message=st["message"][:500],
                        install_failed=install_failed)
             return
+        t0 = time.perf_counter()
         merge_results(res, "databricks-cpu" if m.get("cpu") else "databricks")
+        t1 = time.perf_counter()
         tables.flush()
-        state.done("fm", key, result=st["result"])
+        took = dict(merge=round(t1 - t0, 1), flush=round(time.perf_counter() - t1, 1))  # #20: 어디가 느린지
+        state.done("fm", key, result=st["result"], seconds=took)
+        print(f"  {key}: 합침 {took}")
 
     step("exclude", state.pending("exclude"), exclude, state, tables, "exclude")
     step("fm", state.pending("fm"), fm, state, tables, "fm")
@@ -283,33 +288,30 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
         state.done("grade", key, graded=graded)
 
     def grade_tabarena(key, m):
-        """split 대회 × 모델. 끝난 대회는 진행 기록에 남겨 다시 시도할 때 건너뜀. 예측이 없는 (학습 실패) 것·채점에
-        실패한 것 (무효 제출, test.npy 의 NaN 등) 은 같은 입력이면 다시 해도 같으므로 그 (대회, 모델) 만 빼고 나머지는 씀
-        (done 의 missing · failed). 그 밖의 예외 (Volume 읽기 등) 는 대회째 되돌리고 다시 시도 (MAX_ATTEMPTS)."""
+        """split 대회 × 모델을 한 번에 채점하고 표는 끝에 한 번 씀 (#20: 대회마다 쓰면 split 수백 개에 정리 작업이 약 1시간).
+        예측이 없는 (학습 실패) 것·채점에 실패한 것 (무효 제출, test.npy 의 NaN 등) 은 같은 입력이면 다시 해도 같으므로 그
+        (대회, 모델) 만 빼고 나머지는 씀 (done 의 missing · failed). 그 밖의 예외 (Volume 읽기 등) 는 요청째 되돌리고 다시 시도
+        (step 의 rollback, MAX_ATTEMPTS). 예전 코드가 남긴 진행 기록 (대회마다 채점한 것) 이 있으면 그 대회는 건너뜀."""
         need = {(c, x) for c in m["comps"] for x in m["models"]}
         if waiting := need & unfinished():
             print(f"  {key}: 처리가 안 끝난 모델 기다림 {len(waiting)}개 (예: {sorted(waiting)[:3]})")
             return
         prog = state.root / "grade" / f"{key}.progress.json"
         graded = json.loads(prog.read_text()) if prog.exists() else []
-        missing, failed = {}, {}
-        for c in m["comps"]:
-            if c in graded:
-                continue
-            tables.begin()
-            try:
-                rows, errors = grade_ta([c], m["models"], m.get("note", ""), ta_grader.grade)
-            except BaseException:
-                tables.rollback()
-                raise
-            missing |= {k: v for k, v in errors.items() if v == "test 예측 없음"}
-            failed |= {k: v for k, v in errors.items() if v != "test 예측 없음"}
-            tables.flush()
-            graded.append(c)
-            prog.write_text(json.dumps(graded))
-        state.done("grade", key, graded=len(graded), missing=missing, failed=failed)
-        print(f"  {key}: 대회 {len(graded)}개 채점" + (f", 예측 없음 {len(missing)}개" if missing else "")
-              + (f", 채점 실패 {len(failed)}개" if failed else ""))
+        comps = [c for c in m["comps"] if c not in graded]
+        timer, t0 = {}, time.perf_counter()
+        rows, errors = grade_ta(comps, m["models"], m.get("note", ""), ta_grader, timer=timer)
+        t1 = time.perf_counter()
+        tables.flush()
+        timer["flush"] = time.perf_counter() - t1
+        missing = {k: v for k, v in errors.items() if v == "test 예측 없음"}
+        failed = {k: v for k, v in errors.items() if v != "test 예측 없음"}
+        took = round(time.perf_counter() - t0, 1)
+        state.done("grade", key, graded=len(graded) + len(comps), rows=len(rows), missing=missing, failed=failed,
+                   seconds=took, timer={k: round(v, 1) for k, v in timer.items()})
+        print(f"  {key}: 대회 {len(graded) + len(comps)}개 · {len(rows)}행 채점 {took}초 "
+              f"({', '.join(f'{k} {v:.1f}' for k, v in timer.items())})"
+              + (f", 예측 없음 {len(missing)}개" if missing else "") + (f", 채점 실패 {len(failed)}개" if failed else ""))
         for k, v in list(failed.items())[:10]:
             print(f"    {k}: {v}")
 
@@ -321,6 +323,18 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
         state.done("recheck", key)
 
     step("recheck", state.pending("recheck"), recheck, state, tables, "recheck")
+
+    def timing(key, m):
+        """채점 시간 재기 (fab/bench/tabarena/timing.py). 결과표는 안 바뀜. 합치기 시간은 그 대회들의 FM 실행 하나의 results/ 로."""
+        from fab.bench.tabarena.timing import measure
+
+        src = next((Path(f["out"]) / "results" for f in state.all("fm").values()
+                    if set(f.get("comps") or []) & set(m["comps"]) and (Path(f["out"]) / "results").is_dir()), None)
+        res = measure(V, key, m["comps"], m["models"], ta_grader, tables, src)
+        state.done("timing", key, **res)
+        print(f"  {key}: {json.dumps(res, ensure_ascii=False)}")
+
+    step("timing", state.pending("timing"), timing, state, tables, "timing")
 
     # 아직 끝나지 않은 실행·기다리는 채점 요청 (다음 kick 때 다시)
     left = [k for k in KINDS for _ in state.pending(k)] + [k for k in batches if not state.is_done("batch", k)]

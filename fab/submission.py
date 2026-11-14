@@ -18,9 +18,22 @@ from fab.core.results import OUTPUTS, test_info
 
 def make_submission(comp_name: str, models: list[str]) -> Path:
     """모델들의 test.npy 평균으로 제출 파일을 만들어 경로를 반환."""
+    sub = submission_frame(comp_name, models)
+    path = OUTPUTS / comp_name / "submissions" / f"{'+'.join(models)}.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sub.to_csv(path, index=False)
+    print(f"저장: {path}\n{sub.head()}")
+    return path
+
+
+def submission_frame(comp_name: str, models: list[str], test_ids=None, info: dict | None = None) -> pd.DataFrame:
+    """제출 표 (파일로 쓰지 않음). test_ids: test 의 id 열 (없으면 test 파일에서 읽음. 대회의 여러 모델을 채점할 때 한 번만
+    읽으려고), info: models[0] 의 test_info (클래스 순서, 이미 읽었으면)."""
     comp = load_competition(comp_name)
     # 메모리: test 의 id 열 하나만 읽고, 예측은 모델마다 하나씩 읽어 더함 (모델 수에 비례하지 않음)
-    test = pd.read_csv(comp.data_dir / comp.test_file, usecols=[comp.id_col] if comp.id_col else [0])
+    if test_ids is None:
+        test = pd.read_csv(comp.data_dir / comp.test_file, usecols=[comp.id_col] if comp.id_col else [0])
+        test_ids = test[comp.id_col] if comp.id_col else None
     pred = None
     for m in models:
         p = np.load(OUTPUTS / comp.name / m / "test.npy")
@@ -31,11 +44,11 @@ def make_submission(comp_name: str, models: list[str]) -> Path:
         del p
     pred /= len(models)
 
-    ids = test[comp.id_col] if comp.id_col else np.arange(1, len(test) + 1)
+    ids = test_ids if comp.id_col else np.arange(1, len(pred) + 1)
     id_name, target_name = comp.submit_columns or [comp.id_col, comp.target]
     if comp.is_classification:
         # 예측 열 순서: test.json (예측과 함께 저장) → 없으면 meta.json (--no-test 재실행이 덮어썼을 수 있음)
-        classes = (test_info(comp.name, models[0]) or {}).get("classes") or \
+        classes = (info or test_info(comp.name, models[0]) or {}).get("classes") or \
             json.loads((OUTPUTS / comp.name / models[0] / "meta.json").read_text())["classes"]
     if comp.task == "multiclass" and comp.submit_proba:  # 클래스마다 확률 열 하나 (열 이름 = 클래스 값)
         # 학습 때 이미 맞췄지만 (fab/runner/run.py 의 predict) 이전 실행의 test.npy·평균 오차까지 한 번 더
@@ -50,9 +63,4 @@ def make_submission(comp_name: str, models: list[str]) -> Path:
         else:
             target = TRANSFORMS[comp.target_transform][1](pred) if comp.target_transform else pred
         sub = pd.DataFrame({id_name: ids, target_name: target})
-
-    path = OUTPUTS / comp.name / "submissions" / f"{'+'.join(models)}.csv"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    sub.to_csv(path, index=False)
-    print(f"저장: {path}\n{sub.head()}")
-    return path
+    return sub

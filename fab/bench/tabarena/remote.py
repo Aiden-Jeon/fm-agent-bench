@@ -67,17 +67,28 @@ def upload_answers(cfg, comps: list[str]):
 
 
 class Grader:
-    """정리 작업 안에서 채점. grade(대회, csv) → {score, metric_error, valid_submission} 또는 {valid_submission: False, error}."""
+    """정리 작업 안에서 채점. grade(대회, csv) → {score, metric_error, valid_submission} 또는 {valid_submission: False, error}
+    (에이전트 제출 파일). answers(대회) → (정답 표, 정보): FM 채점 (fab.bench.tabarena.grade) 이 대회마다 한 번 읽음."""
 
     def __init__(self, volume: Path):
-        self.answers = Path(volume) / "tabarena" / "answers"
+        self.dir = Path(volume) / "tabarena" / "answers"
 
-    def grade(self, comp: str, csv) -> dict:
+    def info(self, comp: str) -> dict | None:
         import json
 
+        f = self.dir / f"{comp}.json"
+        return json.loads(f.read_text()) if f.exists() else None
+
+    def answers(self, comp: str):
+        from fab.bench.tabarena import read_answers
+
+        if (info := self.info(comp)) is None:
+            raise FileNotFoundError(f"정답 없음: {self.dir / f'{comp}.json'}")
+        return read_answers(self.dir / f"{comp}.csv", info), info
+
+    def grade(self, comp: str, csv) -> dict:
         from fab.bench.tabarena import score_submission
 
-        info = self.answers / f"{comp}.json"
-        if not info.exists():
-            return dict(valid_submission=False, error=f"정답 없음: {info}")
-        return score_submission(Path(csv), self.answers / f"{comp}.csv", json.loads(info.read_text()))
+        if (info := self.info(comp)) is None:
+            return dict(valid_submission=False, error=f"정답 없음: {self.dir / f'{comp}.json'}")
+        return score_submission(Path(csv), self.dir / f"{comp}.csv", info)
