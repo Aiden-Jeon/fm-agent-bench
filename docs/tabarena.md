@@ -96,7 +96,9 @@ TabArena-v0.1 = 51개. 1,053개 (기존 벤치마크 14개) 에서 손으로 골
 `fab run` 의 고정 fold 와 맞추기
 
 - TabArena 의 외부 split 하나 = 우리 "대회" 하나 (train/test). OpenML 분할을 그대로 쓰면 TabArena 와 같은 행으로 학습·채점함
-- `fab run` 의 5-fold (`folds.csv`) 는 그 split 의 train 안에서 도는 내부 CV 로 남김. TabArena 의 내부 8-fold 와 수는 다르지만 test 점수에는 영향 없음 (FM 은 train 전체로 fit, 아래 3)
+- `fab run` 의 5-fold (`folds.csv`) 는 그 split 의 train 안에서 도는 내부 CV 로 남김. test 예측도 이 fold 모델 5개 (train 의 80% 씩) 의 평균이라
+  TabArena TFM (train 전체로 refit, 아래 3) 과 다름 → 39개는 이대로, 2만 행 넘는 12개는 refit (모델 이름 `_refit`, 결정 10·"빠르게 돌리기").
+  (처음 설계 때 "FM 은 train 전체로 fit 이라 test 점수에 영향 없음" 이라고 적었으나 틀림, 2026-11-14 고침)
 - 비교는 test 점수 (`metric_error`) 끼리만. 우리 CV 점수와 TabArena `metric_error_val` 은 내부 분할이 달라 나란히 놓지 않음
 - 지표는 `fab/core/metrics.py` 에 이미 있음 (`auc`·`logloss`·`rmse`)
 
