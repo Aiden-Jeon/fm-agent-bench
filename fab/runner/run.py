@@ -36,7 +36,15 @@ def predict(model, X, task):
     return model.predict(X) if task == "regression" else normalize_proba(model.predict_proba(X))
 
 
+def visible_gpus() -> list[str] | None:
+    """CUDA_VISIBLE_DEVICES 로 받은 GPU (없으면 None = 전부). 실행기가 split 대회를 GPU 마다 나눠 돌릴 때 이것으로 GPU 하나를 줌."""
+    v = os.environ.get("CUDA_VISIBLE_DEVICES")
+    return None if v is None else [d for d in v.split(",") if d.strip()]
+
+
 def gpu_count() -> int:
+    if (vis := visible_gpus()) is not None:  # nvidia-smi -L 은 CUDA_VISIBLE_DEVICES 와 상관없이 전부 셈
+        return len(vis)
     try:
         out = subprocess.run(["nvidia-smi", "-L"], capture_output=True, text=True, check=True).stdout
     except (OSError, subprocess.CalledProcessError):
@@ -56,7 +64,9 @@ def run_parallel(args: argparse.Namespace, n_gpus: int) -> list[str]:
         todo.put(m)
     failed: list[str] = []
     n_workers = min(max(n_gpus, 1), len(args.models))
-    threads_per = str(max(1, cpu_count() // n_workers))
+    devices = visible_gpus() or [str(g) for g in range(n_workers)]  # 받은 GPU 번호를 그대로 (0번부터 다시 세지 않음)
+    # 실행기가 split 대회를 GPU 마다 나눠 돌리면 FAB_THREADS 로 이 프로세스 몫을 줌 → 그 안에서 다시 나눔
+    threads_per = str(max(1, int(os.environ.get("FAB_THREADS") or cpu_count()) // n_workers))
     if n_gpus:
         print(f"작업자 {n_workers}개, 작업자당 CPU 스레드 {threads_per}")
 
@@ -68,11 +78,11 @@ def run_parallel(args: argparse.Namespace, n_gpus: int) -> list[str]:
                 return
             env = {**os.environ, "FAB_WORKER": "1"}
             if n_gpus:
-                env |= {"CUDA_VISIBLE_DEVICES": str(gpu), "OMP_NUM_THREADS": threads_per, "FAB_THREADS": threads_per}
+                env |= {"CUDA_VISIBLE_DEVICES": devices[gpu], "OMP_NUM_THREADS": threads_per, "FAB_THREADS": threads_per}
             proc = subprocess.Popen([sys.executable, "-u", "-m", "fab", "run", args.comp, *run_argv(args, [name])],
                                     env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             for line in proc.stdout:  # 어느 GPU 출력인지 접두어로 구분
-                print(f"[gpu{gpu}] {line}" if n_gpus else line, end="", flush=True)
+                print(f"[gpu{devices[gpu]}] {line}" if n_gpus else line, end="", flush=True)
             if (rc := proc.wait()) != 0:
                 failed.append(name)
                 if rc < 0:  # 신호로 죽음 (segfault 등): 자식은 실패를 출력할 기회가 없음

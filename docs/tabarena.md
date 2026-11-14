@@ -615,7 +615,7 @@ minipfn (TabArena-Lite 하네스) 에서 가져올 만한 것을 보고, 우리 
 |---|---|---|
 | CV 없이 train 전체로 한 번 fit → test 예측 (`benchmarks/arena.py`, 기본 프로토콜) | **씀** (`_refit`) | 예측이 5번 → 1번, 검증 행 예측도 없음. TabArena 의 TFM test 예측 (`refit_folds=True`) 과 같은 꼴 |
 | KV 캐시 (`fit_with_cache`, `inference/rotation_ensemble.py`) · 큰 표 청크 추론 (#70) | **씀** (TabICL 패키지의 `kv_cache`, Kumo 질의 청크) | minipfn 구현은 자기 모델 전용. 같은 생각을 각 패키지의 옵션으로 |
-| 데이터셋을 GPU 여럿에 LPT 로 나눔 (`--shards`, #76: 8×H100 에서 35분 → 7분) | 안 씀 | refit 으로 #16 이 H100 약 1~2시간 어림. 지금 `--max-concurrent 5` 로 충분. 8×H100 쿼터는 확인 안 함, 실행기가 split 을 GPU 마다 나눠 돌리게 고쳐야 함 |
+| 데이터셋을 GPU 여럿에 LPT 로 나눔 (`--shards`, #76: 8×H100 에서 35분 → 7분) | **씀** (split 대회를 GPU 마다, 아래 "8×H100") | 실행기가 split 을 차례로 돌려 여러 장 작업에서도 GPU 를 다 못 씀 (`fab run` 은 모델마다만 GPU 를 나눔 → tabicl·kumo 면 2장) |
 | bf16 autocast | 안 씀 (이미 있음) | Kumo 는 float16 autocast, TabICL 은 `use_amp="auto"` (1만 행 넘으면 켜짐, H100 은 FA3 도) |
 | TF32 · `torch.compile` · fused Adam (#50) | 안 씀 | 학습 쪽 |
 | 넓은 표에서 멤버마다 피처 부분집합 (#71) | 안 씀 | 모델이 바뀜 (FM 설정 그대로, 결정 4) |
@@ -628,6 +628,11 @@ minipfn (TabArena-Lite 하네스) 에서 가져올 만한 것을 보고, 우리 
 - `tabicl_kv`: TabICL `kv_cache=True`. 캐시를 만들다 OOM 이면 캐시 없이 다시 fit
 - `kumo_c8k`·`kumo_c32k`: Kumo 질의 청크 8192·32768 (기본 2048)
 - 이름이 달라 지금 `tabicl`·`kumo` 결과를 덮어쓰지 않음. 예: `fab ta fm <데이터셋> --models tabicl_kv_refit kumo_c8k_refit --splits all`
+- 실행기 (`fab/runner/databricks.py` 의 `RUNNER`): GPU 가 여럿이고 대회가 여럿이면 GPU 마다 작업자 하나, 남은 대회를 train 파일이 큰 것부터 하나씩
+  (`CUDA_VISIBLE_DEVICES` 하나 · CPU 스레드를 작업자 수로 나눔). 대회가 끝날 때마다 Volume 에 복사 (`results.csv` 는 fab 의 표 잠금을 잡고).
+  `fab run` 은 받은 `CUDA_VISIBLE_DEVICES` 를 그대로 씀 (예전엔 `nvidia-smi -L` 로 전부 세고 0번부터 다시 붙여, 나눠 줘도 GPU 0 으로 몰렸을 것)
+- `fab ta fm --one-job`: 데이터셋 여럿의 split 을 GPU 작업 하나 (+ CPU 작업 하나) 로. 상한·다시 내기 없음. 예:
+  `fab ta fm <데이터셋...> --models tabicl_kv_refit kumo_c8k_refit --splits all --accelerator GPU_8xH100 --one-job`
 
 ### 시험: 모델 시간 (초, split 하나)
 
@@ -670,6 +675,44 @@ GiveMeSomeCredit · APSFailure · diamonds 의 r0f0 를 GPU 작업 하나에 (H1
 - refit 은 6개 모두 지금보다 TabArena 쪽으로 옮겨 감 (차이는 TabArena 표준편차의 0.01~0.22배). 9 의 "차이" 에서 본 "컨텍스트 80% 대 refit" 과 맞는 방향. 1 split 이라 크기는 못 가름
 - 시험 결과는 Volume 의 결과표·`tabarena.csv` 에도 들어감 (모델 이름 `*_refit`·`tabicl_kv`·`kumo_c8k` 등, note "speedup 시험"). H100·A10 이 같은 이름이라 표에는 나중에 합친 쪽만 남음 → 위 점수는 실행마다 예측을 받아 로컬에서 채점 (원격 채점과 같은 함수)
 
+### 시험: 8×H100 (split 을 GPU 마다)
+
+GiveMeSomeCredit · diamonds 의 모든 split (18개) × `tabicl_kv_refit`·`kumo_c8k_refit` 을 `GPU_8xH100` 작업 하나에 (`--one-job`).
+
+| | 8×H100 작업 하나 | 1×H100 차례로 (위 r0f0 값으로 어림) |
+|---|---|---|
+| 작업 전체 (노드 뜨기 포함) | 4분 33초 (이번엔 노드가 바로 뜸) | |
+| 18 split 계산 | 221초 (GMSC 8개 동시 → diamonds 9개 → 남은 GMSC 1개) | 약 850초 (GMSC 70초 × 9 + diamonds 24초 × 9) |
+| GMSC split 하나 (동시에 돌 때) | 150~161초 (tabicl 50 · kumo 66) | 약 70초 (tabicl 14 · kumo 45) |
+| diamonds split 하나 | 25~40초 | 약 24초 |
+
+- 계산이 약 3.8배 빠름 (8배가 아님). 8개가 동시에 돌면 모델 하나가 느려짐: GMSC 의 tabicl fit 10초 → 46초, kumo 예측 45초 → 66초.
+  diamonds 차례 (끝나는 시각이 흩어짐) 는 덜 느려짐. 까닭 (CPU·메모리 대역·프로세스가 한꺼번에 뜸) 은 안 가림
+- GPU 시간으로는 더 듦: 8장 × 4.5분 = 36 GPU분, 1장으로 차례로면 약 15 GPU분. 끝부분은 GPU 1장만 돎 (GMSC 9번째)
+- 점수: TabICL 은 1×H100 과 같음 (r0f0: 0.129477 · 504.514 둘 다 같음). Kumo 는 실행마다 조금 다름 (GMSC 0.126854 → 0.126843, diamonds 481.42 → 480.79)
+
+refit 의 9 split 평균 (지금 방식의 5-fold 와 비교할 수 있는 것은 GMSC 5 split, #16 첫 실행에서)
+
+| 데이터셋 | 모델 | refit (9 split) | TabArena (9 split) | (refit − TabArena) / 표준편차 | GMSC 5 split: 5-fold → refit (refit 이 나은 split) |
+|---|---|---|---|---|---|
+| GiveMeSomeCredit | `kumo_c8k_refit` | 0.13072 | 0.13073 | −0.01 | 0.13013 → 0.13007 (3 / 5) |
+| | `tabicl_kv_refit` | 0.13301 | 0.13296 | +0.02 | 0.13237 → 0.13238 (3 / 5) |
+| diamonds | `kumo_c8k_refit` | 484.20 | 483.84 | +0.05 | |
+| | `tabicl_kv_refit` | 499.52 | 499.02 | +0.06 | |
+
+- 넷 모두 TabArena 와 표준편차의 0.06배 안 (8 의 기준 "표준편차 안" 을 넉넉히 넘음)
+
+#16 에 쓰면 (어림, refit 기준 1×H100 계산 1~2시간)
+
+| 방법 | 벽시계 | 비고 |
+|---|---|---|
+| 1×H100 작업 5개 동시 (`--max-concurrent 5`) | 약 15~30분 + 노드 뜨기 | 데이터셋 하나 (9 split) 가 약 11분. 노드가 안 뜨는 일이 작업마다 생길 수 있음 |
+| 8×H100 작업 하나 (`--one-job`) | 약 15~30분 + 노드 뜨기 한 번 | 노드 하나라 쿼터·"동시 7개" 문제를 피함. GPU 시간은 2배쯤 |
+| 지금 방식 (5-fold) 을 8×H100 으로 | 약 1.3~1.8시간 + 노드 뜨기 (H100 5~7시간 ÷ 3.8) | 5-fold 는 계산이 길어 8×H100 의 이득이 큼 |
+
+- refit 이면 두 방법의 벽시계가 비슷함 → 8×H100 은 "노드 하나로 끝냄" 이 이득. 5-fold 를 그대로 두면 8×H100 이 크게 줄임
+- 8×H100 이 GPU_1xH100 의 8노드 쿼터와 같이 세지는지는 확인 안 함 (이번에는 다른 H100 작업이 없을 때 냄)
+
 ### #17 (Agent)
 
 minipfn 에서 가져올 것 없음 (Agent 실행은 1시간 고정, GPU 계산이 병목이 아님). 줄일 곳은 동시 실행 수.
@@ -689,7 +732,7 @@ minipfn 에서 가져올 것 없음 (Agent 실행은 1시간 고정, GPU 계산�
 
 - refit 을 쓰면 39개 (5-fold) 와 프로토콜이 다름 → (a) 12개만 refit 으로 하고 표에 적음, (b) 39개도 refit 으로 다시 (H100 약 1시간 어림, "컨텍스트 80% 대 refit" 도 가려짐), (c) 지금대로 5-fold (H100 5~7시간 어림)
 - `tabicl` 의 KV 캐시를 기본으로 할지 (점수 같음, OOM 이면 캐시 없이). Kumo 청크 8192 를 기본으로 할지 (점수가 아주 조금 바뀜 → MLE-bench·C1·C2 와 같은 FM 이 아님, 결정 4)
-- GPU: H100 (A10 은 3~5배 느림)
+- GPU: H100 (A10 은 3~5배 느림). 1×H100 여럿 대 8×H100 하나 (위 "8×H100")
 
 ## 결정 (2026-11-13)
 

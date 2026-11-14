@@ -452,8 +452,16 @@ def check_models(models: list[str]):
 def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, timeout: int, accelerator: str | None,
               grade_after: bool = True, parts: tuple[str, ...] = ("gpu", "cpu")) -> list[dict]:
     """데이터셋 하나의 split 들을 GPU 작업 하나 (TFM) + CPU 작업 하나 (GBDT) 로 제출 (split 마다 작업을 내면 816개라).
-    작업 안에서 split 대회마다 `fab run` 을 차례로 (fab/runner/databricks.py 의 jobs). parts 로 한쪽만 (다시 내기는 gpu 만).
-    돌려주는 실행 기록의 cpu 가 True 면 CPU 작업."""
+    작업 안에서 split 대회마다 `fab run` (GPU 가 여럿이면 GPU 마다 나눠, fab/runner/databricks.py 의 RUNNER).
+    parts 로 한쪽만 (다시 내기는 gpu 만). 돌려주는 실행 기록의 cpu 가 True 면 CPU 작업."""
+    return submit_fm_group([(dataset, splits)], models, note, timeout, accelerator, grade_after, parts)
+
+
+def submit_fm_group(todo: list[tuple[str, list[str]]], models: list[str], note: str, timeout: int,
+                    accelerator: str | None, grade_after: bool = True,
+                    parts: tuple[str, ...] = ("gpu", "cpu")) -> list[dict]:
+    """데이터셋 여럿 (이름, split) 의 split 대회를 모두 GPU 작업 하나 + CPU 작업 하나로 (`fab ta fm --one-job`).
+    GPU_8xH100 같은 여러 장 작업에서 GPU 를 채우려고 (데이터셋 하나 = 9 split 이면 8장 중 1장만 도는 차례가 생김)."""
     from fab.bench.tabarena.remote import upload_data
     from fab.models import base_name
     from fab.runner.databricks import CPU_MODELS, record, submit, submit_cpu
@@ -461,11 +469,12 @@ def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, tim
 
     check_models(models)
     cfg = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))
-    comps = make_comps(dataset, splits)
+    comps = [c for dataset, splits in todo for c in make_comps(dataset, splits)]
     data = upload_data(cfg, comps)
     cpu = [m for m in models if base_name(m) in CPU_MODELS]
     gpu = [m for m in models if m not in cpu]
-    label = f"ta-{slug(dataset)}-{len(comps)}splits"
+    label = (f"ta-{slug(todo[0][0])}-{len(comps)}splits" if len(todo) == 1
+             else f"ta-{len(todo)}datasets-{len(comps)}splits")
     runs = []
     for ms, is_cpu in ((gpu, False), (cpu, True)):
         if not ms or ("cpu" if is_cpu else "gpu") not in parts:
@@ -693,6 +702,9 @@ def main(argv: list[str] | None = None):
                         "0 = 상한 없이 한꺼번에 내고 바로 끝남 (예전 방식)")
     f.add_argument("--retries", type=int, default=2, help="0분 System error 로 끝난 GPU 작업을 다시 낼 횟수 (상한 모드에서)")
     f.add_argument("--poll", type=int, default=60, help="상태를 볼 간격 (초, 상한 모드에서)")
+    f.add_argument("--one-job", action="store_true",
+                   help="데이터셋 모두의 split 을 GPU 작업 하나 (+ CPU 작업 하나) 로. --accelerator GPU_8xH100 과 같이: "
+                        "작업 안에서 split 을 GPU 마다 나눠 돌림. 상한·다시 내기 없음")
     g = sub.add_parser("grade", help="채점 요청 (원격 정리 작업) → fab sync 로 results/tabarena.csv")
     g.add_argument("datasets", nargs="+")
     g.add_argument("--models", nargs="+", required=True)
@@ -719,7 +731,9 @@ def main(argv: list[str] | None = None):
     elif args.cmd == "fm":
         check_models(args.models)  # 데이터셋을 하나라도 내기 전에
         todo = [(ds, pick_splits(ds, args.splits)) for ds in names(args.datasets)]  # split 이름도 내기 전에 확인
-        if args.max_concurrent > 0:
+        if args.one_job:
+            submit_fm_group(todo, args.models, args.note, args.timeout, args.accelerator, not args.no_grade)
+        elif args.max_concurrent > 0:
             submit_fm_throttled(todo, args.models, args.note, args.timeout, args.accelerator, not args.no_grade,
                                 args.max_concurrent, args.retries, args.poll)
         else:
