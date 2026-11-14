@@ -37,7 +37,7 @@ import yaml
 
 from fab.core.competition import ROOT, load_competition
 from fab.core.download import download
-from fab.models import GATED, base_name
+from fab.models import GATED, base_name, is_refit
 from fab.runner.common import CODE_PATHS, add_run_args, check_run_args, pip_args, run_argv
 
 LOCAL_CONFIG = ROOT / "databricks.local.yaml"
@@ -53,7 +53,7 @@ CPU_PACKAGES = {"numpy", "pandas", "scipy", "scikit-learn", "pyyaml", "lightgbm"
 MODEL_CACHE = "cache/models.tar"  # Volume 안의 모델 가중치 캐시 (Hugging Face·TabPFN)
 
 RUNNER = '''\
-import contextlib, importlib.metadata, json, os, re, shutil, subprocess, sys, tarfile, time, uuid
+import contextlib, fcntl, importlib.metadata, json, os, re, shutil, subprocess, sys, tarfile, threading, time, uuid
 from pathlib import Path
 
 T0 = time.time()
@@ -198,17 +198,88 @@ if shutil.which("nvidia-smi"):
 env = {**os.environ, "XDG_CACHE_HOME": str(cache),
        "FAB_WEIGHTS": WEIGHTS,  # gated 가중치 위치 (fab/models/tfm.py gated_file)
        "FAB_REMOTE": "1"}  # fab run 은 원격에서만 (fab/runner/run.py)
-codes = []
-for comp, _, args in JOBS:  # 한 대회가 실패해도 나머지는 돌림. 종료 코드는 처음 실패한 것
-    codes.append(subprocess.run([sys.executable, "-u", "-m", "fab", "run", comp, *args], cwd=SRC, env=env).returncode)
-    step(f"fab run 종료: {comp} (코드 {codes[-1]})")
-    # 대회마다 그 대회의 출력 + results.csv 만 Volume 에 → 작업이 중간에 죽어도 끝난 대회는 남음 (전체를 매번 복사하지 않음)
-    if len(JOBS) > 1 and (SRC / "results" / comp).exists():
+SAVE_LOCK = threading.Lock()
+
+
+def save(comp):
+    """대회마다 그 대회의 출력 + results.csv 만 Volume 에 → 작업이 중간에 죽어도 끝난 대회는 남음 (전체를 매번 복사하지 않음).
+    results.csv 는 다른 GPU 의 fab run 이 쓰는 중일 수 있어 fab 의 표 잠금을 잡고 복사. 잠금 파일 이름은
+    fab/core/results.py 의 table_lock (.<표 이름>.lock) 과 같아야 함 (실행기는 fab 를 import 하지 않음)."""
+    if len(JOBS) == 1:
+        return
+    if (SRC / "results" / comp).exists():
         shutil.copytree(SRC / "results" / comp, out / "results" / comp, dirs_exist_ok=True)
-    if len(JOBS) > 1 and (SRC / "results" / "results.csv").exists():
-        (out / "results").mkdir(parents=True, exist_ok=True)
-        shutil.copy(SRC / "results" / "results.csv", out / "results" / "results.csv")
-code = next((c for c in codes if c), 0)
+    if (SRC / "results" / "results.csv").exists():
+        with SAVE_LOCK, open(SRC / "results" / ".results.lock", "w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            (out / "results").mkdir(parents=True, exist_ok=True)
+            shutil.copy(SRC / "results" / "results.csv", out / "results" / "results.csv")
+
+
+def run_comp(comp, args, run_env, tag=""):
+    """fab run 하나. tag 가 있으면 (GPU 여럿) 출력 줄마다 붙임."""
+    cmd = [sys.executable, "-u", "-m", "fab", "run", comp, *args]
+    if not tag:
+        rc = subprocess.run(cmd, cwd=SRC, env=run_env).returncode
+    else:
+        proc = subprocess.Popen(cmd, cwd=SRC, env=run_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                errors="replace")
+        try:
+            for line in proc.stdout:
+                print(f"{tag} {line}", end="", flush=True)
+        finally:  # 출력을 읽다 실패해도 자식이 끝나기 전에 같은 GPU 에 다음 대회를 띄우지 않음
+            rc = proc.wait()
+    step(f"fab run 종료: {comp} (코드 {rc}){' ' + tag if tag else ''}")
+    save(comp)
+    return rc
+
+
+GPUS = []
+if shutil.which("nvidia-smi"):
+    GPUS = [ln.split(":")[0].split()[-1] for ln in subprocess.run(["nvidia-smi", "-L"], capture_output=True,
+                                                                     text=True).stdout.splitlines() if ln.startswith("GPU ")]
+codes = {}
+if len(GPUS) > 1 and len(JOBS) > 1:
+    # GPU 여럿 (GPU_8xH100 등) + 대회 여럿 (TabArena split): GPU 마다 작업자 하나, 남은 대회를 큰 것 (train.csv 크기) 부터 하나씩.
+    # 작업자마다 GPU 하나 (CUDA_VISIBLE_DEVICES) · CPU 를 나눠 받음 (fab run 의 run_parallel 과 같은 까닭: 스레드가 전체 코어를 잡으면 느림)
+    import queue
+    todo = queue.Queue()
+    for job in sorted(JOBS, key=lambda j: -sum(f.stat().st_size for f in Path(j[1]).glob("train*"))):
+        todo.put(job)
+    n = min(len(GPUS), len(JOBS))
+    # CPU 수: affinity + cgroup v2 할당량 (fab/runner/common.py 의 cpu_count 와 같은 계산. 실행기는 fab 를 import 하지 않음)
+    cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
+    try:
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
+        if quota != "max":
+            cpus = min(cpus, max(1, int(quota) // int(period)))
+    except (OSError, ValueError):
+        pass
+    per = str(max(1, cpus // n))
+    step(f"대회 {len(JOBS)}개를 GPU {n}장에 나눔 (작업자당 CPU 스레드 {per})")
+
+    def worker(gpu):
+        wenv = {**env, "CUDA_VISIBLE_DEVICES": gpu, "OMP_NUM_THREADS": per, "FAB_THREADS": per}
+        while True:
+            try:
+                comp, _, args = todo.get_nowait()
+            except queue.Empty:
+                return
+            try:
+                codes[comp] = run_comp(comp, args, wenv, f"[g{gpu}]")
+            except Exception as e:  # 복사 실패 등: 그 대회만 실패로 (다른 대회는 계속)
+                print(f"[runner] {comp} 실패: {e!r}", flush=True)
+                codes[comp] = 1
+
+    threads = [threading.Thread(target=worker, args=(g,)) for g in GPUS[:n]]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+else:
+    for comp, _, args in JOBS:  # 한 대회가 실패해도 나머지는 돌림
+        codes[comp] = run_comp(comp, args, env)
+code = next((codes.get(c, 1) for c, _, _ in JOBS if codes.get(c, 1)), 0)  # 종료 코드는 (JOBS 순서로) 처음 실패한 것
 if len(JOBS) == 1 and (SRC / "results").exists():
     shutil.copytree(SRC / "results", out / "results", dirs_exist_ok=True)
 new = weights() - before
@@ -480,6 +551,8 @@ def main(argv: list[str] | None = None):
         ap.error("--split-folds 는 --fold·--max-folds·--fold-batch 와 같이 쓸 수 없음")
     if args.fold is not None and not args.split_folds:
         ap.error("--fold 만 따로 내면 합칠 묶음이 없음 → --split-folds 사용")
+    if args.split_folds and (refit := [m for m in args.models if is_refit(m)]):  # 원격에서 fold 마다 거절됨 (노드가 뜬 뒤)
+        ap.error(f"refit 모델 {refit} 은 fold 가 없음 → --split-folds 와 같이 못 씀")
 
     cfg = settings(args)
     comp = load_competition(args.comp)  # 설정 존재 확인

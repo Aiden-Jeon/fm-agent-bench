@@ -66,43 +66,91 @@ KV_CACHE_GPU_FRACTION = 0.3  # 추정 캐시가 GPU 메모리의 이 비율 안�
 EXAONE_VRAM_FRACTION = 0.7
 
 
+def _threads() -> int:
+    """이 프로세스가 쓸 CPU 스레드: 실행기·병렬 작업자가 나눠 준 FAB_THREADS (GPU 여럿에 split 을 나눠 돌릴 때), 없으면 전체."""
+    return int(os.environ.get("FAB_THREADS") or 0) or os.cpu_count() or 1
+
+
 def _gpu_bytes() -> int:
     import torch
 
     return torch.cuda.get_device_properties(0).total_memory if torch.cuda.is_available() else 0
 
 
-class _TabPFN(BaseEstimator):
-    """컨텍스트 KV 캐시(fit_with_cache)가 GPU 에 들어갈 크기면 켬 → 예측 청크마다 컨텍스트를 다시 계산하지 않음.
+def _try_oom(fn):
+    """(성공, 결과). GPU OOM 이면 (False, None): 다시 하는 쪽은 except 밖에서 → 예외 traceback 이 실패한 시도의 텐서를
+    잡고 있지 않아 empty_cache 가 비울 수 있음."""
+    import torch
 
-    캐시 크기는 컨텍스트 행 × 피처 수에 비례 (bioresponse 처럼 넓은 데이터는 GPU 에 안 들어감 → 끔).
-    추정이 빗나가 fit 에서 OOM 이 나면 캐시 없이 다시 fit.
-    """
+    try:
+        return True, fn()
+    except torch.cuda.OutOfMemoryError:
+        pass
+    return False, None
 
-    def __init__(self, make, n_estimators):
-        self.make, self.n_estimators = make, n_estimators
 
-    def fit(self, X, y):
+class _CacheFallback(BaseEstimator):
+    """컨텍스트 캐시를 켠 모델을 먼저 쓰고, GPU OOM 이면 캐시 없이 (TabPFN fit_with_cache, TabICL kv_cache).
+    fit 에서 캐시를 만들다 OOM, 또는 예측에서 OOM (캐시가 GPU 에 남아 예측 청크가 안 들어감) 둘 다. 예측 중이면 캐시 없이
+    다시 fit 한 뒤 예측 (그래서 컨텍스트를 들고 있음). make(**cached 또는 **plain) → estimator. use_cache=False 면 처음부터 끔."""
+
+    def __init__(self, make, cached, plain, use_cache=True, tag=""):
+        self.make, self.cached, self.plain = make, cached, plain
+        self.use_cache, self.tag = use_cache, tag
+
+    def _fallback(self, where):
         import torch
 
-        n_est = 8 if self.n_estimators == "auto" else self.n_estimators
-        need = X.shape[0] * X.shape[1] * KV_CACHE_BYTES_PER_CELL * n_est / 8
-        if need < KV_CACHE_GPU_FRACTION * _gpu_bytes():
-            try:
-                self.model_ = self.make(fit_mode="fit_with_cache").fit(X, y)
+        self.model_, self.cached_ = None, False
+        torch.cuda.empty_cache()
+        print(f"    [{self.tag}] 캐시 OOM ({where}) → 캐시 없이 fit", flush=True)
+        self.model_ = self.make(**self.plain).fit(self.X_, self.y_)
+
+    def fit(self, X, y):
+        self.X_, self.y_ = X, y
+        if self.use_cache:
+            ok, model = _try_oom(lambda: self.make(**self.cached).fit(X, y))
+            if ok:
+                self.model_, self.cached_ = model, True
                 return self
-            except torch.cuda.OutOfMemoryError:
-                self.model_ = None
-                torch.cuda.empty_cache()
-                print("    [tabpfn] KV 캐시 OOM → 캐시 없이 fit", flush=True)
-        self.model_ = self.make(fit_mode="fit_preprocessors").fit(X, y)
+            self._fallback("fit")
+            return self
+        self.model_, self.cached_ = self.make(**self.plain).fit(X, y), False
         return self
 
+    def _call(self, name, X):
+        if not self.cached_:
+            return getattr(self.model_, name)(X)
+        ok, out = _try_oom(lambda: getattr(self.model_, name)(X))
+        if ok:
+            return out
+        self._fallback("predict")
+        return getattr(self.model_, name)(X)
+
     def predict(self, X):
-        return self.model_.predict(X)
+        return self._call("predict", X)
 
     def predict_proba(self, X):
-        return self.model_.predict_proba(X)
+        return self._call("predict_proba", X)
+
+
+def _tabpfn_cache_fits(X, n_estimators) -> bool:
+    """TabPFN 컨텍스트 KV 캐시 (fit_with_cache) 가 GPU 에 들어갈 크기인지. 캐시 크기는 컨텍스트 행 × 피처 수에 비례
+    (bioresponse 처럼 넓은 데이터는 GPU 에 안 들어감 → 끔). 추정이 빗나가 OOM 이면 _CacheFallback 이 캐시 없이."""
+    n_est = 8 if n_estimators == "auto" else n_estimators
+    return X.shape[0] * X.shape[1] * KV_CACHE_BYTES_PER_CELL * n_est / 8 < KV_CACHE_GPU_FRACTION * _gpu_bytes()
+
+
+class _TabPFN(_CacheFallback):
+    """캐시가 GPU 에 들어갈 크기면 켬 (_tabpfn_cache_fits) → 예측 청크마다 컨텍스트를 다시 계산하지 않음."""
+
+    def __init__(self, make, n_estimators):
+        super().__init__(make, dict(fit_mode="fit_with_cache"), dict(fit_mode="fit_preprocessors"), tag="tabpfn")
+        self.n_estimators = n_estimators
+
+    def fit(self, X, y):
+        self.use_cache = _tabpfn_cache_fits(X, self.n_estimators)
+        return super().fit(X, y)
 
 
 def _tabpfn(task, cat_cols, seed, version=None, n_estimators="auto"):
@@ -114,7 +162,7 @@ def _tabpfn(task, cat_cols, seed, version=None, n_estimators="auto"):
         # 공식 지원(1만 행)을 넘는 컨텍스트도 허용 — 큰 데이터는 tfm_max_rows 로 따로 제한
         # n_preprocessing_jobs: estimator 별 전처리를 스레드로 병렬 (결과 동일). 넓은 데이터에서 fit 대부분이 전처리
         kwargs = dict(categorical_features_indices=cat_idx, random_state=seed, ignore_pretraining_limits=True,
-                      n_estimators=n_estimators, n_preprocessing_jobs=os.cpu_count() or 1)
+                      n_estimators=n_estimators, n_preprocessing_jobs=_threads())
 
         def make(**extra):
             if version is None:
@@ -140,11 +188,18 @@ def make_tabpfn35(task, cat_cols, seed, **kw):
     return _tabpfn(task, cat_cols, seed, version="v3.5", **kw)
 
 
-def make_tabicl(task, cat_cols, seed):
+def make_tabicl(task, cat_cols, seed, kv_cache=False):
+    """kv_cache: fit 에서 컨텍스트의 KV 를 한 번 만들어 둠 → 예측 청크 (PREDICT_CHUNK) 마다 컨텍스트를 다시 계산하지 않음
+    (꺼 두면 test 7만 행이 청크 4개 = 컨텍스트 4번). 점수는 끈 것과 같음 (H100 에서 test 점수 6자리까지, 2026-11-14).
+    캐시를 만들거나 예측하다 OOM 이면 캐시 없이 (_CacheFallback. A10 24GB 에서 컨텍스트 10만 행 × 피처 10 은 캐시를 만들다 OOM,
+    5만 × 170 은 들어감, 2026-11-14)."""
     from tabicl import TabICLClassifier, TabICLRegressor
 
     cls = TabICLRegressor if task == "regression" else TabICLClassifier
-    return _TFM(lambda cat_idx: cls(random_state=seed), cat_cols)
+    if not kv_cache:
+        return _TFM(lambda cat_idx: cls(random_state=seed), cat_cols)
+    return _TFM(lambda cat_idx: _CacheFallback(lambda **kw: cls(random_state=seed, **kw), dict(kv_cache=True),
+                                               dict(kv_cache=False), tag="tabicl"), cat_cols)
 
 
 def _device() -> str:
@@ -249,11 +304,11 @@ def make_limix2m(task, cat_cols, seed):
     return _TFM(lambda cat_idx: _LimiX(task, cat_idx, "stable-ai/LimiX-1_2M", "LimiX-1_2M.ckpt"), cat_cols)
 
 
-def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None):
+def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=2048):
     # MAE 는 중앙값이 최적 점추정 (평균은 오른쪽 꼬리가 긴 타깃에서 위로 치우침, Allstate)
     point = "median" if metric == "mae" else "mean"
-    # 컨텍스트가 1만 행을 넘으면 질의 2만 행으로는 T4 메모리를 넘음 (S4E2 에서 13.7GiB 요청)
-    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point), cat_cols, chunk=2048)
+    # 컨텍스트가 1만 행을 넘으면 질의 2만 행으로는 T4 메모리를 넘음 (S4E2 에서 13.7GiB 요청) → 기본 질의 청크 2048
+    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point), cat_cols, chunk=chunk)
 
 
 class _Causilo(BaseEstimator):

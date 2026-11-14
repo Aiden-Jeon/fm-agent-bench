@@ -3305,3 +3305,280 @@ timestamp,comp,dataset,task_id,split,fold,model,metric,score,metric_error,run,no
 2026-11-14T08:23:26,tas-wine-quality-r2f0,wine_quality,363708,r2f0,6,kumo_e16,rmse,0.591165126381295,0.591165126381295,2026-11-14T07:23:37,"P4 kumo_e16 (맞춤 기준 확인, 결정 4)"
 2026-11-14T08:23:29,tas-wine-quality-r2f1,wine_quality,363708,r2f1,7,kumo_e16,rmse,0.60623174223404,0.60623174223404,2026-11-14T07:24:06,"P4 kumo_e16 (맞춤 기준 확인, 결정 4)"
 2026-11-14T08:23:30,tas-wine-quality-r2f2,wine_quality,363708,r2f2,8,kumo_e16,rmse,0.5813449278270929,0.5813449278270929,2026-11-14T07:24:35,"P4 kumo_e16 (맞춤 기준 확인, 결정 4)"
+2026-11-14T13:56:01,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,tabicl,auc,0.8704970959084757,0.1295029040915243,2026-11-14T11:40:45,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:01,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo,auc,0.8730225841634249,0.126977415836575,2026-11-14T11:44:11,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:02,tas-givemesomecredit-r0f1,GiveMeSomeCredit,363673,r0f1,1,tabicl,auc,0.8657457486526288,0.1342542513473712,2026-11-14T11:46:07,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:02,tas-givemesomecredit-r0f1,GiveMeSomeCredit,363673,r0f1,1,kumo,auc,0.8679071400513237,0.1320928599486762,2026-11-14T11:49:17,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:03,tas-givemesomecredit-r0f2,GiveMeSomeCredit,363673,r0f2,2,tabicl,auc,0.8646922669070191,0.1353077330929809,2026-11-14T11:51:13,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:03,tas-givemesomecredit-r0f2,GiveMeSomeCredit,363673,r0f2,2,kumo,auc,0.8669785211970245,0.1330214788029755,2026-11-14T11:54:23,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:04,tas-givemesomecredit-r1f0,GiveMeSomeCredit,363673,r1f0,3,tabicl,auc,0.8672048167498867,0.1327951832501133,2026-11-14T11:56:19,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:04,tas-givemesomecredit-r1f0,GiveMeSomeCredit,363673,r1f0,3,kumo,auc,0.8690875048120632,0.1309124951879368,2026-11-14T11:59:29,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:04,tas-givemesomecredit-r1f1,GiveMeSomeCredit,363673,r1f1,4,tabicl,auc,0.8699978591817988,0.1300021408182011,2026-11-14T12:01:25,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:04,tas-givemesomecredit-r1f1,GiveMeSomeCredit,363673,r1f1,4,kumo,auc,0.8723756795920987,0.1276243204079012,2026-11-14T12:04:35,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:05,tas-customer-satisfaction-in-airline-r0f0,customer_satisfaction_in_airline,363628,r0f0,0,tabicl,auc,0.9951898517218372,0.0048101482781628,2026-11-14T11:50:10,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:06,tas-customer-satisfaction-in-airline-r0f0,customer_satisfaction_in_airline,363628,r0f0,0,kumo,auc,0.996047392563518,0.0039526074364819,2026-11-14T11:53:09,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:06,tas-customer-satisfaction-in-airline-r0f1,customer_satisfaction_in_airline,363628,r0f1,1,tabicl,auc,0.9954322416550724,0.0045677583449277,2026-11-14T11:55:04,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:06,tas-customer-satisfaction-in-airline-r0f1,customer_satisfaction_in_airline,363628,r0f1,1,kumo,auc,0.9962151246813428,0.0037848753186571,2026-11-14T11:57:46,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:07,tas-customer-satisfaction-in-airline-r0f2,customer_satisfaction_in_airline,363628,r0f2,2,tabicl,auc,0.994984382212452,0.0050156177875479,2026-11-14T11:59:42,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:07,tas-customer-satisfaction-in-airline-r0f2,customer_satisfaction_in_airline,363628,r0f2,2,kumo,auc,0.9958133840333084,0.0041866159666916,2026-11-14T12:02:24,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:08,tas-customer-satisfaction-in-airline-r1f0,customer_satisfaction_in_airline,363628,r1f0,3,tabicl,auc,0.9949562807639496,0.0050437192360504,2026-11-14T12:04:19,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:08,tas-customer-satisfaction-in-airline-r1f0,customer_satisfaction_in_airline,363628,r1f0,3,kumo,auc,0.9958091100912266,0.0041908899087733,2026-11-14T12:07:01,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:10,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,tabicl,auc,0.9953348441554176,0.0046651558445823,2026-11-14T11:51:49,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:10,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo,auc,0.9973258011188842,0.0026741988811157,2026-11-14T11:54:11,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:11,tas-apsfailure-r0f1,APSFailure,363616,r0f1,1,tabicl,auc,0.9929946676614516,0.0070053323385484,2026-11-14T11:56:26,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:11,tas-apsfailure-r0f1,APSFailure,363616,r0f1,1,kumo,auc,0.9940705273090342,0.0059294726909657,2026-11-14T11:58:35,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:12,tas-apsfailure-r0f2,APSFailure,363616,r0f2,2,tabicl,auc,0.9945436352066006,0.0054563647933993,2026-11-14T12:00:52,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:12,tas-apsfailure-r0f2,APSFailure,363616,r0f2,2,kumo,auc,0.9948347852801124,0.0051652147198877,2026-11-14T12:03:01,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:13,tas-apsfailure-r1f0,APSFailure,363616,r1f0,3,tabicl,auc,0.9908808530670784,0.0091191469329214,2026-11-14T12:05:17,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:13,tas-apsfailure-r1f0,APSFailure,363616,r1f0,3,kumo,auc,0.9920458939578064,0.0079541060421935,2026-11-14T12:07:25,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:14,tas-apsfailure-r1f1,APSFailure,363616,r1f1,4,tabicl,auc,0.9952570713831166,0.0047429286168834,2026-11-14T12:09:41,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:14,tas-apsfailure-r1f1,APSFailure,363616,r1f1,4,kumo,auc,0.9956799719119616,0.0043200280880384,2026-11-14T12:11:50,"P4 FM 맞춤 (2만 행 초과 12개, H100)"
+2026-11-14T13:56:18,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,tabicl_refit,auc,0.8705204491811367,0.1294795508188633,2026-11-14T12:37:18,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:19,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,tabicl_kv_refit,auc,0.8705229502868179,0.129477049713182,2026-11-14T12:37:37,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:19,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,tabicl_kv,auc,0.8704968522109993,0.1295031477890007,2026-11-14T12:38:26,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:19,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo_refit,auc,0.8730875840522216,0.1269124159477783,2026-11-14T12:39:34,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:19,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo_c8k_refit,auc,0.8731461965018945,0.1268538034981055,2026-11-14T12:40:24,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:19,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo_c32k_refit,auc,0.8730848809341587,0.1269151190658413,2026-11-14T12:41:13,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:19,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo_c8k,auc,0.8730091808022106,0.1269908191977894,2026-11-14T12:43:45,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,tabicl_refit,auc,0.995460745995774,0.0045392540042259,2026-11-14T12:44:29,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,tabicl_kv_refit,auc,0.9954608773716074,0.0045391226283926,2026-11-14T12:44:57,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,tabicl_kv,auc,0.9953352820748622,0.0046647179251377,2026-11-14T12:46:39,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo_refit,auc,0.997477627790368,0.0025223722096319,2026-11-14T12:47:15,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo_c8k_refit,auc,0.9973483539702872,0.0026516460297127,2026-11-14T12:47:52,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo_c32k_refit,auc,0.9973856209150328,0.0026143790849673,2026-11-14T12:48:28,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo_c8k,auc,0.997355667225014,0.0026443327749861,2026-11-14T12:50:30,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:21,tas-diamonds-r0f0,diamonds,363631,r0f0,0,tabicl_refit,rmse,504.51736859020616,504.51736859020616,2026-11-14T12:50:45,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:21,tas-diamonds-r0f0,diamonds,363631,r0f0,0,tabicl_kv_refit,rmse,504.5140657827388,504.5140657827388,2026-11-14T12:50:52,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:21,tas-diamonds-r0f0,diamonds,363631,r0f0,0,tabicl_kv,rmse,506.19078243024734,506.19078243024734,2026-11-14T12:51:09,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:21,tas-diamonds-r0f0,diamonds,363631,r0f0,0,kumo_refit,rmse,481.4470747243875,481.4470747243875,2026-11-14T12:51:23,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:21,tas-diamonds-r0f0,diamonds,363631,r0f0,0,kumo_c8k_refit,rmse,481.4232633352469,481.4232633352469,2026-11-14T12:51:38,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:21,tas-diamonds-r0f0,diamonds,363631,r0f0,0,kumo_c32k_refit,rmse,481.3642338754596,481.3642338754596,2026-11-14T12:51:52,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:21,tas-diamonds-r0f0,diamonds,363631,r0f0,0,kumo_c8k,rmse,483.0981034256255,483.0981034256255,2026-11-14T12:52:29,speedup 시험 (refit·kv·chunk)
+2026-11-14T13:56:24,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,tabicl_refit,auc,0.8705204491811367,0.1294795508188633,2026-11-14T12:37:18,speedup 시험 A10 (refit)
+2026-11-14T13:56:24,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,tabicl_kv_refit,auc,0.8705229502868179,0.129477049713182,2026-11-14T12:37:37,speedup 시험 A10 (refit)
+2026-11-14T13:56:24,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo_refit,auc,0.8730875840522216,0.1269124159477783,2026-11-14T12:39:34,speedup 시험 A10 (refit)
+2026-11-14T13:56:24,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo_c8k_refit,auc,0.8731461965018945,0.1268538034981055,2026-11-14T12:40:24,speedup 시험 A10 (refit)
+2026-11-14T13:56:25,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,tabicl_refit,auc,0.995460745995774,0.0045392540042259,2026-11-14T12:44:29,speedup 시험 A10 (refit)
+2026-11-14T13:56:25,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,tabicl_kv_refit,auc,0.9954608773716074,0.0045391226283926,2026-11-14T12:44:57,speedup 시험 A10 (refit)
+2026-11-14T13:56:25,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo_refit,auc,0.997477627790368,0.0025223722096319,2026-11-14T12:47:15,speedup 시험 A10 (refit)
+2026-11-14T13:56:25,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo_c8k_refit,auc,0.9973483539702872,0.0026516460297127,2026-11-14T12:47:52,speedup 시험 A10 (refit)
+2026-11-14T13:56:25,tas-diamonds-r0f0,diamonds,363631,r0f0,0,tabicl_refit,rmse,504.51736859020616,504.51736859020616,2026-11-14T12:50:45,speedup 시험 A10 (refit)
+2026-11-14T13:56:25,tas-diamonds-r0f0,diamonds,363631,r0f0,0,tabicl_kv_refit,rmse,504.5140657827388,504.5140657827388,2026-11-14T12:50:52,speedup 시험 A10 (refit)
+2026-11-14T13:56:26,tas-diamonds-r0f0,diamonds,363631,r0f0,0,kumo_refit,rmse,481.4470747243875,481.4470747243875,2026-11-14T12:51:23,speedup 시험 A10 (refit)
+2026-11-14T13:56:26,tas-diamonds-r0f0,diamonds,363631,r0f0,0,kumo_c8k_refit,rmse,481.4232633352469,481.4232633352469,2026-11-14T12:51:38,speedup 시험 A10 (refit)
+2026-11-14T13:56:28,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,tabicl_kv_refit,auc,0.8705229502868179,0.129477049713182,2026-11-14T12:37:37,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:28,tas-givemesomecredit-r0f0,GiveMeSomeCredit,363673,r0f0,0,kumo_c8k_refit,auc,0.8731461965018945,0.1268538034981055,2026-11-14T12:40:24,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:29,tas-givemesomecredit-r0f1,GiveMeSomeCredit,363673,r0f1,1,tabicl_kv_refit,auc,0.8657761338801084,0.1342238661198915,2026-11-14T13:17:59,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:29,tas-givemesomecredit-r0f1,GiveMeSomeCredit,363673,r0f1,1,kumo_c8k_refit,auc,0.867928463580528,0.132071536419472,2026-11-14T13:19:10,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:29,tas-givemesomecredit-r0f2,GiveMeSomeCredit,363673,r0f2,2,tabicl_kv_refit,auc,0.8647043138993832,0.1352956861006168,2026-11-14T13:17:59,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:29,tas-givemesomecredit-r0f2,GiveMeSomeCredit,363673,r0f2,2,kumo_c8k_refit,auc,0.867136142159666,0.132863857840334,2026-11-14T13:19:10,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:30,tas-givemesomecredit-r1f0,GiveMeSomeCredit,363673,r1f0,3,tabicl_kv_refit,auc,0.8671996061130512,0.1328003938869487,2026-11-14T13:17:59,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:30,tas-givemesomecredit-r1f0,GiveMeSomeCredit,363673,r1f0,3,kumo_c8k_refit,auc,0.8690817715082713,0.1309182284917287,2026-11-14T13:19:10,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:30,tas-givemesomecredit-r1f1,GiveMeSomeCredit,363673,r1f1,4,tabicl_kv_refit,auc,0.869906299474596,0.130093700525404,2026-11-14T13:17:59,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:30,tas-givemesomecredit-r1f1,GiveMeSomeCredit,363673,r1f1,4,kumo_c8k_refit,auc,0.8723665505563626,0.1276334494436374,2026-11-14T13:19:10,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:31,tas-givemesomecredit-r1f2,GiveMeSomeCredit,363673,r1f2,5,tabicl_kv_refit,auc,0.8637913526079567,0.1362086473920433,2026-11-14T13:17:59,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:31,tas-givemesomecredit-r1f2,GiveMeSomeCredit,363673,r1f2,5,kumo_c8k_refit,auc,0.8661286198342196,0.1338713801657803,2026-11-14T13:19:10,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:32,tas-givemesomecredit-r2f0,GiveMeSomeCredit,363673,r2f0,6,tabicl_kv_refit,auc,0.8664589132852294,0.1335410867147706,2026-11-14T13:17:59,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:32,tas-givemesomecredit-r2f0,GiveMeSomeCredit,363673,r2f0,6,kumo_c8k_refit,auc,0.8690034836939067,0.1309965163060933,2026-11-14T13:19:10,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:33,tas-givemesomecredit-r2f1,GiveMeSomeCredit,363673,r2f1,7,tabicl_kv_refit,auc,0.8674842383526522,0.1325157616473478,2026-11-14T13:19:43,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:33,tas-givemesomecredit-r2f1,GiveMeSomeCredit,363673,r2f1,7,kumo_c8k_refit,auc,0.8702614083831265,0.1297385916168735,2026-11-14T13:20:35,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:33,tas-givemesomecredit-r2f2,GiveMeSomeCredit,363673,r2f2,8,tabicl_kv_refit,auc,0.8670750702894067,0.1329249297105933,2026-11-14T13:17:59,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:34,tas-givemesomecredit-r2f2,GiveMeSomeCredit,363673,r2f2,8,kumo_c8k_refit,auc,0.8684690358884039,0.1315309641115961,2026-11-14T13:19:10,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:34,tas-diamonds-r0f0,diamonds,363631,r0f0,0,tabicl_kv_refit,rmse,504.5140657827388,504.5140657827388,2026-11-14T12:50:52,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:34,tas-diamonds-r0f0,diamonds,363631,r0f0,0,kumo_c8k_refit,rmse,481.4232633352469,481.4232633352469,2026-11-14T12:51:38,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:34,tas-diamonds-r0f1,diamonds,363631,r0f1,1,tabicl_kv_refit,rmse,498.5506046273459,498.5506046273459,2026-11-14T13:19:33,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:34,tas-diamonds-r0f1,diamonds,363631,r0f1,1,kumo_c8k_refit,rmse,482.6721299176642,482.6721299176642,2026-11-14T13:19:48,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:35,tas-diamonds-r0f2,diamonds,363631,r0f2,2,tabicl_kv_refit,rmse,500.91818548201024,500.91818548201024,2026-11-14T13:19:36,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:35,tas-diamonds-r0f2,diamonds,363631,r0f2,2,kumo_c8k_refit,rmse,489.7439066307376,489.7439066307376,2026-11-14T13:19:55,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:36,tas-diamonds-r1f0,diamonds,363631,r1f0,3,tabicl_kv_refit,rmse,515.4139394507175,515.4139394507175,2026-11-14T13:19:34,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:36,tas-diamonds-r1f0,diamonds,363631,r1f0,3,kumo_c8k_refit,rmse,497.4708307545404,497.4708307545404,2026-11-14T13:19:50,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:36,tas-diamonds-r1f1,diamonds,363631,r1f1,4,tabicl_kv_refit,rmse,487.6249316586891,487.6249316586891,2026-11-14T13:19:33,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:36,tas-diamonds-r1f1,diamonds,363631,r1f1,4,kumo_c8k_refit,rmse,475.57035920209887,475.57035920209887,2026-11-14T13:19:49,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:37,tas-diamonds-r1f2,diamonds,363631,r1f2,5,tabicl_kv_refit,rmse,491.6128641009116,491.6128641009116,2026-11-14T13:20:03,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:37,tas-diamonds-r1f2,diamonds,363631,r1f2,5,kumo_c8k_refit,rmse,477.4993198992533,477.4993198992533,2026-11-14T13:20:19,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:37,tas-diamonds-r2f0,diamonds,363631,r2f0,6,tabicl_kv_refit,rmse,489.03165359246026,489.03165359246026,2026-11-14T13:19:33,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:37,tas-diamonds-r2f0,diamonds,363631,r2f0,6,kumo_c8k_refit,rmse,477.5528732864422,477.5528732864422,2026-11-14T13:19:52,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:38,tas-diamonds-r2f1,diamonds,363631,r2f1,7,tabicl_kv_refit,rmse,497.1394408948916,497.1394408948916,2026-11-14T13:19:33,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:38,tas-diamonds-r2f1,diamonds,363631,r2f1,7,kumo_c8k_refit,rmse,483.2874063836713,483.2874063836713,2026-11-14T13:19:50,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:38,tas-diamonds-r2f2,diamonds,363631,r2f2,8,tabicl_kv_refit,rmse,510.8467798012978,510.8467798012978,2026-11-14T13:19:35,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:38,tas-diamonds-r2f2,diamonds,363631,r2f2,8,kumo_c8k_refit,rmse,493.2272535306381,493.2272535306381,2026-11-14T13:19:55,speedup 시험 8xH100 (split 을 GPU 마다)
+2026-11-14T13:56:41,tas-houses-r0f0,houses,363678,r0f0,0,tabicl_kv_refit,rmse,0.19746199349974558,0.19746199349974558,2026-11-14T13:47:14,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:41,tas-houses-r0f0,houses,363678,r0f0,0,kumo_c8k_refit,rmse,0.17988489911800398,0.17988489911800398,2026-11-14T13:47:25,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:41,tas-houses-r0f1,houses,363678,r0f1,1,tabicl_kv_refit,rmse,0.19160372419438046,0.19160372419438046,2026-11-14T13:47:15,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:41,tas-houses-r0f1,houses,363678,r0f1,1,kumo_c8k_refit,rmse,0.17536549803023774,0.17536549803023774,2026-11-14T13:47:26,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:42,tas-houses-r0f2,houses,363678,r0f2,2,tabicl_kv_refit,rmse,0.20167441116687151,0.20167441116687151,2026-11-14T13:47:39,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:42,tas-houses-r0f2,houses,363678,r0f2,2,kumo_c8k_refit,rmse,0.18433940606300164,0.18433940606300164,2026-11-14T13:47:49,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:42,tas-houses-r1f0,houses,363678,r1f0,3,tabicl_kv_refit,rmse,0.19274440345657962,0.19274440345657962,2026-11-14T13:47:38,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:42,tas-houses-r1f0,houses,363678,r1f0,3,kumo_c8k_refit,rmse,0.18113924976674997,0.18113924976674997,2026-11-14T13:47:48,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:43,tas-houses-r1f1,houses,363678,r1f1,4,tabicl_kv_refit,rmse,0.19727216689997698,0.19727216689997698,2026-11-14T13:47:34,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:43,tas-houses-r1f1,houses,363678,r1f1,4,kumo_c8k_refit,rmse,0.17946053022857347,0.17946053022857347,2026-11-14T13:47:45,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:44,tas-houses-r1f2,houses,363678,r1f2,5,tabicl_kv_refit,rmse,0.1950240520853725,0.1950240520853725,2026-11-14T13:47:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:44,tas-houses-r1f2,houses,363678,r1f2,5,kumo_c8k_refit,rmse,0.17933191432728596,0.17933191432728596,2026-11-14T13:47:43,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:44,tas-houses-r2f0,houses,363678,r2f0,6,tabicl_kv_refit,rmse,0.19472893473339342,0.19472893473339342,2026-11-14T13:47:33,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:44,tas-houses-r2f0,houses,363678,r2f0,6,kumo_c8k_refit,rmse,0.17826029482882655,0.17826029482882655,2026-11-14T13:47:45,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:45,tas-houses-r2f1,houses,363678,r2f1,7,tabicl_kv_refit,rmse,0.19555381269164152,0.19555381269164152,2026-11-14T13:47:33,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:45,tas-houses-r2f1,houses,363678,r2f1,7,kumo_c8k_refit,rmse,0.1818630084241686,0.1818630084241686,2026-11-14T13:47:44,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:45,tas-houses-r2f2,houses,363678,r2f2,8,tabicl_kv_refit,rmse,0.19566910164228937,0.19566910164228937,2026-11-14T13:47:38,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:45,tas-houses-r2f2,houses,363678,r2f2,8,kumo_c8k_refit,rmse,0.17780759539262456,0.17780759539262456,2026-11-14T13:47:49,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:46,tas-superconductivity-r0f0,superconductivity,363705,r0f0,0,tabicl_kv_refit,rmse,8.937194399427375,8.937194399427375,2026-11-14T13:42:07,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:46,tas-superconductivity-r0f0,superconductivity,363705,r0f0,0,kumo_c8k_refit,rmse,8.440231249242563,8.440231249242563,2026-11-14T13:42:21,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:46,tas-superconductivity-r0f1,superconductivity,363705,r0f1,1,tabicl_kv_refit,rmse,8.895228430031857,8.895228430031857,2026-11-14T13:42:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:46,tas-superconductivity-r0f1,superconductivity,363705,r0f1,1,kumo_c8k_refit,rmse,8.539056937471985,8.539056937471985,2026-11-14T13:42:40,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:47,tas-superconductivity-r0f2,superconductivity,363705,r0f2,2,tabicl_kv_refit,rmse,8.582619469955173,8.582619469955173,2026-11-14T13:41:52,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:47,tas-superconductivity-r0f2,superconductivity,363705,r0f2,2,kumo_c8k_refit,rmse,8.29020333056002,8.29020333056002,2026-11-14T13:42:07,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:48,tas-superconductivity-r1f0,superconductivity,363705,r1f0,3,tabicl_kv_refit,rmse,9.036856303404031,9.036856303404031,2026-11-14T13:41:56,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:48,tas-superconductivity-r1f0,superconductivity,363705,r1f0,3,kumo_c8k_refit,rmse,8.500730453183303,8.500730453183303,2026-11-14T13:42:11,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:48,tas-superconductivity-r1f1,superconductivity,363705,r1f1,4,tabicl_kv_refit,rmse,9.142558345587688,9.142558345587688,2026-11-14T13:42:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:48,tas-superconductivity-r1f1,superconductivity,363705,r1f1,4,kumo_c8k_refit,rmse,8.748089041842604,8.748089041842604,2026-11-14T13:42:40,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:49,tas-superconductivity-r1f2,superconductivity,363705,r1f2,5,tabicl_kv_refit,rmse,8.758757624708311,8.758757624708311,2026-11-14T13:41:54,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:49,tas-superconductivity-r1f2,superconductivity,363705,r1f2,5,kumo_c8k_refit,rmse,8.331191998938255,8.331191998938255,2026-11-14T13:42:10,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:49,tas-superconductivity-r2f0,superconductivity,363705,r2f0,6,tabicl_kv_refit,rmse,9.039870193159722,9.039870193159722,2026-11-14T13:42:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:49,tas-superconductivity-r2f0,superconductivity,363705,r2f0,6,kumo_c8k_refit,rmse,8.697379036959314,8.697379036959314,2026-11-14T13:42:40,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:50,tas-superconductivity-r2f1,superconductivity,363705,r2f1,7,tabicl_kv_refit,rmse,9.212487229595961,9.212487229595961,2026-11-14T13:41:52,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:50,tas-superconductivity-r2f1,superconductivity,363705,r2f1,7,kumo_c8k_refit,rmse,8.888233215923826,8.888233215923826,2026-11-14T13:42:07,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:51,tas-superconductivity-r2f2,superconductivity,363705,r2f2,8,tabicl_kv_refit,rmse,8.800448853872357,8.800448853872357,2026-11-14T13:41:53,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:51,tas-superconductivity-r2f2,superconductivity,363705,r2f2,8,kumo_c8k_refit,rmse,8.407979606478706,8.407979606478706,2026-11-14T13:42:07,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:51,tas-credit-card-clients-default-r0f0,credit_card_clients_default,363627,r0f0,0,tabicl_kv_refit,auc,0.7947029951025875,0.20529700489741254,2026-11-14T13:47:05,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:51,tas-credit-card-clients-default-r0f0,credit_card_clients_default,363627,r0f0,0,kumo_c8k_refit,auc,0.796112115732369,0.20388788426763105,2026-11-14T13:47:21,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:52,tas-credit-card-clients-default-r0f1,credit_card_clients_default,363627,r0f1,1,tabicl_kv_refit,auc,0.7857505658540844,0.21424943414591557,2026-11-14T13:46:42,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:52,tas-credit-card-clients-default-r0f1,credit_card_clients_default,363627,r0f1,1,kumo_c8k_refit,auc,0.7905516763862613,0.20944832361373866,2026-11-14T13:46:58,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:52,tas-credit-card-clients-default-r0f2,credit_card_clients_default,363627,r0f2,2,tabicl_kv_refit,auc,0.7923181999292276,0.20768180007077242,2026-11-14T13:47:11,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:52,tas-credit-card-clients-default-r0f2,credit_card_clients_default,363627,r0f2,2,kumo_c8k_refit,auc,0.7928163697848316,0.2071836302151684,2026-11-14T13:47:26,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:53,tas-credit-card-clients-default-r1f0,credit_card_clients_default,363627,r1f0,3,tabicl_kv_refit,auc,0.7923297805498514,0.20767021945014863,2026-11-14T13:47:06,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:53,tas-credit-card-clients-default-r1f0,credit_card_clients_default,363627,r1f0,3,kumo_c8k_refit,auc,0.7942482162941829,0.20575178370581715,2026-11-14T13:47:19,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:54,tas-credit-card-clients-default-r1f1,credit_card_clients_default,363627,r1f1,4,tabicl_kv_refit,auc,0.7903593045729926,0.20964069542700736,2026-11-14T13:46:46,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:54,tas-credit-card-clients-default-r1f1,credit_card_clients_default,363627,r1f1,4,kumo_c8k_refit,auc,0.7926512225884678,0.20734877741153224,2026-11-14T13:47:03,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:54,tas-credit-card-clients-default-r1f2,credit_card_clients_default,363627,r1f2,5,tabicl_kv_refit,auc,0.789349236456885,0.21065076354311496,2026-11-14T13:47:07,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:54,tas-credit-card-clients-default-r1f2,credit_card_clients_default,363627,r1f2,5,kumo_c8k_refit,auc,0.7916558406729508,0.2083441593270492,2026-11-14T13:47:22,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:55,tas-credit-card-clients-default-r2f0,credit_card_clients_default,363627,r2f0,6,tabicl_kv_refit,auc,0.7844613148061979,0.21553868519380215,2026-11-14T13:47:04,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:55,tas-credit-card-clients-default-r2f0,credit_card_clients_default,363627,r2f0,6,kumo_c8k_refit,auc,0.7876384392086495,0.2123615607913505,2026-11-14T13:47:18,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:55,tas-credit-card-clients-default-r2f1,credit_card_clients_default,363627,r2f1,7,tabicl_kv_refit,auc,0.796376322222439,0.20362367777756096,2026-11-14T13:46:48,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:55,tas-credit-card-clients-default-r2f1,credit_card_clients_default,363627,r2f1,7,kumo_c8k_refit,auc,0.7978480478614569,0.2021519521385431,2026-11-14T13:47:04,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:56,tas-credit-card-clients-default-r2f2,credit_card_clients_default,363627,r2f2,8,tabicl_kv_refit,auc,0.7903652545159197,0.20963474548408034,2026-11-14T13:47:13,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:56,tas-credit-card-clients-default-r2f2,credit_card_clients_default,363627,r2f2,8,kumo_c8k_refit,auc,0.7911411851218223,0.2088588148781777,2026-11-14T13:47:28,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:57,tas-bank-marketing-r0f0,bank-marketing,363618,r0f0,0,tabicl_kv_refit,auc,0.7764808581568735,0.2235191418431265,2026-11-14T13:46:07,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:57,tas-bank-marketing-r0f0,bank-marketing,363618,r0f0,0,kumo_c8k_refit,auc,0.7777730751388501,0.22222692486114992,2026-11-14T13:46:26,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:57,tas-bank-marketing-r0f1,bank-marketing,363618,r0f1,1,tabicl_kv_refit,auc,0.7369938569684769,0.26300614303152314,2026-11-14T13:46:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:57,tas-bank-marketing-r0f1,bank-marketing,363618,r0f1,1,kumo_c8k_refit,auc,0.7648548878930954,0.23514511210690459,2026-11-14T13:46:51,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:58,tas-bank-marketing-r0f2,bank-marketing,363618,r0f2,2,tabicl_kv_refit,auc,0.7627400332332477,0.23725996676675232,2026-11-14T13:46:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:58,tas-bank-marketing-r0f2,bank-marketing,363618,r0f2,2,kumo_c8k_refit,auc,0.7657716090810831,0.2342283909189169,2026-11-14T13:46:52,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:58,tas-bank-marketing-r1f0,bank-marketing,363618,r1f0,3,tabicl_kv_refit,auc,0.7691020767023993,0.23089792329760073,2026-11-14T13:46:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:59,tas-bank-marketing-r1f0,bank-marketing,363618,r1f0,3,kumo_c8k_refit,auc,0.7759346985023103,0.22406530149768966,2026-11-14T13:46:51,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:59,tas-bank-marketing-r1f1,bank-marketing,363618,r1f1,4,tabicl_kv_refit,auc,0.76922600667231,0.23077399332769,2026-11-14T13:46:16,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:56:59,tas-bank-marketing-r1f1,bank-marketing,363618,r1f1,4,kumo_c8k_refit,auc,0.7743074335851878,0.22569256641481217,2026-11-14T13:46:34,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:00,tas-bank-marketing-r1f2,bank-marketing,363618,r1f2,5,tabicl_kv_refit,auc,0.7565393296684377,0.24346067033156227,2026-11-14T13:46:16,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:00,tas-bank-marketing-r1f2,bank-marketing,363618,r1f2,5,kumo_c8k_refit,auc,0.762726030819547,0.23727396918045296,2026-11-14T13:46:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:00,tas-bank-marketing-r2f0,bank-marketing,363618,r2f0,6,tabicl_kv_refit,auc,0.762260802615156,0.23773919738484395,2026-11-14T13:46:10,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:00,tas-bank-marketing-r2f0,bank-marketing,363618,r2f0,6,kumo_c8k_refit,auc,0.764202239501792,0.235797760498208,2026-11-14T13:46:28,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:01,tas-bank-marketing-r2f1,bank-marketing,363618,r2f1,7,tabicl_kv_refit,auc,0.7653088474240312,0.23469115257596884,2026-11-14T13:46:40,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:01,tas-bank-marketing-r2f1,bank-marketing,363618,r2f1,7,kumo_c8k_refit,auc,0.7689547818370663,0.23104521816293366,2026-11-14T13:46:58,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:02,tas-bank-marketing-r2f2,bank-marketing,363618,r2f2,8,tabicl_kv_refit,auc,0.7622045741132839,0.2377954258867161,2026-11-14T13:46:34,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:02,tas-bank-marketing-r2f2,bank-marketing,363618,r2f2,8,kumo_c8k_refit,auc,0.7689329150540269,0.23106708494597306,2026-11-14T13:46:50,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:02,tas-food-delivery-time-r0f0,Food_Delivery_Time,363672,r0f0,0,tabicl_kv_refit,rmse,7.647505304365999,7.647505304365999,2026-11-14T13:46:05,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:02,tas-food-delivery-time-r0f0,Food_Delivery_Time,363672,r0f0,0,kumo_c8k_refit,rmse,7.202856032611562,7.202856032611562,2026-11-14T13:46:21,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:03,tas-food-delivery-time-r0f1,Food_Delivery_Time,363672,r0f1,1,tabicl_kv_refit,rmse,7.566984367825714,7.566984367825714,2026-11-14T13:45:45,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:03,tas-food-delivery-time-r0f1,Food_Delivery_Time,363672,r0f1,1,kumo_c8k_refit,rmse,7.198038017989859,7.198038017989859,2026-11-14T13:46:03,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:03,tas-food-delivery-time-r0f2,Food_Delivery_Time,363672,r0f2,2,tabicl_kv_refit,rmse,7.532597013783648,7.532597013783648,2026-11-14T13:45:37,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:03,tas-food-delivery-time-r0f2,Food_Delivery_Time,363672,r0f2,2,kumo_c8k_refit,rmse,7.196750568052946,7.196750568052946,2026-11-14T13:45:53,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:04,tas-food-delivery-time-r1f0,Food_Delivery_Time,363672,r1f0,3,tabicl_kv_refit,rmse,7.626851014120815,7.626851014120815,2026-11-14T13:45:38,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:04,tas-food-delivery-time-r1f0,Food_Delivery_Time,363672,r1f0,3,kumo_c8k_refit,rmse,7.216218710807551,7.216218710807551,2026-11-14T13:45:52,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:04,tas-food-delivery-time-r1f1,Food_Delivery_Time,363672,r1f1,4,tabicl_kv_refit,rmse,7.563703503817148,7.563703503817148,2026-11-14T13:46:06,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:04,tas-food-delivery-time-r1f1,Food_Delivery_Time,363672,r1f1,4,kumo_c8k_refit,rmse,7.216908953112218,7.216908953112218,2026-11-14T13:46:21,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:05,tas-food-delivery-time-r1f2,Food_Delivery_Time,363672,r1f2,5,tabicl_kv_refit,rmse,7.565182316243922,7.565182316243922,2026-11-14T13:45:34,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:05,tas-food-delivery-time-r1f2,Food_Delivery_Time,363672,r1f2,5,kumo_c8k_refit,rmse,7.164477487430405,7.164477487430405,2026-11-14T13:45:49,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:05,tas-food-delivery-time-r2f0,Food_Delivery_Time,363672,r2f0,6,tabicl_kv_refit,rmse,7.630336368205265,7.630336368205265,2026-11-14T13:46:05,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:05,tas-food-delivery-time-r2f0,Food_Delivery_Time,363672,r2f0,6,kumo_c8k_refit,rmse,7.251648641700939,7.251648641700939,2026-11-14T13:46:19,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:06,tas-food-delivery-time-r2f1,Food_Delivery_Time,363672,r2f1,7,tabicl_kv_refit,rmse,7.468109428637447,7.468109428637447,2026-11-14T13:45:36,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:06,tas-food-delivery-time-r2f1,Food_Delivery_Time,363672,r2f1,7,kumo_c8k_refit,rmse,7.126280838933909,7.126280838933909,2026-11-14T13:45:49,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:06,tas-food-delivery-time-r2f2,Food_Delivery_Time,363672,r2f2,8,tabicl_kv_refit,rmse,7.61178894762114,7.61178894762114,2026-11-14T13:46:04,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:06,tas-food-delivery-time-r2f2,Food_Delivery_Time,363672,r2f2,8,kumo_c8k_refit,rmse,7.211324975600207,7.211324975600207,2026-11-14T13:46:20,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:07,tas-kddcup09-appetency-r0f0,kddcup09_appetency,363683,r0f0,0,tabicl_kv_refit,auc,0.8154086168136259,0.18459138318637414,2026-11-14T13:41:00,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:07,tas-kddcup09-appetency-r0f0,kddcup09_appetency,363683,r0f0,0,kumo_c8k_refit,auc,0.8318482112923165,0.16815178870768355,2026-11-14T13:41:30,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:08,tas-kddcup09-appetency-r0f1,kddcup09_appetency,363683,r0f1,1,tabicl_kv_refit,auc,0.8240826098492562,0.1759173901507438,2026-11-14T13:41:03,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:08,tas-kddcup09-appetency-r0f1,kddcup09_appetency,363683,r0f1,1,kumo_c8k_refit,auc,0.839075750376911,0.16092424962308904,2026-11-14T13:41:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:08,tas-kddcup09-appetency-r0f2,kddcup09_appetency,363683,r0f2,2,tabicl_kv_refit,auc,0.8334069408443263,0.16659305915567368,2026-11-14T13:42:02,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:08,tas-kddcup09-appetency-r0f2,kddcup09_appetency,363683,r0f2,2,kumo_c8k_refit,auc,0.8357187670260364,0.16428123297396358,2026-11-14T13:42:36,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:09,tas-kddcup09-appetency-r1f0,kddcup09_appetency,363683,r1f0,3,tabicl_kv_refit,auc,0.8247444923681944,0.17525550763180564,2026-11-14T13:41:05,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:09,tas-kddcup09-appetency-r1f0,kddcup09_appetency,363683,r1f0,3,kumo_c8k_refit,auc,0.844946821092209,0.15505317890779102,2026-11-14T13:41:36,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:10,tas-kddcup09-appetency-r1f1,kddcup09_appetency,363683,r1f1,4,tabicl_kv_refit,auc,0.839701432981824,0.16029856701817602,2026-11-14T13:41:07,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:10,tas-kddcup09-appetency-r1f1,kddcup09_appetency,363683,r1f1,4,kumo_c8k_refit,auc,0.8483562976537931,0.15164370234620694,2026-11-14T13:41:36,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:10,tas-kddcup09-appetency-r1f2,kddcup09_appetency,363683,r1f2,5,tabicl_kv_refit,auc,0.8128913924614902,0.18710860753850977,2026-11-14T13:41:02,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:10,tas-kddcup09-appetency-r1f2,kddcup09_appetency,363683,r1f2,5,kumo_c8k_refit,auc,0.8216796133335535,0.17832038666644645,2026-11-14T13:41:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:11,tas-kddcup09-appetency-r2f0,kddcup09_appetency,363683,r2f0,6,tabicl_kv_refit,auc,0.8246049375860005,0.1753950624139995,2026-11-14T13:41:01,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:11,tas-kddcup09-appetency-r2f0,kddcup09_appetency,363683,r2f0,6,kumo_c8k_refit,auc,0.8372417928007421,0.16275820719925793,2026-11-14T13:41:31,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:12,tas-kddcup09-appetency-r2f1,kddcup09_appetency,363683,r2f1,7,tabicl_kv_refit,auc,0.8167238460763202,0.1832761539236798,2026-11-14T13:41:04,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:12,tas-kddcup09-appetency-r2f1,kddcup09_appetency,363683,r2f1,7,kumo_c8k_refit,auc,0.8312826904763373,0.1687173095236627,2026-11-14T13:41:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:13,tas-kddcup09-appetency-r2f2,kddcup09_appetency,363683,r2f2,8,tabicl_kv_refit,auc,0.8359911836087768,0.16400881639122322,2026-11-14T13:42:03,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:13,tas-kddcup09-appetency-r2f2,kddcup09_appetency,363683,r2f2,8,kumo_c8k_refit,auc,0.8535729911340785,0.14642700886592153,2026-11-14T13:42:36,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:13,tas-diabetes130us-r0f0,Diabetes130US,363630,r0f0,0,tabicl_kv_refit,auc,0.6681208318824127,0.33187916811758733,2026-11-14T13:43:17,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:13,tas-diabetes130us-r0f0,Diabetes130US,363630,r0f0,0,kumo_c8k_refit,auc,0.6931226975084093,0.30687730249159073,2026-11-14T13:43:47,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:14,tas-diabetes130us-r0f1,Diabetes130US,363630,r0f1,1,tabicl_kv_refit,auc,0.6518789386276929,0.34812106137230714,2026-11-14T13:42:57,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:14,tas-diabetes130us-r0f1,Diabetes130US,363630,r0f1,1,kumo_c8k_refit,auc,0.6715831698103308,0.32841683018966916,2026-11-14T13:43:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:15,tas-diabetes130us-r0f2,Diabetes130US,363630,r0f2,2,tabicl_kv_refit,auc,0.664675178258788,0.33532482174121203,2026-11-14T13:42:30,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:15,tas-diabetes130us-r0f2,Diabetes130US,363630,r0f2,2,kumo_c8k_refit,auc,0.6813098625472451,0.3186901374527549,2026-11-14T13:42:59,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:15,tas-diabetes130us-r1f0,Diabetes130US,363630,r1f0,3,tabicl_kv_refit,auc,0.6762120145612658,0.3237879854387342,2026-11-14T13:42:58,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:15,tas-diabetes130us-r1f0,Diabetes130US,363630,r1f0,3,kumo_c8k_refit,auc,0.6916995054841513,0.30830049451584873,2026-11-14T13:43:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:16,tas-diabetes130us-r1f1,Diabetes130US,363630,r1f1,4,tabicl_kv_refit,auc,0.6548456238015972,0.34515437619840283,2026-11-14T13:42:59,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:16,tas-diabetes130us-r1f1,Diabetes130US,363630,r1f1,4,kumo_c8k_refit,auc,0.6776789226340005,0.32232107736599946,2026-11-14T13:43:24,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:17,tas-diabetes130us-r1f2,Diabetes130US,363630,r1f2,5,tabicl_kv_refit,auc,0.6567929843448144,0.34320701565518563,2026-11-14T13:42:31,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:17,tas-diabetes130us-r1f2,Diabetes130US,363630,r1f2,5,kumo_c8k_refit,auc,0.676049212961203,0.323950787038797,2026-11-14T13:42:58,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:17,tas-diabetes130us-r2f0,Diabetes130US,363630,r2f0,6,tabicl_kv_refit,auc,0.6620959341279249,0.3379040658720751,2026-11-14T13:42:56,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:18,tas-diabetes130us-r2f0,Diabetes130US,363630,r2f0,6,kumo_c8k_refit,auc,0.6815800190447311,0.3184199809552689,2026-11-14T13:43:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:18,tas-diabetes130us-r2f1,Diabetes130US,363630,r2f1,7,tabicl_kv_refit,auc,0.6658684406066602,0.3341315593933398,2026-11-14T13:42:41,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:18,tas-diabetes130us-r2f1,Diabetes130US,363630,r2f1,7,kumo_c8k_refit,auc,0.6847299103585566,0.31527008964144343,2026-11-14T13:43:09,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:19,tas-diabetes130us-r2f2,Diabetes130US,363630,r2f2,8,tabicl_kv_refit,auc,0.656845765792264,0.34315423420773605,2026-11-14T13:42:59,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:19,tas-diabetes130us-r2f2,Diabetes130US,363630,r2f2,8,kumo_c8k_refit,auc,0.6768977172062345,0.3231022827937655,2026-11-14T13:43:24,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:19,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,tabicl_kv_refit,auc,0.9954608773716074,0.004539122628392622,2026-11-14T12:44:57,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:20,tas-apsfailure-r0f0,APSFailure,363616,r0f0,0,kumo_c8k_refit,auc,0.9973483539702872,0.0026516460297127953,2026-11-14T12:47:52,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:20,tas-apsfailure-r0f1,APSFailure,363616,r0f1,1,tabicl_kv_refit,auc,0.9932529459524697,0.006747054047530288,2026-11-14T13:39:34,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:20,tas-apsfailure-r0f1,APSFailure,363616,r0f1,1,kumo_c8k_refit,auc,0.9944807443330187,0.005519255666981304,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:21,tas-apsfailure-r0f2,APSFailure,363616,r0f2,2,tabicl_kv_refit,auc,0.9946715674442079,0.005328432555792073,2026-11-14T13:39:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:21,tas-apsfailure-r0f2,APSFailure,363616,r0f2,2,kumo_c8k_refit,auc,0.9948356630313138,0.005164336968686234,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:21,tas-apsfailure-r1f0,APSFailure,363616,r1f0,3,tabicl_kv_refit,auc,0.991894461413823,0.008105538586177019,2026-11-14T13:39:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:21,tas-apsfailure-r1f0,APSFailure,363616,r1f0,3,kumo_c8k_refit,auc,0.992700758695438,0.007299241304562054,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:22,tas-apsfailure-r1f1,APSFailure,363616,r1f1,4,tabicl_kv_refit,auc,0.9954941080950604,0.004505891904939552,2026-11-14T13:39:34,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:22,tas-apsfailure-r1f1,APSFailure,363616,r1f1,4,kumo_c8k_refit,auc,0.9958309451186061,0.004169054881393852,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:23,tas-apsfailure-r1f2,APSFailure,363616,r1f2,5,tabicl_kv_refit,auc,0.9956181343398214,0.004381865660178619,2026-11-14T13:39:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:23,tas-apsfailure-r1f2,APSFailure,363616,r1f2,5,kumo_c8k_refit,auc,0.996433960193983,0.003566039806016996,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:24,tas-apsfailure-r2f0,APSFailure,363616,r2f0,6,tabicl_kv_refit,auc,0.9953746948248869,0.004625305175113059,2026-11-14T13:39:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:24,tas-apsfailure-r2f0,APSFailure,363616,r2f0,6,kumo_c8k_refit,auc,0.9951731642964277,0.004826835703572341,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:25,tas-apsfailure-r2f1,APSFailure,363616,r2f1,7,tabicl_kv_refit,auc,0.9967289284852209,0.0032710715147791225,2026-11-14T13:39:35,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:25,tas-apsfailure-r2f1,APSFailure,363616,r2f1,7,kumo_c8k_refit,auc,0.997113559061684,0.002886440938316026,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:26,tas-apsfailure-r2f2,APSFailure,363616,r2f2,8,tabicl_kv_refit,auc,0.9914387219942508,0.00856127800574924,2026-11-14T13:39:34,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:26,tas-apsfailure-r2f2,APSFailure,363616,r2f2,8,kumo_c8k_refit,auc,0.994569748304843,0.005430251695156985,2026-11-14T13:40:32,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:26,tas-sdss17-r0f0,SDSS17,363699,r0f0,0,tabicl_kv_refit,logloss,0.07243893489153043,0.07243893489153043,2026-11-14T13:44:43,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:26,tas-sdss17-r0f0,SDSS17,363699,r0f0,0,kumo_c8k_refit,logloss,0.059521618413229956,0.059521618413229956,2026-11-14T13:45:08,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:27,tas-sdss17-r0f1,SDSS17,363699,r0f1,1,tabicl_kv_refit,logloss,0.07287839989383771,0.07287839989383771,2026-11-14T13:44:55,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:27,tas-sdss17-r0f1,SDSS17,363699,r0f1,1,kumo_c8k_refit,logloss,0.061350947815695556,0.061350947815695556,2026-11-14T13:45:19,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:28,tas-sdss17-r0f2,SDSS17,363699,r0f2,2,tabicl_kv_refit,logloss,0.06992636191511631,0.06992636191511631,2026-11-14T13:45:36,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:28,tas-sdss17-r0f2,SDSS17,363699,r0f2,2,kumo_c8k_refit,logloss,0.05967064392535805,0.05967064392535805,2026-11-14T13:46:01,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:29,tas-sdss17-r1f0,SDSS17,363699,r1f0,3,tabicl_kv_refit,logloss,0.06789927501817437,0.06789927501817437,2026-11-14T13:44:59,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:29,tas-sdss17-r1f0,SDSS17,363699,r1f0,3,kumo_c8k_refit,logloss,0.05779161984346565,0.05779161984346565,2026-11-14T13:45:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:30,tas-sdss17-r1f1,SDSS17,363699,r1f1,4,tabicl_kv_refit,logloss,0.07067364885051579,0.07067364885051579,2026-11-14T13:44:53,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:30,tas-sdss17-r1f1,SDSS17,363699,r1f1,4,kumo_c8k_refit,logloss,0.059150897142829825,0.059150897142829825,2026-11-14T13:45:18,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:30,tas-sdss17-r1f2,SDSS17,363699,r1f2,5,tabicl_kv_refit,logloss,0.07517812341588476,0.07517812341588476,2026-11-14T13:45:19,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:30,tas-sdss17-r1f2,SDSS17,363699,r1f2,5,kumo_c8k_refit,logloss,0.0632661153110812,0.0632661153110812,2026-11-14T13:45:47,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:31,tas-sdss17-r2f0,SDSS17,363699,r2f0,6,tabicl_kv_refit,logloss,0.06861142972895691,0.06861142972895691,2026-11-14T13:44:51,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:31,tas-sdss17-r2f0,SDSS17,363699,r2f0,6,kumo_c8k_refit,logloss,0.057531324188506344,0.057531324188506344,2026-11-14T13:45:17,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:32,tas-sdss17-r2f1,SDSS17,363699,r2f1,7,tabicl_kv_refit,logloss,0.07247936154846174,0.07247936154846174,2026-11-14T13:45:28,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:32,tas-sdss17-r2f1,SDSS17,363699,r2f1,7,kumo_c8k_refit,logloss,0.060855583386365,0.060855583386365,2026-11-14T13:45:56,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:32,tas-sdss17-r2f2,SDSS17,363699,r2f2,8,tabicl_kv_refit,logloss,0.07251696530144676,0.07251696530144676,2026-11-14T13:44:56,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:33,tas-sdss17-r2f2,SDSS17,363699,r2f2,8,kumo_c8k_refit,logloss,0.06125574298228738,0.06125574298228738,2026-11-14T13:45:21,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:33,tas-customer-satisfaction-in-airline-r0f0,customer_satisfaction_in_airline,363628,r0f0,0,tabicl_kv_refit,auc,0.9952449202381095,0.0047550797618904905,2026-11-14T13:44:43,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:33,tas-customer-satisfaction-in-airline-r0f0,customer_satisfaction_in_airline,363628,r0f0,0,kumo_c8k_refit,auc,0.9960667554234441,0.003933244576555861,2026-11-14T13:45:30,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:33,tas-customer-satisfaction-in-airline-r0f1,customer_satisfaction_in_airline,363628,r0f1,1,tabicl_kv_refit,auc,0.9954836861128131,0.0045163138871868735,2026-11-14T13:43:23,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:34,tas-customer-satisfaction-in-airline-r0f1,customer_satisfaction_in_airline,363628,r0f1,1,kumo_c8k_refit,auc,0.9962196511992765,0.003780348800723532,2026-11-14T13:44:12,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:34,tas-customer-satisfaction-in-airline-r0f2,customer_satisfaction_in_airline,363628,r0f2,2,tabicl_kv_refit,auc,0.9950316332747674,0.004968366725232598,2026-11-14T13:43:47,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:34,tas-customer-satisfaction-in-airline-r0f2,customer_satisfaction_in_airline,363628,r0f2,2,kumo_c8k_refit,auc,0.9958165668366126,0.004183433163387429,2026-11-14T13:44:31,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:35,tas-customer-satisfaction-in-airline-r1f0,customer_satisfaction_in_airline,363628,r1f0,3,tabicl_kv_refit,auc,0.9950084121204198,0.004991587879580206,2026-11-14T13:43:45,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:35,tas-customer-satisfaction-in-airline-r1f0,customer_satisfaction_in_airline,363628,r1f0,3,kumo_c8k_refit,auc,0.9958314090342832,0.004168590965716756,2026-11-14T13:44:31,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:35,tas-customer-satisfaction-in-airline-r1f1,customer_satisfaction_in_airline,363628,r1f1,4,tabicl_kv_refit,auc,0.9952711101518006,0.0047288898481994135,2026-11-14T13:43:51,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:35,tas-customer-satisfaction-in-airline-r1f1,customer_satisfaction_in_airline,363628,r1f1,4,kumo_c8k_refit,auc,0.996087259089354,0.003912740910645973,2026-11-14T13:44:37,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:36,tas-customer-satisfaction-in-airline-r1f2,customer_satisfaction_in_airline,363628,r1f2,5,tabicl_kv_refit,auc,0.9954393146085226,0.004560685391477359,2026-11-14T13:43:48,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:36,tas-customer-satisfaction-in-airline-r1f2,customer_satisfaction_in_airline,363628,r1f2,5,kumo_c8k_refit,auc,0.9962439570070378,0.003756042992962172,2026-11-14T13:44:37,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:37,tas-customer-satisfaction-in-airline-r2f0,customer_satisfaction_in_airline,363628,r2f0,6,tabicl_kv_refit,auc,0.9951642581640467,0.004835741835953256,2026-11-14T13:44:10,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:37,tas-customer-satisfaction-in-airline-r2f0,customer_satisfaction_in_airline,363628,r2f0,6,kumo_c8k_refit,auc,0.9960005132105352,0.003999486789464823,2026-11-14T13:45:01,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:38,tas-customer-satisfaction-in-airline-r2f1,customer_satisfaction_in_airline,363628,r2f1,7,tabicl_kv_refit,auc,0.9954614990712416,0.004538500928758404,2026-11-14T13:43:37,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:38,tas-customer-satisfaction-in-airline-r2f1,customer_satisfaction_in_airline,363628,r2f1,7,kumo_c8k_refit,auc,0.9961661088419843,0.00383389115801569,2026-11-14T13:44:20,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:38,tas-customer-satisfaction-in-airline-r2f2,customer_satisfaction_in_airline,363628,r2f2,8,tabicl_kv_refit,auc,0.9951639884015192,0.004836011598480794,2026-11-14T13:43:53,"P4 #16 refit (2만 행 초과, 8xH100)"
+2026-11-14T13:57:38,tas-customer-satisfaction-in-airline-r2f2,customer_satisfaction_in_airline,363628,r2f2,8,kumo_c8k_refit,auc,0.995942835892772,0.004057164107228006,2026-11-14T13:44:39,"P4 #16 refit (2만 행 초과, 8xH100)"

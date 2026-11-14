@@ -2967,3 +2967,279 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-14T07:23:37,tas-wine-quality-r2f0,kumo_e16,rmse,0.5906663695825666,0.0219864590256749,5,24.4,0.4037630898825025,"P4 kumo_e16 (맞춤 기준 확인, 결정 4)",databricks,,,,,True,base,12.0
 2026-11-14T07:24:06,tas-wine-quality-r2f1,kumo_e16,rmse,0.6006586857826973,0.0115634986702364,5,24.3,0.4152965647235744,"P4 kumo_e16 (맞춤 기준 확인, 결정 4)",databricks,,,,,True,base,12.0
 2026-11-14T07:24:35,tas-wine-quality-r2f2,kumo_e16,rmse,0.6021329756143567,0.0139503223242223,5,24.3,0.413947311830778,"P4 kumo_e16 (맞춤 기준 확인, 결정 4)",databricks,,,,,True,base,12.0
+2026-11-14T13:39:34,tas-apsfailure-r0f1,tabicl_kv_refit,auc,,,0,58.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:39:34,tas-apsfailure-r1f1,tabicl_kv_refit,auc,,,0,58.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:39:34,tas-apsfailure-r2f2,tabicl_kv_refit,auc,,,0,58.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:39:35,tas-apsfailure-r2f0,tabicl_kv_refit,auc,,,0,59.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:39:35,tas-apsfailure-r1f0,tabicl_kv_refit,auc,,,0,59.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:39:35,tas-apsfailure-r2f1,tabicl_kv_refit,auc,,,0,59.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:39:35,tas-apsfailure-r1f2,tabicl_kv_refit,auc,,,0,59.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:39:35,tas-apsfailure-r0f2,tabicl_kv_refit,auc,,,0,59.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r2f2,kumo_c8k_refit,auc,,,0,52.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r1f2,kumo_c8k_refit,auc,,,0,52.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r2f0,kumo_c8k_refit,auc,,,0,52.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r2f1,kumo_c8k_refit,auc,,,0,52.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r1f0,kumo_c8k_refit,auc,,,0,52.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r0f2,kumo_c8k_refit,auc,,,0,52.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r0f1,kumo_c8k_refit,auc,,,0,52.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:40:32,tas-apsfailure-r1f1,kumo_c8k_refit,auc,,,0,51.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:41:00,tas-kddcup09-appetency-r0f0,tabicl_kv_refit,auc,,,0,17.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:01,tas-kddcup09-appetency-r2f0,tabicl_kv_refit,auc,,,0,18.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:02,tas-kddcup09-appetency-r1f2,tabicl_kv_refit,auc,,,0,18.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:03,tas-kddcup09-appetency-r0f1,tabicl_kv_refit,auc,,,0,17.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:04,tas-kddcup09-appetency-r2f1,tabicl_kv_refit,auc,,,0,17.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:05,tas-kddcup09-appetency-r1f0,tabicl_kv_refit,auc,,,0,17.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:07,tas-kddcup09-appetency-r1f1,tabicl_kv_refit,auc,,,0,17.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:11,tas-apsfailure-r0f0,tabicl_kv_refit,auc,,,0,28.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:41:30,tas-kddcup09-appetency-r0f0,kumo_c8k_refit,auc,,,0,27.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:31,tas-kddcup09-appetency-r2f0,kumo_c8k_refit,auc,,,0,26.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:32,tas-kddcup09-appetency-r0f1,kumo_c8k_refit,auc,,,0,25.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:32,tas-kddcup09-appetency-r1f2,kumo_c8k_refit,auc,,,0,26.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:35,tas-kddcup09-appetency-r2f1,kumo_c8k_refit,auc,,,0,27.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:36,tas-kddcup09-appetency-r1f0,kumo_c8k_refit,auc,,,0,27.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:36,tas-kddcup09-appetency-r1f1,kumo_c8k_refit,auc,,,0,26.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:41:52,tas-apsfailure-r0f0,kumo_c8k_refit,auc,,,0,37.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,170.0
+2026-11-14T13:41:52,tas-superconductivity-r2f1,tabicl_kv_refit,rmse,,,0,9.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:41:52,tas-superconductivity-r0f2,tabicl_kv_refit,rmse,,,0,9.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:41:53,tas-superconductivity-r2f2,tabicl_kv_refit,rmse,,,0,7.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:41:54,tas-superconductivity-r1f2,tabicl_kv_refit,rmse,,,0,7.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:41:56,tas-superconductivity-r1f0,tabicl_kv_refit,rmse,,,0,8.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:02,tas-kddcup09-appetency-r0f2,tabicl_kv_refit,auc,,,0,22.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:42:03,tas-kddcup09-appetency-r2f2,tabicl_kv_refit,auc,,,0,23.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:42:07,tas-superconductivity-r0f0,tabicl_kv_refit,rmse,,,0,7.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:07,tas-superconductivity-r2f1,kumo_c8k_refit,rmse,,,0,12.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:07,tas-superconductivity-r2f2,kumo_c8k_refit,rmse,,,0,12.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:07,tas-superconductivity-r0f2,kumo_c8k_refit,rmse,,,0,12.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:10,tas-superconductivity-r1f2,kumo_c8k_refit,rmse,,,0,13.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:11,tas-superconductivity-r1f0,kumo_c8k_refit,rmse,,,0,11.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:21,tas-superconductivity-r0f0,kumo_c8k_refit,rmse,,,0,11.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:23,tas-superconductivity-r1f1,tabicl_kv_refit,rmse,,,0,9.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:23,tas-superconductivity-r2f0,tabicl_kv_refit,rmse,,,0,8.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:23,tas-superconductivity-r0f1,tabicl_kv_refit,rmse,,,0,8.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:30,tas-diabetes130us-r0f2,tabicl_kv_refit,auc,,,0,13.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:31,tas-diabetes130us-r1f2,tabicl_kv_refit,auc,,,0,12.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:36,tas-kddcup09-appetency-r2f2,kumo_c8k_refit,auc,,,0,30.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:42:36,tas-kddcup09-appetency-r0f2,kumo_c8k_refit,auc,,,0,30.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,212.0
+2026-11-14T13:42:40,tas-superconductivity-r0f1,kumo_c8k_refit,rmse,,,0,14.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:40,tas-superconductivity-r1f1,kumo_c8k_refit,rmse,,,0,14.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:40,tas-superconductivity-r2f0,kumo_c8k_refit,rmse,,,0,14.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,81.0
+2026-11-14T13:42:41,tas-diabetes130us-r2f1,tabicl_kv_refit,auc,,,0,14.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:56,tas-diabetes130us-r2f0,tabicl_kv_refit,auc,,,0,11.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:57,tas-diabetes130us-r0f1,tabicl_kv_refit,auc,,,0,10.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:58,tas-diabetes130us-r1f2,kumo_c8k_refit,auc,,,0,24.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:58,tas-diabetes130us-r1f0,tabicl_kv_refit,auc,,,0,11.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:59,tas-diabetes130us-r2f2,tabicl_kv_refit,auc,,,0,11.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:59,tas-diabetes130us-r0f2,kumo_c8k_refit,auc,,,0,26.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:42:59,tas-diabetes130us-r1f1,tabicl_kv_refit,auc,,,0,10.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:09,tas-diabetes130us-r2f1,kumo_c8k_refit,auc,,,0,24.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:17,tas-diabetes130us-r0f0,tabicl_kv_refit,auc,,,0,10.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:23,tas-customer-satisfaction-in-airline-r0f1,tabicl_kv_refit,auc,,,0,14.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:43:23,tas-diabetes130us-r2f0,kumo_c8k_refit,auc,,,0,24.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:23,tas-diabetes130us-r1f0,kumo_c8k_refit,auc,,,0,21.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:23,tas-diabetes130us-r0f1,kumo_c8k_refit,auc,,,0,23.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:24,tas-diabetes130us-r2f2,kumo_c8k_refit,auc,,,0,22.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:24,tas-diabetes130us-r1f1,kumo_c8k_refit,auc,,,0,21.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:37,tas-customer-satisfaction-in-airline-r2f1,tabicl_kv_refit,auc,,,0,19.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:43:45,tas-customer-satisfaction-in-airline-r1f0,tabicl_kv_refit,auc,,,0,14.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:43:47,tas-diabetes130us-r0f0,kumo_c8k_refit,auc,,,0,26.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,47.0
+2026-11-14T13:43:47,tas-customer-satisfaction-in-airline-r0f2,tabicl_kv_refit,auc,,,0,14.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:43:48,tas-customer-satisfaction-in-airline-r1f2,tabicl_kv_refit,auc,,,0,14.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:43:51,tas-customer-satisfaction-in-airline-r1f1,tabicl_kv_refit,auc,,,0,15.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:43:53,tas-customer-satisfaction-in-airline-r2f2,tabicl_kv_refit,auc,,,0,15.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:10,tas-customer-satisfaction-in-airline-r2f0,tabicl_kv_refit,auc,,,0,15.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:12,tas-customer-satisfaction-in-airline-r0f1,kumo_c8k_refit,auc,,,0,46.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:20,tas-customer-satisfaction-in-airline-r2f1,kumo_c8k_refit,auc,,,0,40.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:31,tas-customer-satisfaction-in-airline-r1f0,kumo_c8k_refit,auc,,,0,42.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:31,tas-customer-satisfaction-in-airline-r0f2,kumo_c8k_refit,auc,,,0,41.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:37,tas-customer-satisfaction-in-airline-r1f1,kumo_c8k_refit,auc,,,0,42.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:37,tas-customer-satisfaction-in-airline-r1f2,kumo_c8k_refit,auc,,,0,44.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:39,tas-customer-satisfaction-in-airline-r2f2,kumo_c8k_refit,auc,,,0,42.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:43,tas-sdss17-r0f0,tabicl_kv_refit,logloss,,,0,14.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:44:43,tas-customer-satisfaction-in-airline-r0f0,tabicl_kv_refit,auc,,,0,21.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:44:51,tas-sdss17-r2f0,tabicl_kv_refit,logloss,,,0,11.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:44:53,tas-sdss17-r1f1,tabicl_kv_refit,logloss,,,0,11.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:44:55,tas-sdss17-r0f1,tabicl_kv_refit,logloss,,,0,9.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:44:56,tas-sdss17-r2f2,tabicl_kv_refit,logloss,,,0,9.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:44:59,tas-sdss17-r1f0,tabicl_kv_refit,logloss,,,0,8.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:01,tas-customer-satisfaction-in-airline-r2f0,kumo_c8k_refit,auc,,,0,47.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:45:08,tas-sdss17-r0f0,kumo_c8k_refit,logloss,,,0,22.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:17,tas-sdss17-r2f0,kumo_c8k_refit,logloss,,,0,23.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:18,tas-sdss17-r1f1,kumo_c8k_refit,logloss,,,0,22.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:19,tas-sdss17-r1f2,tabicl_kv_refit,logloss,,,0,9.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:19,tas-sdss17-r0f1,kumo_c8k_refit,logloss,,,0,21.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:21,tas-sdss17-r2f2,kumo_c8k_refit,logloss,,,0,21.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:23,tas-sdss17-r1f0,kumo_c8k_refit,logloss,,,0,21.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:28,tas-sdss17-r2f1,tabicl_kv_refit,logloss,,,0,13.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:30,tas-customer-satisfaction-in-airline-r0f0,kumo_c8k_refit,auc,,,0,43.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,21.0
+2026-11-14T13:45:34,tas-food-delivery-time-r1f2,tabicl_kv_refit,rmse,,,0,8.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:36,tas-food-delivery-time-r2f1,tabicl_kv_refit,rmse,,,0,9.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:36,tas-sdss17-r0f2,tabicl_kv_refit,logloss,,,0,11.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:37,tas-food-delivery-time-r0f2,tabicl_kv_refit,rmse,,,0,8.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:38,tas-food-delivery-time-r1f0,tabicl_kv_refit,rmse,,,0,7.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:45,tas-food-delivery-time-r0f1,tabicl_kv_refit,rmse,,,0,6.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:47,tas-sdss17-r1f2,kumo_c8k_refit,logloss,,,0,25.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:45:49,tas-food-delivery-time-r2f1,kumo_c8k_refit,rmse,,,0,11.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:49,tas-food-delivery-time-r1f2,kumo_c8k_refit,rmse,,,0,12.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:52,tas-food-delivery-time-r1f0,kumo_c8k_refit,rmse,,,0,11.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:53,tas-food-delivery-time-r0f2,kumo_c8k_refit,rmse,,,0,13.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:45:56,tas-sdss17-r2f1,kumo_c8k_refit,logloss,,,0,25.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:46:01,tas-sdss17-r0f2,kumo_c8k_refit,logloss,,,0,22.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,11.0
+2026-11-14T13:46:03,tas-food-delivery-time-r0f1,kumo_c8k_refit,rmse,,,0,15.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:04,tas-food-delivery-time-r2f2,tabicl_kv_refit,rmse,,,0,9.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:05,tas-food-delivery-time-r2f0,tabicl_kv_refit,rmse,,,0,9.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:05,tas-food-delivery-time-r0f0,tabicl_kv_refit,rmse,,,0,9.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:06,tas-food-delivery-time-r1f1,tabicl_kv_refit,rmse,,,0,9.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:07,tas-bank-marketing-r0f0,tabicl_kv_refit,auc,,,0,7.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:10,tas-bank-marketing-r2f0,tabicl_kv_refit,auc,,,0,6.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:16,tas-bank-marketing-r1f1,tabicl_kv_refit,auc,,,0,8.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:16,tas-bank-marketing-r1f2,tabicl_kv_refit,auc,,,0,7.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:19,tas-food-delivery-time-r2f0,kumo_c8k_refit,rmse,,,0,11.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:20,tas-food-delivery-time-r2f2,kumo_c8k_refit,rmse,,,0,13.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:21,tas-food-delivery-time-r0f0,kumo_c8k_refit,rmse,,,0,13.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:21,tas-food-delivery-time-r1f1,kumo_c8k_refit,rmse,,,0,12.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,9.0
+2026-11-14T13:46:26,tas-bank-marketing-r0f0,kumo_c8k_refit,auc,,,0,16.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:28,tas-bank-marketing-r2f0,kumo_c8k_refit,auc,,,0,15.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:34,tas-bank-marketing-r2f2,tabicl_kv_refit,auc,,,0,8.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:34,tas-bank-marketing-r1f1,kumo_c8k_refit,auc,,,0,15.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:35,tas-bank-marketing-r1f2,kumo_c8k_refit,auc,,,0,16.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:35,tas-bank-marketing-r0f1,tabicl_kv_refit,auc,,,0,8.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:35,tas-bank-marketing-r1f0,tabicl_kv_refit,auc,,,0,6.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:35,tas-bank-marketing-r0f2,tabicl_kv_refit,auc,,,0,7.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:40,tas-bank-marketing-r2f1,tabicl_kv_refit,auc,,,0,8.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:42,tas-credit-card-clients-default-r0f1,tabicl_kv_refit,auc,,,0,7.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:46:46,tas-credit-card-clients-default-r1f1,tabicl_kv_refit,auc,,,0,5.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:46:48,tas-credit-card-clients-default-r2f1,tabicl_kv_refit,auc,,,0,6.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:46:50,tas-bank-marketing-r2f2,kumo_c8k_refit,auc,,,0,14.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:51,tas-bank-marketing-r1f0,kumo_c8k_refit,auc,,,0,13.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:51,tas-bank-marketing-r0f1,kumo_c8k_refit,auc,,,0,13.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:52,tas-bank-marketing-r0f2,kumo_c8k_refit,auc,,,0,14.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:58,tas-bank-marketing-r2f1,kumo_c8k_refit,auc,,,0,15.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,13.0
+2026-11-14T13:46:58,tas-credit-card-clients-default-r0f1,kumo_c8k_refit,auc,,,0,13.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:03,tas-credit-card-clients-default-r1f1,kumo_c8k_refit,auc,,,0,14.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:04,tas-credit-card-clients-default-r2f1,kumo_c8k_refit,auc,,,0,13.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:04,tas-credit-card-clients-default-r2f0,tabicl_kv_refit,auc,,,0,7.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:05,tas-credit-card-clients-default-r0f0,tabicl_kv_refit,auc,,,0,7.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:06,tas-credit-card-clients-default-r1f0,tabicl_kv_refit,auc,,,0,7.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:07,tas-credit-card-clients-default-r1f2,tabicl_kv_refit,auc,,,0,7.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:11,tas-credit-card-clients-default-r0f2,tabicl_kv_refit,auc,,,0,7.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:13,tas-credit-card-clients-default-r2f2,tabicl_kv_refit,auc,,,0,8.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:14,tas-houses-r0f0,tabicl_kv_refit,rmse,,,0,5.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:15,tas-houses-r0f1,tabicl_kv_refit,rmse,,,0,5.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:18,tas-credit-card-clients-default-r2f0,kumo_c8k_refit,auc,,,0,11.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:19,tas-credit-card-clients-default-r1f0,kumo_c8k_refit,auc,,,0,11.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:21,tas-credit-card-clients-default-r0f0,kumo_c8k_refit,auc,,,0,12.8,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:22,tas-credit-card-clients-default-r1f2,kumo_c8k_refit,auc,,,0,12.6,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:25,tas-houses-r0f0,kumo_c8k_refit,rmse,,,0,9.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:26,tas-houses-r0f1,kumo_c8k_refit,rmse,,,0,8.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:26,tas-credit-card-clients-default-r0f2,kumo_c8k_refit,auc,,,0,12.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:28,tas-credit-card-clients-default-r2f2,kumo_c8k_refit,auc,,,0,12.2,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,23.0
+2026-11-14T13:47:32,tas-houses-r1f2,tabicl_kv_refit,rmse,,,0,7.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:33,tas-houses-r2f1,tabicl_kv_refit,rmse,,,0,7.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:33,tas-houses-r2f0,tabicl_kv_refit,rmse,,,0,5.9,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:34,tas-houses-r1f1,tabicl_kv_refit,rmse,,,0,6.0,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:38,tas-houses-r1f0,tabicl_kv_refit,rmse,,,0,6.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:38,tas-houses-r2f2,tabicl_kv_refit,rmse,,,0,6.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:39,tas-houses-r0f2,tabicl_kv_refit,rmse,,,0,6.5,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:43,tas-houses-r1f2,kumo_c8k_refit,rmse,,,0,8.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:44,tas-houses-r2f1,kumo_c8k_refit,rmse,,,0,8.7,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:45,tas-houses-r2f0,kumo_c8k_refit,rmse,,,0,9.3,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:45,tas-houses-r1f1,kumo_c8k_refit,rmse,,,0,9.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:48,tas-houses-r1f0,kumo_c8k_refit,rmse,,,0,8.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:49,tas-houses-r2f2,kumo_c8k_refit,rmse,,,0,8.4,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:47:49,tas-houses-r0f2,kumo_c8k_refit,rmse,,,0,8.1,,"P4 #16 refit (2만 행 초과, 8xH100)",databricks,,,,,True,base,8.0
+2026-11-14T13:17:59,tas-givemesomecredit-r0f1,tabicl_kv_refit,auc,,,0,49.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:17:59,tas-givemesomecredit-r2f2,tabicl_kv_refit,auc,,,0,49.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:17:59,tas-givemesomecredit-r1f0,tabicl_kv_refit,auc,,,0,49.7,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:17:59,tas-givemesomecredit-r2f0,tabicl_kv_refit,auc,,,0,49.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:17:59,tas-givemesomecredit-r0f0,tabicl_kv_refit,auc,,,0,49.9,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:17:59,tas-givemesomecredit-r1f1,tabicl_kv_refit,auc,,,0,49.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:17:59,tas-givemesomecredit-r1f2,tabicl_kv_refit,auc,,,0,49.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:17:59,tas-givemesomecredit-r0f2,tabicl_kv_refit,auc,,,0,49.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r0f0,kumo_c8k_refit,auc,,,0,65.3,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r1f1,kumo_c8k_refit,auc,,,0,65.2,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r2f0,kumo_c8k_refit,auc,,,0,65.6,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r1f2,kumo_c8k_refit,auc,,,0,65.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r1f0,kumo_c8k_refit,auc,,,0,65.7,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r2f2,kumo_c8k_refit,auc,,,0,66.0,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r0f1,kumo_c8k_refit,auc,,,0,66.2,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:10,tas-givemesomecredit-r0f2,kumo_c8k_refit,auc,,,0,66.2,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:33,tas-diamonds-r1f1,tabicl_kv_refit,rmse,,,0,11.2,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:33,tas-diamonds-r0f1,tabicl_kv_refit,rmse,,,0,13.0,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:33,tas-diamonds-r2f0,tabicl_kv_refit,rmse,,,0,9.9,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:33,tas-diamonds-r2f1,tabicl_kv_refit,rmse,,,0,7.6,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:34,tas-diamonds-r1f0,tabicl_kv_refit,rmse,,,0,7.1,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:35,tas-diamonds-r2f2,tabicl_kv_refit,rmse,,,0,6.7,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:36,tas-diamonds-r0f2,tabicl_kv_refit,rmse,,,0,6.4,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:43,tas-givemesomecredit-r2f1,tabicl_kv_refit,auc,,,0,24.6,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T13:19:48,tas-diamonds-r0f1,kumo_c8k_refit,rmse,,,0,13.9,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:49,tas-diamonds-r1f1,kumo_c8k_refit,rmse,,,0,14.6,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:50,tas-diamonds-r2f1,kumo_c8k_refit,rmse,,,0,14.4,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:50,tas-diamonds-r1f0,kumo_c8k_refit,rmse,,,0,14.3,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:52,tas-diamonds-r2f0,kumo_c8k_refit,rmse,,,0,16.7,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:55,tas-diamonds-r0f2,kumo_c8k_refit,rmse,,,0,17.1,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:19:55,tas-diamonds-r2f2,kumo_c8k_refit,rmse,,,0,17.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:20:03,tas-diamonds-r1f2,tabicl_kv_refit,rmse,,,0,7.8,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:20:03,tas-diamonds-r0f0,tabicl_kv_refit,rmse,,,0,6.7,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:20:19,tas-diamonds-r1f2,kumo_c8k_refit,rmse,,,0,13.5,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:20:19,tas-diamonds-r0f0,kumo_c8k_refit,rmse,,,0,13.4,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,9.0
+2026-11-14T13:20:35,tas-givemesomecredit-r2f1,kumo_c8k_refit,auc,,,0,49.5,,speedup 시험 8xH100 (split 을 GPU 마다),databricks,,,,,True,base,10.0
+2026-11-14T11:51:49,tas-apsfailure-r0f0,tabicl,auc,0.992034484650326,0.0021535566934861,5,153.9,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0170863207837934,0.9939999210515928,,True,base,170.0
+2026-11-14T11:54:11,tas-apsfailure-r0f0,kumo,auc,0.9936773715740274,0.0012133896338622,5,138.6,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0152534254924316,0.9951051987526152,,True,base,170.0
+2026-11-14T11:56:26,tas-apsfailure-r0f1,tabicl,auc,0.9934749647912408,0.0025984280370642,5,125.0,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0154596887465644,0.9948289813882804,,True,base,170.0
+2026-11-14T11:58:35,tas-apsfailure-r0f1,kumo,auc,0.9951519100409352,0.0015319089245914,5,126.0,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0137114358459415,0.9954210827560344,,True,base,170.0
+2026-11-14T12:00:52,tas-apsfailure-r0f2,tabicl,auc,0.9930222212480068,0.0019825193505994,5,125.7,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0169358738565126,0.9940592496102,,True,base,170.0
+2026-11-14T12:03:01,tas-apsfailure-r0f2,kumo,auc,0.9949583687247578,0.0013935319426057,5,125.7,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0151160507488567,0.9947697712515048,,True,base,170.0
+2026-11-14T12:05:17,tas-apsfailure-r1f0,tabicl,auc,0.9942885168199076,0.002745653841825,5,124.6,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0168919593642274,0.9946512454111238,,True,base,170.0
+2026-11-14T12:07:25,tas-apsfailure-r1f0,kumo,auc,0.994875929867679,0.0027388233916706,5,125.6,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0151918791452617,0.9947894051237516,,True,base,170.0
+2026-11-14T12:09:41,tas-apsfailure-r1f1,tabicl,auc,0.9909421041960074,0.0033966602067751,5,125.1,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0165750452190894,0.9945921408411786,,True,base,170.0
+2026-11-14T12:11:50,tas-apsfailure-r1f1,kumo,auc,0.993077930546955,0.0034608302119203,5,125.4,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0149472776162841,0.9949474016618312,,True,base,170.0
+2026-11-14T11:50:10,tas-customer-satisfaction-in-airline-r0f0,tabicl,auc,0.9950540623162196,0.0002263560555589,5,132.9,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0860618647538211,0.9614833806850992,,True,base,21.0
+2026-11-14T11:53:09,tas-customer-satisfaction-in-airline-r0f0,kumo,auc,0.9959197215057244,0.0001689903632641,5,173.5,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0770782304792232,0.9655718014459612,,True,base,21.0
+2026-11-14T11:55:04,tas-customer-satisfaction-in-airline-r0f1,tabicl,auc,0.9949998590601072,0.0001597214580896,5,105.5,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0863592141696477,0.961437629205308,,True,base,21.0
+2026-11-14T11:57:46,tas-customer-satisfaction-in-airline-r0f1,kumo,auc,0.9959054102528788,0.0001304047300095,5,158.9,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.077150300425649,0.9652719230369456,,True,base,21.0
+2026-11-14T11:59:42,tas-customer-satisfaction-in-airline-r0f2,tabicl,auc,0.9951838340571852,0.000244841283411,5,105.7,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0846748287718182,0.9627542240752076,,True,base,21.0
+2026-11-14T12:02:24,tas-customer-satisfaction-in-airline-r0f2,kumo,auc,0.9960476179014012,0.0002173749654419,5,158.6,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0756049396884713,0.9665307725178144,,True,base,21.0
+2026-11-14T12:04:19,tas-customer-satisfaction-in-airline-r1f0,tabicl,auc,0.9951798659378692,0.0002725203300034,5,105.6,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0845105204850017,0.9623033746795094,,True,base,21.0
+2026-11-14T12:07:01,tas-customer-satisfaction-in-airline-r1f0,kumo,auc,0.9960671018221148,0.0002000018668892,5,158.5,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.0753533452001988,0.965976023837572,,True,base,21.0
+2026-11-14T11:40:45,tas-givemesomecredit-r0f0,tabicl,auc,0.8646277608262669,0.002221385105393,5,133.4,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1790042773523427,0.93742,,True,base,10.0
+2026-11-14T11:44:11,tas-givemesomecredit-r0f0,kumo,auc,0.8667383445076322,0.0030146961092495,5,202.3,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1768321839062983,0.93739,,True,base,10.0
+2026-11-14T11:46:07,tas-givemesomecredit-r0f1,tabicl,auc,0.8673951973871321,0.0039624048384986,5,106.9,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1777647219073841,0.93794,,True,base,10.0
+2026-11-14T11:49:17,tas-givemesomecredit-r0f1,kumo,auc,0.8695444952985498,0.0037626300649962,5,187.8,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1756032024257847,0.93798,,True,base,10.0
+2026-11-14T11:51:13,tas-givemesomecredit-r0f2,tabicl,auc,0.8681120118704271,0.0034772506160429,5,107.1,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.177531659606271,0.93739,,True,base,10.0
+2026-11-14T11:54:23,tas-givemesomecredit-r0f2,kumo,auc,0.8700895014575547,0.0028860326325561,5,187.5,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1754171089309446,0.93779,,True,base,10.0
+2026-11-14T11:56:19,tas-givemesomecredit-r1f0,tabicl,auc,0.8664631002323361,0.0046524364974062,5,107.1,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1782054685714066,0.93748,,True,base,10.0
+2026-11-14T11:59:29,tas-givemesomecredit-r1f0,kumo,auc,0.868648372380467,0.0040182038116912,5,187.6,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1760681359383573,0.93771,,True,base,10.0
+2026-11-14T12:01:25,tas-givemesomecredit-r1f1,tabicl,auc,0.8655375556537699,0.0042382260388555,5,106.9,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1785022824873316,0.93761,,True,base,10.0
+2026-11-14T12:04:35,tas-givemesomecredit-r1f1,kumo,auc,0.8675566934603063,0.0042375563051114,5,187.5,,"P4 FM 맞춤 (2만 행 초과 12개, H100)",databricks,,0.1763061394968144,0.93806,,True,base,10.0
+2026-11-14T12:25:29,tas-givemesomecredit-r0f0,tabicl_refit,auc,,,0,159.7,,speedup 시험 A10 (refit),databricks,,,,,True,base,10.0
+2026-11-14T12:30:24,tas-givemesomecredit-r0f0,kumo_refit,auc,,,0,253.3,,speedup 시험 A10 (refit),databricks,,,,,True,base,10.0
+2026-11-14T12:34:12,tas-givemesomecredit-r0f0,kumo_c8k_refit,auc,,,0,220.6,,speedup 시험 A10 (refit),databricks,,,,,True,base,10.0
+2026-11-14T12:36:55,tas-apsfailure-r0f0,tabicl_refit,auc,,,0,149.4,,speedup 시험 A10 (refit),databricks,,,,,True,base,170.0
+2026-11-14T12:39:04,tas-apsfailure-r0f0,tabicl_kv_refit,auc,,,0,111.3,,speedup 시험 A10 (refit),databricks,,,,,True,base,170.0
+2026-11-14T12:41:52,tas-apsfailure-r0f0,kumo_refit,auc,,,0,143.9,,speedup 시험 A10 (refit),databricks,,,,,True,base,170.0
+2026-11-14T12:44:15,tas-apsfailure-r0f0,kumo_c8k_refit,auc,,,0,135.8,,speedup 시험 A10 (refit),databricks,,,,,True,base,170.0
+2026-11-14T12:44:40,tas-diamonds-r0f0,tabicl_refit,rmse,,,0,13.0,,speedup 시험 A10 (refit),databricks,,,,,True,base,9.0
+2026-11-14T12:44:55,tas-diamonds-r0f0,tabicl_kv_refit,rmse,,,0,12.7,,speedup 시험 A10 (refit),databricks,,,,,True,base,9.0
+2026-11-14T12:45:39,tas-diamonds-r0f0,kumo_refit,rmse,,,0,41.2,,speedup 시험 A10 (refit),databricks,,,,,True,base,9.0
+2026-11-14T12:46:22,tas-diamonds-r0f0,kumo_c8k_refit,rmse,,,0,37.7,,speedup 시험 A10 (refit),databricks,,,,,True,base,9.0
+2026-11-14T12:37:18,tas-givemesomecredit-r0f0,tabicl_refit,auc,,,0,57.5,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,10.0
+2026-11-14T12:37:37,tas-givemesomecredit-r0f0,tabicl_kv_refit,auc,,,0,14.2,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,10.0
+2026-11-14T12:38:26,tas-givemesomecredit-r0f0,tabicl_kv,auc,0.8646278129326351,0.0022215279370155,5,46.9,,speedup 시험 (refit·kv·chunk),databricks,,0.1790042992159475,0.93742,,True,base,10.0
+2026-11-14T12:39:34,tas-givemesomecredit-r0f0,kumo_refit,auc,,,0,66.1,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,10.0
+2026-11-14T12:40:24,tas-givemesomecredit-r0f0,kumo_c8k_refit,auc,,,0,44.6,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,10.0
+2026-11-14T12:41:13,tas-givemesomecredit-r0f0,kumo_c32k_refit,auc,,,0,43.4,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,10.0
+2026-11-14T12:43:45,tas-givemesomecredit-r0f0,kumo_c8k,auc,0.8666666437398645,0.0029523522575324,5,145.7,,speedup 시험 (refit·kv·chunk),databricks,,0.1768385289617758,0.93749,,True,base,10.0
+2026-11-14T12:44:29,tas-apsfailure-r0f0,tabicl_refit,auc,,,0,31.3,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,170.0
+2026-11-14T12:44:57,tas-apsfailure-r0f0,tabicl_kv_refit,auc,,,0,24.6,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,170.0
+2026-11-14T12:46:39,tas-apsfailure-r0f0,tabicl_kv,auc,0.992034484650326,0.0021535566934861,5,99.1,,speedup 시험 (refit·kv·chunk),databricks,,0.0170863207837934,0.9939999210515928,,True,base,170.0
+2026-11-14T12:47:15,tas-apsfailure-r0f0,kumo_refit,auc,,,0,32.6,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,170.0
+2026-11-14T12:47:52,tas-apsfailure-r0f0,kumo_c8k_refit,auc,,,0,31.2,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,170.0
+2026-11-14T12:48:28,tas-apsfailure-r0f0,kumo_c32k_refit,auc,,,0,30.4,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,170.0
+2026-11-14T12:50:30,tas-apsfailure-r0f0,kumo_c8k,auc,0.9935477606372474,0.0013015470696398,5,116.2,,speedup 시험 (refit·kv·chunk),databricks,,0.0152717312459932,0.9949867761417912,,True,base,170.0
+2026-11-14T12:50:45,tas-diamonds-r0f0,tabicl_refit,rmse,,,0,5.1,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,9.0
+2026-11-14T12:50:52,tas-diamonds-r0f0,tabicl_kv_refit,rmse,,,0,5.2,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,9.0
+2026-11-14T12:51:09,tas-diamonds-r0f0,tabicl_kv,rmse,508.5288711761653,7.7959855390918,5,14.0,247.5913499180812,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,9.0
+2026-11-14T12:51:23,tas-diamonds-r0f0,kumo_refit,rmse,,,0,12.5,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,9.0
+2026-11-14T12:51:38,tas-diamonds-r0f0,kumo_c8k_refit,rmse,,,0,10.7,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,9.0
+2026-11-14T12:51:52,tas-diamonds-r0f0,kumo_c32k_refit,rmse,,,0,10.1,,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,9.0
+2026-11-14T12:52:29,tas-diamonds-r0f0,kumo_c8k,rmse,492.7682261960131,7.280792124806163,5,32.9,240.00785536550987,speedup 시험 (refit·kv·chunk),databricks,,,,,True,base,9.0
