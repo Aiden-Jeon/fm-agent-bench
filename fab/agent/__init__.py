@@ -70,6 +70,7 @@ HARNESS_VERSIONS = {"aide": "v6.3.3", "claude-code": "2.1.319", "codex": "0.167.
 ACCELERATOR = "GPU_1xA10"
 AGENT_RUNS = OUTPUTS / "_mlebench" / "agents"  # 회수한 실행: <key>/ (원격 정리 작업에서는 내 Volume 의 outputs/ 아래)
 TABLE = RESULTS / "mlebench_runs.csv"  # 에이전트 실행별 채점 (git 추적)
+TA_TABLE = RESULTS / "tabarena_runs.csv"  # TabArena 에이전트 실행별 채점 (git 추적, 열은 mlebench_runs 와 같고 대회 열만 다름)
 HERE = Path(__file__).parent
 # 사후 검사: 에이전트가 TFM 을 썼는지, Kaggle 풀이·토론을 봤는지 (기록에서 찾음)
 # 단어 경계: "carte" 가 "Cartesian" 에 걸렸음 (2026-11-09 nomad Codex). Kumo 는 코드에 KumoTabular 로 나옴 → kumo 로 셈
@@ -80,6 +81,12 @@ IMPORT_LINE = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\b|import\s+([\w., ]+)
 # databricks fs ls 가 경로 없음으로 실패할 때의 메시지 (그 밖의 실패는 일시적 오류로 봄)
 MISSING = re.compile(r"no such (?:file|directory)|not found|does not exist|RESOURCE_DOES_NOT_EXIST", re.I)
 KAGGLE_PATTERN = re.compile(r"kaggle\.com/(?:code|competitions/[^/\s\"']+/(?:discussion|code))", re.I)
+# 원본 데이터 접근 (TabArena 는 타깃까지 공개, docs/tabarena.md 5): OpenML·UCI·Kaggle 데이터셋 주소와 받는 API.
+# from 은 import 문만 (2026-11-14 Codex 의 생각 글 "...trained on real datasets from OpenML" 이 걸렸음)
+DATA_SOURCE_PATTERN = re.compile(
+    r"openml\.org|\bimport\s+openml\b|\bfrom\s+openml(?:\.\w+)*\s+import\b|fetch_openml|archive\.ics\.uci\.edu|doi\.org/10\.24432|"
+    r"\bucimlrepo\b|kaggle\.com/(?:datasets|c/|competitions/[^/\s\"']+/data)|\bkagglehub\b|kaggle\s+(?:datasets|competitions)\s+download",
+    re.I)
 
 
 def settings() -> dict:
@@ -114,21 +121,24 @@ def dbx(cfg, *args, capture=True, check=True, timeout=1200):
     return res
 
 
-def upload_data(cfg, cid: str) -> str:
-    """public 데이터를 tar 하나로 올림 (파일이 많은 대회도 한 번에). 이미 있으면 그대로."""
-    from fab.bench.mlebench import _driver
-
+def upload_data(cfg, cid: str, public: Path | None = None) -> str:
+    """public 데이터를 tar 하나로 올림 (파일이 많은 대회도 한 번에). 이미 있으면 그대로.
+    public: 올릴 폴더 (TabArena: 대회 data/, cid 는 익명 id). 없으면 MLE-bench 의 public."""
     remote = f"{cfg['volume']}/data/{cid}.tgz"
     if dbx(cfg, "fs", "ls", f"dbfs:{cfg['volume']}/data", check=False).stdout.count(f"{cid}.tgz"):
         return remote
-    public = Path(_driver("paths", cid)["public"])
+    if public is None:
+        from fab.bench.mlebench import _driver
+
+        public = Path(_driver("paths", cid)["public"])
     if not public.is_dir() or not any(public.iterdir()):
         raise SystemExit(f"{public} 비어 있음 → 먼저 fab download (mlebench: {cid} 인 대회)")
     with tempfile.TemporaryDirectory() as d:
         tgz = Path(d) / f"{cid}.tgz"
         with tarfile.open(tgz, "w:gz") as tar:
             for p in sorted(public.iterdir()):
-                tar.add(p, arcname=p.name)
+                if not p.name.startswith("_"):  # _features/ 등 로컬 캐시
+                    tar.add(p, arcname=p.name)
         dbx(cfg, "fs", "mkdir", f"dbfs:{cfg['volume']}/data")
         dbx(cfg, "fs", "cp", "--overwrite", str(tgz), f"dbfs:{remote}", timeout=3600)
     print(f"데이터 업로드: {public} → {remote}")
@@ -155,7 +165,53 @@ def check_continue(configs: list[str], cont: bool):
         raise SystemExit(f"--continue 는 AIDE 해당 없음 (일찍 끝나지 않음, 이어 갈 세션 없음): {', '.join(aide)}")
 
 
-def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm: bool = False) -> str:
+def ta_target(name: str):
+    """TabArena 에이전트 대회 (r0f0, 설정에 anon_id) → (대회, 익명 id). 에이전트에게 보이는 곳에는 익명 id 만 씀."""
+    from fab.core.competition import load_competition
+
+    comp = load_competition(name)
+    ta = comp.tabarena or {}
+    if not ta.get("anon_id"):
+        raise SystemExit(f"{name}: 설정에 tabarena.anon_id 가 없음 (에이전트는 r0f0 의 ta-<데이터셋> 대회만, 결정 2)")
+    if ta.get("split") != "r0f0":
+        raise SystemExit(f"{name}: 에이전트는 r0f0 만 ({ta.get('split')})")
+    if not (comp.dir / "description.md").exists():
+        raise SystemExit(f"{comp.dir}/description.md 없음")
+    return comp, ta["anon_id"]
+
+
+def leak_terms(comp) -> list[str]:
+    """에이전트에게 보이면 안 되는 글: 데이터셋 이름 (원래·소문자·구분자 바꾼 것), 대회 이름, OpenML task·dataset id."""
+    from fab.bench.tabarena import dataset_row
+
+    ds = comp.tabarena["dataset"].lower()
+    words = {ds, ds.replace("_", "-"), ds.replace("-", "_"), ds.replace("_", " "), ds.replace("-", " "), comp.name,
+             str(comp.tabarena["task_id"]), str(dataset_row(comp.tabarena["dataset"])["dataset_id"])}
+    return sorted(words)
+
+
+def find_leaks(terms: list[str], texts: dict[str, str]) -> list[str]:
+    """texts {어디: 글} 에서 terms 가 나오는 곳. 숫자 (OpenML id) 는 앞뒤가 숫자가 아닐 때만 (긴 숫자의 일부는 안 셈)."""
+    found = []
+    for where, text in texts.items():
+        low = text.lower()
+        for t in terms:
+            hit = re.search(rf"(?<!\d){t}(?!\d)", text) if t.isdigit() else t.lower() in low
+            if hit:
+                found.append(f"{where}: '{t}'")
+    return found
+
+
+def leak_check(comp, files: list[Path], texts: dict[str, str]):
+    """에이전트 노드에 가는 것 (코드 묶음 파일·run.json·데이터 파일 이름·설명) 에 데이터셋을 알려 주는 글이 있으면 멈춤.
+    데이터 파일은 이름과 description.md 만 봄 (피처 이름은 그대로 주기로 함, 결정 3)."""
+    texts = dict(texts, **{str(f): f.read_text(errors="replace") for f in files})
+    if found := find_leaks(leak_terms(comp), texts):
+        raise SystemExit("에이전트에게 보이는 곳에 데이터셋을 알려 주는 글이 있음 → 제출 안 함:\n  " + "\n  ".join(found))
+
+
+def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm: bool = False, comp=None) -> str:
+    """comp: TabArena 대회 (cid = 익명 id). 데이터는 그 대회의 data/ (public), 대회 이름은 내 Volume 의 제출 기록에만."""
     from fab.bench.mlebench import MLEBENCH_DIR
 
     harness, model, alias = CONFIGS[config]
@@ -163,7 +219,10 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
     cfg, main_cfg = settings(), remote_settings()
     label = (f"{config}{CONTINUE_SUFFIX if cont else ''}{FM_SUFFIX if fm else ''}"
              f"{GATEWAY_SUFFIX if cfg['gateway'] else ''}")
-    data = upload_data(cfg, cid)
+    if comp is not None:  # 올리기 전에 데이터 파일 이름·설명 확인
+        leak_check(comp, [comp.data_dir / "description.md"],
+                   {"data files": " ".join(p.name for p in comp.data_dir.iterdir()), "cid": cid})
+    data = upload_data(cfg, cid, comp.data_dir if comp is not None else None)
     # 키는 Volume 경로·command_path 에 들어감 → '+' 불가 (jobs submit 이 거부, 2026-11-10). 설정 이름(label)은 +cont 그대로
     key = f"{cid}__{label.replace('+', '-')}__r{rep}__{datetime.now():%Y%m%d-%H%M%S}"
     out = f"{cfg['volume']}/runs/{key}"
@@ -179,6 +238,8 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
         shutil.copy(MLEBENCH_DIR / "environment" / "instructions.txt", code)  # 공식 지시문 그대로 (경로는 실행기가 바꿈)
         shutil.copy(MLEBENCH_DIR / "environment" / "validate_submission.sh", code)
         (code / "run.json").write_text(json.dumps(run, indent=2))
+        if comp is not None:  # 에이전트 노드에 가는 코드 묶음 전부 (대응표가 섞이지 않았는지)
+            leak_check(comp, sorted(p for p in code.iterdir() if p.is_file()), {"run_name": f"fab-mleb-{key}"})
         # 실행마다 code/<key>/ 에 code.tgz·command.sh·env_vars.json·secret_env_vars.json. AI Runtime 런처는
         # Volume 의 command_path 옆 두 json 을 꼭 읽음 (없으면 ENV_VARS_FILE_READ_FAILED). air CLI 를 안 거치니 직접 둠
         launch = Path(d) / "launch"
@@ -208,7 +269,8 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
         (Path(d) / "job.json").write_text(json.dumps(job))
         res = dbx(cfg, "jobs", "submit", "--no-wait", "--json", f"@{Path(d) / 'job.json'}", "-o", "json")
     run_id = json.loads(res.stdout[res.stdout.index("{"):])["run_id"]
-    submit_item(main_cfg, "agent", key, dict(run, run_id=run_id, config=label, rep=rep))
+    extra = dict(bench="tabarena", comp=comp.name) if comp is not None else {}  # 내 Volume 의 제출 기록에만
+    submit_item(main_cfg, "agent", key, dict(run, run_id=run_id, config=label, rep=rep, **extra))
     print(f"제출: {key} (run_id {run_id})" + (f" · LLM 경로 Unity Gateway ({run['upstream_model']})" if cfg["gateway"] else "")
           + (f" · trace → {cfg['traces_table']}" if cfg["traces_table"] else "")
           + " → 끝난 뒤 fab remote kick 으로 회수·채점, 결과는 fab sync")
@@ -311,6 +373,7 @@ def posthoc(d: Path) -> dict:
                 fm_offered=sorted(k for k, v in (meta.get("fm_warmup") or {}).items() if v.get("ok")),
                 pip_added=sorted(after - before) if (d / "pip_after.txt").exists() else None,  # 없음 = 끝까지 안 감 (run_crashed)
                 kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
+                data_source_urls=len(DATA_SOURCE_PATTERN.findall(blob)),
                 retries_429=sum(c.get("retries_429", 0) for c in calls),
                 waited_429=round(sum(c.get("waited", 0) for c in calls), 1),  # 흔들기로 소수 → 합의 부동소수 잡음 제거
                 llm_calls=len(calls), llm_errors=sum(1 for c in calls if (c.get("status") or 0) >= 400),
@@ -389,40 +452,54 @@ def recover_from_progress(d: Path) -> bool:
     return True
 
 
-def append_run(row: dict):
-    """채점 행 하나를 mlebench_runs.csv 에 (옛 행의 새 열은 fill_defaults 로 채움)."""
-    with table_lock(TABLE):
-        t = pd.concat([pd.read_csv(TABLE), pd.DataFrame([row])]) if TABLE.exists() else pd.DataFrame([row])
-        fill_defaults(t).to_csv(TABLE, index=False)
+def run_table(info: dict) -> Path:
+    """실행이 들어갈 표: TabArena 실행 (제출 기록의 bench) 은 tabarena_runs.csv, 나머지는 mlebench_runs.csv."""
+    return TA_TABLE if info.get("bench") == "tabarena" else TABLE
+
+
+def append_run(row: dict, table: Path = TABLE):
+    """채점 행 하나를 표에 (옛 행의 새 열은 fill_defaults 로 채움)."""
+    with table_lock(table):
+        t = pd.concat([pd.read_csv(table), pd.DataFrame([row])]) if table.exists() else pd.DataFrame([row])
+        fill_defaults(t).to_csv(table, index=False)
 
 
 def grade_run(key: str, info: dict, report: dict | None) -> dict:
     """회수한 실행 하나의 표 행. report 는 원격 채점 보고서 (submission.csv 가 없으면 None)."""
     d = AGENT_RUNS / key
     meta = json.loads((d / "meta.json").read_text()) if (d / "meta.json").exists() else {}
+    ta = info.get("bench") == "tabarena"
+    bench = dict(comp=info["comp"], anon_id=info["cid"]) if ta else dict(mlebench=info["cid"])
     row = dict(timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
-               mlebench=info["cid"], config=info["config"], harness=info["harness"], model=info["model"],
+               **bench, config=info["config"], harness=info["harness"], model=info["model"],
                rep=info["rep"], hours=info["hours"], key=key, llm_route=llm_route(info), timed_out=meta.get("timed_out"),
                harness_seconds=meta.get("harness_seconds"), format_ok=meta.get("format_ok"), **node_columns(meta),
                # 이어 가기: 횟수와 첫 종료 시각. 이 기능 이전 실행(meta 에 없음)은 이어 가지 않았으므로 0 과 harness_seconds
                continues=meta.get("continues", 0),
                first_exit_seconds=meta.get("first_exit_seconds", meta.get("harness_seconds")),
                run_crashed=bool(meta.get("run_crashed")))  # 실행기가 중간에 죽어 progress/ 사본으로 채점 (recover_from_progress)
+    keys = ["score", "metric_error", "valid_submission", "error"] if ta else \
+        ["score", "valid_submission", "any_medal", "gold_medal", "above_median", "lb_rank", "lb_teams"]
     if report is not None:
-        row.update({k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal", "above_median",
-                                               "lb_rank", "lb_teams"]})
+        row.update({k: report.get(k) for k in keys})
     else:
         row.update(score=None, valid_submission=False)
     p = posthoc(d)
     row.update({k: (" ".join(v) if isinstance(v, list) else v) for k, v in p.items()})
-    append_run(row)
+    append_run(row, run_table(info))
     return row
 
 
 def recheck_table():
-    """회수해 둔 기록으로 mlebench_runs.csv 의 사후 검사 열을 다시 계산 (검사 규칙을 고친 뒤). 원격 정리 작업이 부름."""
-    with table_lock(TABLE):
-        t = pd.read_csv(TABLE)
+    """회수해 둔 기록으로 mlebench_runs.csv·tabarena_runs.csv 의 사후 검사 열을 다시 계산 (검사 규칙을 고친 뒤). 원격 정리 작업이 부름."""
+    for table in (TABLE, TA_TABLE):
+        if table.exists():
+            recheck_one(table)
+
+
+def recheck_one(table: Path):
+    with table_lock(table):
+        t = pd.read_csv(table)
         # 회수 기록이 있는 행만 (2026-11-10 이전 실행의 기록은 kaggle-master 로컬에 있고 Volume 에 없음 → 그 행은 그대로)
         have = t.index[[(AGENT_RUNS / key).is_dir() for key in t.key]]
         checks = pd.DataFrame([{k: " ".join(v) if isinstance(v, list) else v
@@ -431,8 +508,8 @@ def recheck_table():
             t[c] = t[c].astype(object) if c in t else None
             t.loc[have, c] = checks[c]
         print(f"사후 검사 다시 계산: {len(have)}/{len(t)}행 (나머지는 회수 기록이 없어 그대로)")
-        fill_defaults(t).to_csv(TABLE, index=False)
-    cols = ["mlebench", "config", "score", "tfm_in_code", "tfm_imported", "tfm_runtime", "tfm_at_submit", "pip_added"]
+        fill_defaults(t).to_csv(table, index=False)
+    cols = ["mlebench", "comp", "config", "score", "tfm_in_code", "tfm_imported", "tfm_runtime", "tfm_at_submit", "pip_added"]
     print(t[[c for c in cols if c in t]].to_string(index=False))  # 회수 기록이 하나도 없으면 새 열이 아직 없음
 
 
@@ -481,11 +558,14 @@ def peek(keys: list[str] | None = None):
                   + (f"\n  마지막 오류: {str(errs[-1])[:300]}" if errs else ""))
 
 
-def main(argv: list[str]):
-    ap = argparse.ArgumentParser(prog="fab mleb agent")
+def main(argv: list[str], bench: str | None = None):
+    """bench=tabarena (fab ta agent): run 의 대상은 TabArena r0f0 대회 이름 (ta-<데이터셋>). 에이전트에게는 설정의 익명 id
+    (anon_id) 만 보임: 원격 실행 이름·Volume 의 데이터 묶음·run.json. 대회 이름은 내 Volume 의 제출 기록에만."""
+    ta = bench == "tabarena"
+    ap = argparse.ArgumentParser(prog="fab ta agent" if ta else "fab mleb agent")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="에이전트 실행 제출")
-    r.add_argument("cid", help="MLE-bench 대회 id")
+    r.add_argument("cid", help="TabArena r0f0 대회 이름 (ta-<데이터셋>)" if ta else "MLE-bench 대회 id")
     r.add_argument("configs", nargs="+", choices=list(CONFIGS))
     r.add_argument("--rep", type=int, default=1, help="반복 번호 (같은 설정을 여러 번 돌릴 때 이름 구분)")
     r.add_argument("--hours", type=float, default=1.0)
@@ -501,7 +581,18 @@ def main(argv: list[str]):
     x.add_argument("keys", nargs="+")
     x.add_argument("--reason", required=True)
     args = ap.parse_args(argv)
-    if args.cmd == "run":
+    if args.cmd == "run" and ta:
+        from fab.bench.tabarena import ensure_prepared
+        from fab.bench.tabarena.remote import upload_answers
+
+        check_continue(args.configs, args.cont)
+        settings()
+        comp, anon = ta_target(args.cid)
+        ensure_prepared(comp)
+        upload_answers(remote_settings(), [comp.name])  # 채점용 정답 (내 Volume)
+        for c in args.configs:
+            submit(anon, c, args.rep, args.hours, args.cont, args.fm, comp=comp)
+    elif args.cmd == "run":
         from fab.bench.mlebench.remote import prepare_grading
 
         check_continue(args.configs, args.cont)

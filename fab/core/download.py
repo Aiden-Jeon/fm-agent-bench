@@ -33,6 +33,9 @@ def download(comp: Competition):
     if comp.mlebench:  # Kaggle 원본이 아니라 MLE-bench 가 다시 나눈 train/test
         from fab.bench.mlebench import prepare
         return prepare(comp)
+    if comp.tabarena:  # OpenML 고정 분할의 split 하나 (fab/bench/tabarena)
+        from fab.bench.tabarena import prepare as ta_prepare
+        return ta_prepare(comp)
     comp.data_dir.mkdir(parents=True, exist_ok=True)
     subprocess.run(["kaggle", "competitions", "download", "-c", comp.name, "-p", str(comp.data_dir)], check=True)
     extract(comp.data_dir)

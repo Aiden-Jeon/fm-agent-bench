@@ -65,10 +65,12 @@ def step(msg):
 
 SRC = Path("/tmp/fab")  # code_source 를 쓰기 가능한 곳으로 복사 (folds.csv, results/ 생성)
 shutil.copytree(Path(sys.argv[0]).parent, SRC)  # serverless 작업(CPU)에는 __file__ 이 없음
-data = SRC / "competitions" / COMP / "data"
-data.mkdir(parents=True, exist_ok=True)
-for f in Path(DATA).iterdir():
-    (data / f.name).symlink_to(f)
+# JOBS = [(대회, Volume 데이터, fab run 인자), ...]: 보통 하나. TabArena 는 데이터셋의 split 대회들을 한 작업에서 차례로
+for comp, data_path, _ in JOBS:
+    data = SRC / "competitions" / comp / "data"
+    data.mkdir(parents=True, exist_ok=True)
+    for f in Path(data_path).iterdir():
+        (data / f.name).symlink_to(f)
 
 
 def canon(name):
@@ -196,8 +198,13 @@ if shutil.which("nvidia-smi"):
 env = {**os.environ, "XDG_CACHE_HOME": str(cache),
        "FAB_WEIGHTS": WEIGHTS,  # gated 가중치 위치 (fab/models/tfm.py gated_file)
        "FAB_REMOTE": "1"}  # fab run 은 원격에서만 (fab/runner/run.py)
-code = subprocess.run([sys.executable, "-u", "-m", "fab", "run", COMP, *ARGS], cwd=SRC, env=env).returncode
-step("fab run 종료")
+codes = []
+for comp, _, args in JOBS:  # 한 대회가 실패해도 나머지는 돌림. 종료 코드는 처음 실패한 것
+    codes.append(subprocess.run([sys.executable, "-u", "-m", "fab", "run", comp, *args], cwd=SRC, env=env).returncode)
+    step(f"fab run 종료: {comp} (코드 {codes[-1]})")
+    if len(JOBS) > 1 and (SRC / "results").exists():  # 대회마다 Volume 에 → 작업이 중간에 죽어도 끝난 대회는 남음
+        shutil.copytree(SRC / "results", out / "results", dirs_exist_ok=True)
+code = next((c for c in codes if c), 0)
 if (SRC / "results").exists():
     shutil.copytree(SRC / "results", out / "results", dirs_exist_ok=True)
 new = weights() - before
@@ -273,16 +280,28 @@ def ensure_weights(models: list[str], profile: str, volume: str) -> str:
 
 
 def snapshot(work: Path, comp: str, run_args: list[str], models: list[str], data: str, out: str, cache: str,
-             preinstalled: bool, weights: str):
+             preinstalled: bool, weights: str, jobs: list | None = None):
+    """jobs: [(대회, Volume 데이터, fab run 인자), ...] 를 한 작업에서 차례로 (없으면 comp 하나). PIP 는 첫 대회 기준
+    (피처 변형의 PIP 는 대회마다 같다고 봄: TabArena split 대회는 피처 변형이 없음)."""
+    jobs = [list(j) for j in jobs] if jobs else [[comp, data, run_args]]
     code = work / "fab"
+    wanted = {j[0] for j in jobs}
+    base_ignore = shutil.ignore_patterns("__pycache__", "data")
+
+    def ignore(d, names):  # TabArena 생성 split 대회 (tas-*, 816개까지) 는 이 작업이 돌리는 것만 넣음
+        skip = set(base_ignore(d, names))
+        if Path(d) == ROOT / "competitions":
+            skip |= {n for n in names if n.startswith("tas-") and n not in wanted}
+        return skip
+
     for p in CODE_PATHS:
         src = ROOT / p
         if src.is_dir():
-            shutil.copytree(src, code / p, ignore=shutil.ignore_patterns("__pycache__", "data"))
+            shutil.copytree(src, code / p, ignore=ignore)
         else:
             shutil.copy(src, code / p)
-    consts = dict(COMP=comp, ARGS=run_args, PIP=BASE_PIP + pip_args(models, comp), IMAGE=preinstalled, DATA=data, OUT=out,
-                  CACHE=cache, WEIGHTS=weights)
+    consts = dict(JOBS=jobs, PIP=BASE_PIP + pip_args(models, jobs[0][0]), IMAGE=preinstalled, OUT=out, CACHE=cache,
+                  WEIGHTS=weights)
     (code / "air_runner.py").write_text("".join(f"{k} = {v!r}\n" for k, v in consts.items()) + "\n" + RUNNER)
     return code
 
@@ -293,7 +312,8 @@ def run_key(comp: str, tag: str, kind: str = "") -> str:
 
 
 def submit(cfg: dict, comp: str, data: str, run_args: list[str], models: list[str], accelerator: str, timeout: int,
-           tag: str) -> str:
+           tag: str, jobs: list | None = None) -> dict:
+    """jobs 가 있으면 comp 는 실행 이름에만 쓰고 그 대회들을 차례로 (snapshot). 기록의 comps = 그 대회들."""
     n_gpus = re.match(r"GPU_(\d+)x", accelerator)
     if not n_gpus:
         raise SystemExit(f"accelerator 형식이 GPU_<n>x<type> 이 아님: {accelerator}")
@@ -305,7 +325,7 @@ def submit(cfg: dict, comp: str, data: str, run_args: list[str], models: list[st
     work = Path(tempfile.mkdtemp())
     try:
         code = snapshot(work, comp, run_args, models, data, out, f"{cfg['volume']}/{MODEL_CACHE}", bool(image),
-                        ensure_weights(models, cfg["profile"], cfg["volume"]))
+                        ensure_weights(models, cfg["profile"], cfg["volume"]), jobs)
         (work / "air.yaml").write_text(yaml.safe_dump({
             "experiment_name": f"fab-{comp}", "mlflow_run_name": key,
             "compute": {"accelerator_type": accelerator, "num_accelerators": int(n_gpus[1])},
@@ -318,7 +338,8 @@ def submit(cfg: dict, comp: str, data: str, run_args: list[str], models: list[st
     finally:
         shutil.rmtree(work)
     info = json.loads(res.stdout[res.stdout.index("{"):])["data"]  # 앞에 업로드 진행 메시지가 섞임
-    return dict(key=key, run_id=info["run_id"], comp=comp, models=models, out=out, url=info["dashboard_url"])
+    return dict(key=key, run_id=info["run_id"], comp=comp, models=models, out=out, url=info["dashboard_url"],
+                **({"comps": [j[0] for j in jobs]} if jobs else {}))
 
 
 def record(cfg: dict, run: dict):
@@ -344,7 +365,7 @@ def requirement_lines(names: set[str]) -> list[str]:
 
 
 def submit_cpu(cfg: dict, comp: str, data: str, run_args: list[str], models: list[str], timeout: int,
-               tag: str) -> str:
+               tag: str, jobs: list | None = None) -> dict:
     """CPU serverless 일회성 작업으로 제출. 같은 러너를 쓰고 패키지는 작업 환경이 설치 (러너는 설치를 건너뜀).
     코드는 Workspace 에 올림 (`spark_python_task` 는 Workspace 파일 실행) → 끝난 뒤 정리 작업이 지움."""
     key = run_key(comp, tag, "cpu")
@@ -353,7 +374,7 @@ def submit_cpu(cfg: dict, comp: str, data: str, run_args: list[str], models: lis
     remote = f"/Workspace/Users/{me}/.fab/{key}"
     work = Path(tempfile.mkdtemp())
     try:
-        code = snapshot(work, comp, run_args, models, data, out, cache="", preinstalled=True, weights="")
+        code = snapshot(work, comp, run_args, models, data, out, cache="", preinstalled=True, weights="", jobs=jobs)
         databricks(cfg["profile"], "workspace", "import-dir", str(code), remote, capture=True, timeout=1200)
         (work / "job.json").write_text(json.dumps({
             "run_name": f"fab-{key}", "timeout_seconds": timeout * 60,
@@ -372,7 +393,7 @@ def submit_cpu(cfg: dict, comp: str, data: str, run_args: list[str], models: lis
     run_id = str(json.loads(res.stdout)["run_id"])
     run = cli_json(cfg["profile"], "jobs", "get-run", run_id)
     return dict(key=key, run_id=run_id, comp=comp, models=models, out=out, url=run["run_page_url"], cpu=True,
-                code=remote)  # code: 정리 작업이 끝난 뒤 지움
+                code=remote, **({"comps": [j[0] for j in jobs]} if jobs else {}))  # code: 정리 작업이 끝난 뒤 지움
 
 
 def cli_json(profile: str, *args, tries: int = 10, poll: int = 30) -> dict:
