@@ -37,6 +37,7 @@ import argparse
 import hashlib
 import json
 import re
+import shlex
 import shutil
 import subprocess
 import tarfile
@@ -88,6 +89,19 @@ DATA_SOURCE_PATTERN = re.compile(
     r"openml\.org|\bimport\s+openml\b|\bfrom\s+openml(?:\.\w+)*\s+import\b|fetch_openml|archive\.ics\.uci\.edu|doi\.org/10\.24432|"
     r"\bucimlrepo\b|kaggle\.com/(?:datasets|c/|competitions/[^/\s\"']+/data)|\bkagglehub\b|kaggle\s+(?:datasets|competitions)\s+download",
     re.I)
+# 실행한 명령 안의 pip 설치 (pip_target). 하네스 기록의 명령 칸 (Codex·Claude Code 의 command) 과 작업 디렉터리 코드의 줄에서 찾음.
+# 생각·대화 글과 명령 출력 (aggregated_output: README 의 "pip install tabpfn" 등) 은 실행이 아니라서 안 봄
+PIP_INSTALL = re.compile(r"\bpip3?\s+install\b|-m\s+pip\s+install\b|\buv\s+pip\s+install\b")
+COMMAND_KEYS = {"command", "cmd"}
+# 값을 하나 받는 pip install 옵션 (값을 패키지 이름으로 세지 않게)
+PIP_VALUE_OPTS = {"-r", "--requirement", "-c", "--constraint", "-e", "--editable", "-i", "--index-url", "--extra-index-url",
+                  "-f", "--find-links", "-t", "--target", "--prefix", "--root", "--platform", "--python-version",
+                  "--implementation", "--abi", "--only-binary", "--no-binary", "--progress-bar", "--upgrade-strategy",
+                  "--src", "--cache-dir", "--log", "--timeout", "--retries", "--trusted-host", "--proxy", "-C",
+                  "--config-settings", "--python", "-p", "--report", "--global-option", "--install-option"}
+PIP_OUTSIDE_OPTS = {"-t", "--target", "--prefix", "--root"}  # 하네스 환경 밖 폴더에 까는 옵션 (pip freeze 에 안 나옴)
+VENV_MAKE = re.compile(r"(?:-m\s+venv|\bvirtualenv|\buv\s+venv)\s+(?:-{1,2}[\w-]+(?:=\S+)?\s+)*([^\s;&|'\"]+)")
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?\n[ \t]*\2[ \t]*(?=\n|$)", re.S)
 
 
 def settings() -> dict:
@@ -316,6 +330,96 @@ def code_text(name: str, raw: bytes) -> str:
     return text
 
 
+def log_commands(o, key=None):
+    """하네스 기록 (JSON) 의 명령 칸 (COMMAND_KEYS) 글. Codex 는 item.command, Claude Code 는 Bash 도구의 input.command."""
+    if isinstance(o, dict):
+        for k, v in o.items():
+            yield from log_commands(v, k)
+    elif isinstance(o, list):
+        for v in o:
+            yield from log_commands(v, key)
+    elif isinstance(o, str) and key in COMMAND_KEYS:
+        yield o
+
+
+def code_commands(code: str) -> list[str]:
+    """코드 글의 pip 설치 줄 → 명령 글. 노트북 `!pip`·`%pip`, 파이썬 `os.system("pip install ...")` 꼴 (따옴표 안),
+    `subprocess.run([sys.executable, "-m", "pip", "install", ...])` 꼴 (따옴표 안 낱말을 이어 붙임), 셸 스크립트 줄."""
+    out = []
+    for line in code.splitlines():
+        words = re.findall(r"""(['"])(.*?)\1""", line)
+        if any(w in ("pip", "pip3", "install") for _, w in words) and not PIP_INSTALL.search(line):
+            line = " ".join(w for _, w in words)
+        elif (quoted := [w for _, w in words if PIP_INSTALL.search(w)]):
+            line = quoted[0]
+        if PIP_INSTALL.search(line):
+            out.append(line.lstrip().lstrip("!%"))
+    return out
+
+
+def _shell_split(text: str) -> list[str]:
+    """셸 글 → 낱말 (연산자 && ; | 와 리다이렉트는 따로). 따옴표가 안 맞으면 공백으로만 나눔."""
+    try:
+        lex = shlex.shlex(text, posix=True, punctuation_chars=True)
+        lex.whitespace_split = True
+        return list(lex)
+    except ValueError:
+        return text.split()
+
+
+def _words(cmd: str) -> list[str]:
+    """셸 명령 → 낱말, 줄 끝은 ';'. bash -lc "..." (Codex 의 명령) 는 안쪽을 풀고, heredoc (python - <<'PY' ... PY) 의
+    본문은 명령이 아니라서 뺌."""
+    words = _shell_split(cmd)
+    if len(words) >= 3 and words[0].rsplit("/", 1)[-1] in ("bash", "sh", "zsh") and re.fullmatch(r"-\w*c\w*", words[1]):
+        return [*_words(words[2]), *words[3:]]
+    out = []
+    for line in HEREDOC.sub(" ; ", cmd).splitlines():
+        out += [*_shell_split(line), ";"]
+    return out
+
+
+def pip_target(cmds: list[str]) -> list[str]:
+    """하네스 환경 밖에 깐 패키지 (pip freeze 전·후 비교 = pip_added 에 안 나옴): pip install 의 --target/-t/--prefix/--root,
+    또는 실행 중 만든 가상환경 (python -m venv·virtualenv·uv venv <폴더>) 의 pip·python 으로 깐 것. 이름은 소문자·`-`,
+    버전·extra 는 뗌. 실행한 명령만 봄 (설치가 성공했는지는 보지 않음). 2026-11-14 TabArena hazelnut × Codex 가
+    `pip install --target /tmp/tabpfn_modules ...` 로 tabpfn·tabicl 을 깔고 PYTHONPATH 로 씀 (#18)."""
+    venvs = {m.rstrip("/") for c in cmds for m in VENV_MAKE.findall(c)}
+    found = set()
+    for c in cmds:
+        if not PIP_INSTALL.search(c):
+            continue
+        words = _words(c)
+        for i, w in enumerate(words):
+            if w != "install" or i == 0 or words[i - 1].rsplit("/", 1)[-1] not in ("pip", "pip3"):
+                continue
+            # 설치한 인터프리터: pip 앞 낱말 (… -m pip → python 경로, uv pip → uv, /tmp/v/bin/pip → 그 경로)
+            exe = words[i - 3] if i >= 3 and words[i - 2] == "-m" else words[i - 1]
+            outside = any(exe.startswith(f"{v}/") for v in venvs)
+            names, j = [], i + 1
+            while j < len(words) and words[j] not in (";", "&&", "||", "|", "&"):
+                w2 = words[j]
+                # 리다이렉트: shlex 가 2>&1 을 '2' '>&' '1' 로, > log 를 '>' 'log' 로 나눔 → 연산자와 그 대상을 건너뜀
+                if j + 1 < len(words) and w2.isdigit() and re.match(r"[<>]", words[j + 1]):
+                    j += 1
+                    continue
+                if re.match(r"\d*[<>&]*[<>]", w2):
+                    j += 2 if re.fullmatch(r"\d*(?:>>?|<|&>|>&)", w2) else 1
+                    continue
+                opt = w2.split("=", 1)[0]
+                if opt in PIP_OUTSIDE_OPTS:
+                    outside = True
+                if opt in PIP_VALUE_OPTS and "=" not in w2:
+                    j += 2
+                    continue
+                if not w2.startswith("-") and not re.match(r"[./~$]|\w+://", w2):
+                    names.append(re.split(r"[<>=!~\[;@ ]", w2, maxsplit=1)[0])
+                j += 1
+            if outside:
+                found |= {n.lower().replace("_", "-") for n in names if re.fullmatch(r"[A-Za-z0-9][\w.-]*", n)}
+    return sorted(found)
+
+
 def submission_origin(d: Path, mtime: float | None) -> float | None:
     """제출 내용이 처음 생긴 시각: workspace.tgz 안에서 submission.csv 와 바이트가 같은 파일의 가장 이른 mtime (초 단위,
     tar 는 정수 초), 없으면 mtime (실행기가 잰 제출 파일 시각)."""
@@ -357,12 +461,12 @@ def tfm_runtime(d: Path, meta: dict) -> dict:
 def posthoc(d: Path) -> dict:
     """회수한 기록에서: TFM 사용 흔적, Kaggle 풀이·토론 URL, 토큰 사용량, 429 대기.
     TFM 은 이렇게 나눔: 작업 디렉터리 코드에 이름이 있음(tfm_in_code) / 코드에 import 문(tfm_imported) / 실행 중 실제로
-    import 됨(tfm_runtime·tfm_runtime_procs·tfm_at_submit, tfm_runtime 참고) / 새로 설치함(pip_added) / 대화·명령 기록에
-    언급만(tfm_mentions). +fm 실행은 지시문에 TFM 이름이 있어 tfm_mentions 가 늘 차므로 보지 않음. fm_offered 는 +fm 이
+    import 됨(tfm_runtime·tfm_runtime_procs·tfm_at_submit, tfm_runtime 참고) / 새로 설치함(pip_added, 환경 밖에 깐 것은
+    pip_target) / 대화·명령 기록에 언급만(tfm_mentions). +fm 실행은 지시문에 TFM 이름이 있어 tfm_mentions 가 늘 차므로 보지 않음. fm_offered 는 +fm 이
     깔아 준 TFM (사전 점검 통과).
     (2026-11-09 Codex: TabPFN·AutoGluon 이 깔렸는지 importlib 로 확인만 하고 안 씀 → 언급만으로 '사용'이라 하면 틀림)"""
     meta = json.loads((d / "meta.json").read_text()) if (d / "meta.json").exists() else {}
-    code = []
+    code, cmds = [], []
     if (d / "workspace.tgz").exists():
         with tarfile.open(d / "workspace.tgz") as tar:
             for m in tar.getmembers():
@@ -370,7 +474,15 @@ def posthoc(d: Path) -> dict:
                     code.append(code_text(m.name, tar.extractfile(m).read()))
     logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl")
             if p.name not in ("proxy.jsonl", "otel.jsonl", "fm_audit.jsonl")]
+    for text in logs:
+        for line in text.splitlines():
+            if PIP_INSTALL.search(line):  # 줄마다 JSON 을 다 풀지 않게 (기록이 수 MB)
+                try:
+                    cmds += log_commands(json.loads(line))
+                except ValueError:
+                    pass
     code_blob, blob = "\n".join(code), "\n".join(code + logs)
+    cmds += code_commands(code_blob)
     before = set((d / "pip_before.txt").read_text().splitlines()) if (d / "pip_before.txt").exists() else set()
     after = set((d / "pip_after.txt").read_text().splitlines()) if (d / "pip_after.txt").exists() else set()
     calls = read_jsonl(d / "proxy.jsonl")
@@ -384,6 +496,7 @@ def posthoc(d: Path) -> dict:
                 tfm_imported=tfm_imports(code_blob), **tfm_runtime(d, meta),
                 fm_offered=sorted(k for k, v in (meta.get("fm_warmup") or {}).items() if v.get("ok")),
                 pip_added=sorted(after - before) if (d / "pip_after.txt").exists() else None,  # 없음 = 끝까지 안 감 (run_crashed)
+                pip_target=pip_target(cmds),  # 환경 밖 (--target·--prefix·새 가상환경) 에 깐 것. pip_added 에 안 나옴
                 kaggle_urls=len(KAGGLE_PATTERN.findall(blob)),
                 data_source_urls=len(DATA_SOURCE_PATTERN.findall(blob)),
                 retries_429=sum(c.get("retries_429", 0) for c in calls),
@@ -521,7 +634,7 @@ def recheck_one(table: Path):
             t.loc[have, c] = checks[c]
         print(f"사후 검사 다시 계산: {len(have)}/{len(t)}행 (나머지는 회수 기록이 없어 그대로)")
         fill_defaults(t).to_csv(table, index=False)
-    cols = ["mlebench", "comp", "config", "score", "tfm_in_code", "tfm_imported", "tfm_runtime", "tfm_at_submit", "pip_added"]
+    cols = ["mlebench", "comp", "config", "score", "tfm_in_code", "tfm_imported", "tfm_runtime", "tfm_at_submit", "pip_added", "pip_target"]
     print(t[[c for c in cols if c in t]].to_string(index=False))  # 회수 기록이 하나도 없으면 새 열이 아직 없음
 
 
