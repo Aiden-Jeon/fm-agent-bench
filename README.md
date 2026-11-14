@@ -19,7 +19,8 @@
 
 - **MLE-bench** (`openai/mle-bench`): Kaggle 대회의 원래 train 을 다시 나눈 test 로 채점하고, 원래 리더보드로 순위·메달을 매기는 벤치마크.
   이 중 표 형식 대회 4개 (spaceship·nomad·tps-may-2022·leaf) 를 씀
-- **TabArena**: 연동 예정 (프로토콜 확인 중)
+- **TabArena** (`autogluon/tabarena` v0.1, 51개): OpenML 고정 분할로 채점하고 공개된 TFM·GBDT 의 split 별 결과와 비교.
+  FM (tabicl·kumo 51개, tabpfn_v2 33개) 은 모든 split, Agent 는 hazelnut · in_vehicle 의 r0f0 × 5설정 × 2회 ([docs/tabarena.md](docs/tabarena.md))
 
 계획과 단계 (P0~P6, C1·C2 규칙) 는 [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
