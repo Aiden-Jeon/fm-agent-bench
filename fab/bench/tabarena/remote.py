@@ -15,8 +15,6 @@ import shutil
 import tempfile
 from pathlib import Path
 
-import pandas as pd
-
 from fab.core.competition import Competition
 
 
@@ -75,26 +73,22 @@ class Grader:
     def __init__(self, volume: Path):
         self.dir = Path(volume) / "tabarena" / "answers"
 
-    def answers(self, comp: str):
+    def info(self, comp: str) -> dict | None:
         import json
 
+        f = self.dir / f"{comp}.json"
+        return json.loads(f.read_text()) if f.exists() else None
+
+    def answers(self, comp: str):
         from fab.bench.tabarena import read_answers
 
-        f = self.dir / f"{comp}.json"
-        if not f.exists():
-            raise FileNotFoundError(f"정답 없음: {f}")
-        info = json.loads(f.read_text())
+        if (info := self.info(comp)) is None:
+            raise FileNotFoundError(f"정답 없음: {self.dir / f'{comp}.json'}")
         return read_answers(self.dir / f"{comp}.csv", info), info
 
     def grade(self, comp: str, csv) -> dict:
-        from fab.bench.tabarena import score_frame
+        from fab.bench.tabarena import score_submission
 
-        try:
-            ans, info = self.answers(comp)
-        except FileNotFoundError as e:
-            return dict(valid_submission=False, error=str(e))
-        try:
-            sub = pd.read_csv(csv)
-        except Exception as e:  # noqa: BLE001
-            return dict(valid_submission=False, error=f"읽기 실패: {e!r}")
-        return score_frame(sub, ans, info)
+        if (info := self.info(comp)) is None:
+            return dict(valid_submission=False, error=f"정답 없음: {self.dir / f'{comp}.json'}")
+        return score_submission(Path(csv), self.dir / f"{comp}.csv", info)
