@@ -517,6 +517,7 @@ AUC ↑ · 1,152팀 · 금 0.99823 · 동 0.99818 · 중앙값 0.97268
 #### 결과
 
 열별 RMSLE 평균 ↓. FM 사용 열 (`tfm_runtime`·`tfm_runtime_procs`·`tfm_at_submit`) 은 `results/mlebench_runs.csv` 의 값 (사후 검사 규칙을 고치면 `fab mleb agent recheck` 로 다시 계산).
+FM 을 스스로 깐 것은 `pip_added` (pip freeze 차이) 와 `pip_target` (환경 밖 `--target` 등에 깐 것, 2026-11-14 추가, [구현](#구현) 의 사후 검사) 을 같이 봄.
 
 | 설정 | C2 (+fm) | Agent 1회째 / 2회째 | 시간 | 실제로 쓴 FM (`tfm_runtime`, 프로세스 수) | 제출에 든 FM (`tfm_at_submit`) |
 |---|---|---|---|---|---|
@@ -857,6 +858,12 @@ AUC ↑, test 10만 행, 동 0.99818. F1 = 사람 피처 41열, F2 = 에이전�
   - \+ `fab/agent/additional_notes.txt`: AIDE 의 추가 안내에서 단계 수 줄을 빼고 "시간이 되면 종료되니 유효한 제출을 늘 저장" 한 문장을 더함
   - \+ 대회 description
 - **사후 검사** (정리 작업, 예전 `fetch`): 코드·기록의 TFM 이름, `pip` 로 새로 설치한 패키지, Kaggle 풀이·토론 URL 수, 토큰 합계, 다른 모델 요청 여부
+  - 설치는 두 열: `pip_added` = 실행 전·후 `pip freeze` 의 차이, `pip_target` = 하네스 환경 밖에 깐 패키지 (2026-11-14, #18).
+    `pip_target` 은 실행한 명령 (하네스 기록의 명령 칸, 작업 디렉터리 코드의 줄) 의 `pip install` 중 `--target`·`-t`·`--prefix`·`--root`
+    또는 실행 중 만든 가상환경의 pip 로 깐 것. 이름만 (버전·extra 뗌), 설치가 성공했는지는 안 봄. 생각 글·명령 출력 (README 의 `pip install`) 은 안 셈
+  - 까닭: TabArena hazelnut × Codex (1회째) 가 `pip install --target /tmp/...` 로 tabpfn·tabicl 을 깔고 `PYTHONPATH` 로 써서
+    `pip_added` 가 빈칸이었음. 지금은 `pip_target` 에 tabpfn·tabicl·transformers·tokenizers·safetensors·scikit-learn·einops·huggingface-hub.
+    `recheck` 로 지난 63개 실행을 다시 계산: 이 실행 말고는 모두 빈칸 (다른 열은 그대로)
 - **노드 사양** (kaggle-master#32): 실행기가 시작할 때 `meta.json` 의 `node` 에 적고, 정리 작업이 `node_cpus`·`node_mem_gb`·`node_tmp_free_gb`·`node_gpu` 열로 옮김
   - CPU 수 (`os.cpu_count`·affinity·cgroup 한도), 메모리 (물리·`/proc/meminfo`·cgroup 한도), `/tmp`·HOME 디스크 여유, GPU (이름·메모리)
   - CPU·메모리는 호스트·affinity·cgroup 한도 중 가장 작은 값. 항목마다 따로 재서 하나가 실패해도 나머지는 남음, `nvidia-smi` 는 30초 제한
