@@ -37,7 +37,7 @@ import yaml
 
 from fab.core.competition import ROOT, load_competition
 from fab.core.download import download
-from fab.models import GATED, base_name
+from fab.models import GATED, base_name, is_refit
 from fab.runner.common import CODE_PATHS, add_run_args, check_run_args, pip_args, run_argv
 
 LOCAL_CONFIG = ROOT / "databricks.local.yaml"
@@ -203,7 +203,8 @@ SAVE_LOCK = threading.Lock()
 
 def save(comp):
     """대회마다 그 대회의 출력 + results.csv 만 Volume 에 → 작업이 중간에 죽어도 끝난 대회는 남음 (전체를 매번 복사하지 않음).
-    results.csv 는 다른 GPU 의 fab run 이 쓰는 중일 수 있어 fab 의 표 잠금 (fab/core/results.py table_lock) 을 잡고 복사."""
+    results.csv 는 다른 GPU 의 fab run 이 쓰는 중일 수 있어 fab 의 표 잠금을 잡고 복사. 잠금 파일 이름은
+    fab/core/results.py 의 table_lock (.<표 이름>.lock) 과 같아야 함 (실행기는 fab 를 import 하지 않음)."""
     if len(JOBS) == 1:
         return
     if (SRC / "results" / comp).exists():
@@ -221,10 +222,13 @@ def run_comp(comp, args, run_env, tag=""):
     if not tag:
         rc = subprocess.run(cmd, cwd=SRC, env=run_env).returncode
     else:
-        proc = subprocess.Popen(cmd, cwd=SRC, env=run_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in proc.stdout:
-            print(f"{tag} {line}", end="", flush=True)
-        rc = proc.wait()
+        proc = subprocess.Popen(cmd, cwd=SRC, env=run_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                errors="replace")
+        try:
+            for line in proc.stdout:
+                print(f"{tag} {line}", end="", flush=True)
+        finally:  # 출력을 읽다 실패해도 자식이 끝나기 전에 같은 GPU 에 다음 대회를 띄우지 않음
+            rc = proc.wait()
     step(f"fab run 종료: {comp} (코드 {rc}){' ' + tag if tag else ''}")
     save(comp)
     return rc
@@ -243,7 +247,14 @@ if len(GPUS) > 1 and len(JOBS) > 1:
     for job in sorted(JOBS, key=lambda j: -sum(f.stat().st_size for f in Path(j[1]).glob("train*"))):
         todo.put(job)
     n = min(len(GPUS), len(JOBS))
+    # CPU 수: affinity + cgroup v2 할당량 (fab/runner/common.py 의 cpu_count 와 같은 계산. 실행기는 fab 를 import 하지 않음)
     cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
+    try:
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
+        if quota != "max":
+            cpus = min(cpus, max(1, int(quota) // int(period)))
+    except (OSError, ValueError):
+        pass
     per = str(max(1, cpus // n))
     step(f"대회 {len(JOBS)}개를 GPU {n}장에 나눔 (작업자당 CPU 스레드 {per})")
 
@@ -540,6 +551,8 @@ def main(argv: list[str] | None = None):
         ap.error("--split-folds 는 --fold·--max-folds·--fold-batch 와 같이 쓸 수 없음")
     if args.fold is not None and not args.split_folds:
         ap.error("--fold 만 따로 내면 합칠 묶음이 없음 → --split-folds 사용")
+    if args.split_folds and (refit := [m for m in args.models if is_refit(m)]):  # 원격에서 fold 마다 거절됨 (노드가 뜬 뒤)
+        ap.error(f"refit 모델 {refit} 은 fold 가 없음 → --split-folds 와 같이 못 씀")
 
     cfg = settings(args)
     comp = load_competition(args.comp)  # 설정 존재 확인

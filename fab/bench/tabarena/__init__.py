@@ -65,10 +65,19 @@ REFERENCE_METHODS = [("TabPFNv2_GPU", "tabarena-2025-06-12", S3), ("TabICL_GPU",
 # 2025-06-12 묶음의 TFM 은 못 도는 데이터셋 행도 있고 값이 RandomForest 대체값 → 메타데이터 can_run_* 가 False 인 행을 뺌
 CAN_RUN = {"TabPFNv2_GPU": "can_run_tabpfnv2", "TabICL_GPU": "can_run_tabicl"}
 # 우리 모델 → 비교할 TabArena 방법 (docs/tabarena.md 3 의 표)
-# 모델 이름 끝의 _refit 은 떼고 봄. tabicl_kv·kumo_c8k 등은 예측 속도만 다른 같은 모델 ("빠르게 돌리기")
+# 이름에 없으면 끝의 _refit 을 떼고, VARIANTS 의 바탕 모델 (tabicl_kv → tabicl, kumo_c8k → kumo) 로 봄 (counterpart)
 COUNTERPART = {"tabpfn_v2": "TabPFNv2_GPU", "tabicl": "TabICLv2", "kumo": "Kumo-Tabular", "kumo_e16": "Kumo-Tabular",
-               "lgbm": "LightGBM", "catboost": "CatBoost",
-               "tabicl_kv": "TabICLv2", "kumo_c8k": "Kumo-Tabular", "kumo_c32k": "Kumo-Tabular"}
+               "lgbm": "LightGBM", "catboost": "CatBoost"}
+
+
+def counterpart(model: str) -> str | None:
+    """우리 모델 → 비교할 TabArena 방법. @spec·~variant 가 붙은 이름은 비교 대상 없음 (예전과 같음)."""
+    from fab.models import VARIANTS, strip_refit
+
+    m = strip_refit(model)
+    if m in COUNTERPART:
+        return COUNTERPART[m]
+    return COUNTERPART.get(VARIANTS[m][0]) if m in VARIANTS else None
 
 
 # --- 데이터셋·split ------------------------------------------------------------------------------------------
@@ -634,13 +643,11 @@ def compare(models: list[str] | None = None, splits: str = "all") -> pd.DataFram
     split 표준편차, 그리고 TabArena 기본 GBDT 대비 승패가 같음. 같은 split 이 다 있는 데이터셋만 셈.
     평균·기본 GBDT 는 고른 split (splits) 에서, 표준편차는 늘 데이터셋의 모든 split 에서 (split 사이 흔들림의 크기라서.
     --splits r0f0 처럼 하나만 고르면 그 split 의 표준편차는 0). 같은 (대회, 모델) 을 여러 번 채점했으면 마지막 행."""
-    from fab.models import strip_refit
-
     ours = pd.read_csv(GRADES).sort_values("timestamp").drop_duplicates(["comp", "model"], keep="last")
     ref = pd.read_csv(REFERENCE)
     rows = []
     for model in models or sorted(ours.model.unique()):
-        ta_name = COUNTERPART.get(strip_refit(model))  # kumo_refit 도 Kumo-Tabular 와
+        ta_name = counterpart(model)
         for dataset, o in ours[ours.model == model].groupby("dataset"):
             want = set(split_names(dataset)) if splits == "all" else set(splits.split(","))
             o = o[o.split.isin(want)]

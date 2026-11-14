@@ -64,7 +64,10 @@ def run_parallel(args: argparse.Namespace, n_gpus: int) -> list[str]:
         todo.put(m)
     failed: list[str] = []
     n_workers = min(max(n_gpus, 1), len(args.models))
-    devices = visible_gpus() or [str(g) for g in range(n_workers)]  # 받은 GPU 번호를 그대로 (0번부터 다시 세지 않음)
+    if vis := visible_gpus():  # 받은 GPU 번호를 그대로 (0번부터 다시 세지 않음). --gpus 가 더 크면 받은 장수까지만
+        devices, n_workers = vis, min(n_workers, len(vis))
+    else:
+        devices = [str(g) for g in range(n_workers)]
     # 실행기가 split 대회를 GPU 마다 나눠 돌리면 FAB_THREADS 로 이 프로세스 몫을 줌 → 그 안에서 다시 나눔
     threads_per = str(max(1, int(os.environ.get("FAB_THREADS") or cpu_count()) // n_workers))
     if n_gpus:

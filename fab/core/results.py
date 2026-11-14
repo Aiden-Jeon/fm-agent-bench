@@ -39,7 +39,8 @@ OUTPUTS = outputs_dir()  # 실행 출력. 원격 실행·메인 체크아웃에�
 
 @contextmanager
 def table_lock(csv: Path):
-    """git 추적 표(csv)를 읽고-고치고-쓰는 동안 잠금. 잠금 파일은 표 옆의 .<이름>.lock (results.csv → .results.lock)."""
+    """git 추적 표(csv)를 읽고-고치고-쓰는 동안 잠금. 잠금 파일은 표 옆의 .<이름>.lock (results.csv → .results.lock).
+    이름을 바꾸면 fab/runner/databricks.py 의 RUNNER (save: results.csv 를 Volume 에 복사할 때 같은 잠금) 도 같이."""
     csv.parent.mkdir(parents=True, exist_ok=True)
     with open(csv.parent / f".{csv.stem}.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
