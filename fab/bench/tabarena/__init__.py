@@ -33,6 +33,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from functools import cache
 from pathlib import Path
 
@@ -411,9 +412,10 @@ def check_models(models: list[str]):
 
 
 def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, timeout: int, accelerator: str | None,
-              grade_after: bool = True) -> list[dict]:
+              grade_after: bool = True, parts: tuple[str, ...] = ("gpu", "cpu")) -> list[dict]:
     """데이터셋 하나의 split 들을 GPU 작업 하나 (TFM) + CPU 작업 하나 (GBDT) 로 제출 (split 마다 작업을 내면 816개라).
-    작업 안에서 split 대회마다 `fab run` 을 차례로 (fab/runner/databricks.py 의 jobs)."""
+    작업 안에서 split 대회마다 `fab run` 을 차례로 (fab/runner/databricks.py 의 jobs). parts 로 한쪽만 (다시 내기는 gpu 만).
+    돌려주는 실행 기록의 cpu 가 True 면 CPU 작업."""
     from fab.bench.tabarena.remote import upload_data
     from fab.models import base_name
     from fab.runner.databricks import CPU_MODELS, record, submit, submit_cpu
@@ -428,7 +430,7 @@ def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, tim
     label = f"ta-{slug(dataset)}-{len(comps)}splits"
     runs = []
     for ms, is_cpu in ((gpu, False), (cpu, True)):
-        if not ms:
+        if not ms or ("cpu" if is_cpu else "gpu") not in parts:
             continue
         jobs = [(c.name, data[c.name], [*ms, "--note", note]) for c in comps]
         if is_cpu:
@@ -440,6 +442,103 @@ def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, tim
     if grade_after:
         request_grade([c.name for c in comps], models, note)
     return runs
+
+
+# 동시 GPU 작업 상한 (#19): 워크스페이스의 GPU 쿼터 (H100 은 8노드, 다른 작업 포함) 를 넘기면 바로 (2초) 'System error
+# occurred during execution of task AI Runtime Task: Workspace has exceeded its GPU quota for GPU_1xH100' 로 실패함
+# (2026-11-14, docs/tabarena.md 9 의 "운영 기록"). 그렇게 바로 끝난 작업은 기다렸다가 다시 냄
+SYSTEM_ERROR = re.compile(r"system error|exceeded its GPU quota", re.I)
+FAST_FAIL_SECONDS = 600  # 이보다 짧게 돌고 System error 로 끝난 작업만 다시 냄 (노드가 안 떠 45분 뒤 실패한 것은 안 냄)
+RETRY_WAIT = 300  # 다시 내기 전 기다림 (초) × 다시 낸 횟수: 쿼터를 다른 작업이 쓰고 있으면 바로 내도 또 실패
+
+
+def gpu_state(profile: str, run_id) -> dict:
+    """GPU 작업 (AI Runtime) 상태: Jobs API 의 get-run (같은 run_id, fab/remote/reconcile.py 의 run_state)."""
+    from fab.runner.databricks import cli_json
+
+    r = cli_json(profile, "jobs", "get-run", str(run_id))
+    st = r.get("state") or {}
+    start, end = r.get("start_time") or 0, r.get("end_time") or 0
+    return dict(life=st.get("life_cycle_state"), result=st.get("result_state"), message=st.get("state_message") or "",
+                seconds=(end - start) / 1000 if start and end else None)
+
+
+def fast_system_error(st: dict) -> bool:
+    return st["result"] not in ("SUCCESS", None) and bool(SYSTEM_ERROR.search(st["message"])) \
+        and st["seconds"] is not None and st["seconds"] < FAST_FAIL_SECONDS
+
+
+def submit_fm_throttled(todo: list[tuple[str, list[str]]], models: list[str], note: str, timeout: int,
+                        accelerator: str | None, grade_after: bool, max_concurrent: int, retries: int, poll: int = 60):
+    """데이터셋 (이름, split) 들을 동시 GPU 작업 max_concurrent 개까지만 내며 차례로 (#19). 로컬 명령이 끝까지 떠 있어야 함
+    (낸 작업의 상태를 poll 초마다 보고 자리가 나면 다음을 냄). 0분 System error (fast_system_error) 로 끝난 GPU 작업은
+    GPU 쪽만 retries 번까지 다시 냄. 채점 요청은 데이터셋의 GPU 작업이 (다시 내기까지) 끝난 뒤에 냄: 먼저 내면 정리 작업이
+    실패한 작업만 보고 '예측 없음' 으로 채점을 끝낼 수 있어서. 세는 것은 이 명령이 낸 GPU 작업뿐 (다른 명령·Agent 작업은 안 셈).
+    중간에 멈추면 아직 안 낸 데이터셋과 채점 요청을 못 한 데이터셋을 출력 → fab ta fm·fab ta grade 로 이어서."""
+    from fab.models import base_name
+    from fab.runner.databricks import CPU_MODELS, settings as dbx_settings
+
+    profile = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))["profile"]
+    has_gpu = any(base_name(m) not in CPU_MODELS for m in models)
+    queue = [(ds, splits, 0.0) for ds, splits in todo]  # (데이터셋, split, 이 시각 (monotonic) 전에는 안 냄)
+    running: dict[str, dict] = {}  # 데이터셋 → {run (GPU 작업 기록), splits}
+    tries: dict[str, int] = {}  # 데이터셋 → 다시 낸 횟수 (처음 낸 것 = 0)
+    finished: set[str] = set()  # GPU 작업이 (다시 내기까지) 끝나 채점 요청을 낸 데이터셋
+    stamp = lambda: time.strftime("%H:%M:%S")  # noqa: E731
+    print(f"동시 GPU 작업 {max_concurrent}개까지, 데이터셋 {len(queue)}개 (System error 다시 내기 {retries}번까지). "
+          f"{poll}초마다 상태를 봄 — 끝날 때까지 이 명령을 띄워 둠")
+    try:
+        while queue or running:
+            for ds, r in list(running.items()):
+                try:
+                    st = gpu_state(profile, r["run"]["run_id"])
+                except RuntimeError as e:  # 조회 실패 (CLI 10번 재시도 뒤) → 다음 차례에 다시
+                    print(f"{stamp()} {ds}: 상태 조회 실패, 다음에 다시 ({e})")
+                    continue
+                if st["life"] not in ("TERMINATED", "SKIPPED", "INTERNAL_ERROR"):
+                    continue
+                del running[ds]
+                if fast_system_error(st) and tries[ds] < retries:
+                    wait_s = RETRY_WAIT * (tries[ds] + 1)
+                    print(f"{stamp()} {ds}: {st['seconds']:.0f}초 만에 System error ({st['message'][-150:]}) → "
+                          f"{wait_s // 60}분 뒤 GPU 작업 다시 냄 ({tries[ds] + 1}/{retries})")
+                    queue.insert(0, (ds, r["splits"], time.monotonic() + wait_s))
+                    continue
+                took = f"{st['seconds'] / 60:.0f}분" if st["seconds"] is not None else "?"
+                print(f"{stamp()} {ds}: GPU 작업 끝 {st['result']} ({took}) {st['message'][:120]}")
+                if grade_after:
+                    request_grade([comp_name(ds, s) for s in r["splits"]], models, note)
+                finished.add(ds)
+            while (ready := [i for i, q in enumerate(queue) if q[2] <= time.monotonic()]) \
+                    and (len(running) < max_concurrent or not has_gpu):
+                ds, splits, _ = queue[ready[0]]
+                first = ds not in tries
+                runs = submit_fm(ds, splits, models, note, timeout, accelerator, grade_after=False,
+                                 parts=("gpu", "cpu") if first else ("gpu",))
+                queue.pop(ready[0])  # 제출이 된 뒤에만 (실패해 멈추면 '아직 안 낸' 쪽에 남게)
+                tries[ds] = tries.get(ds, -1) + 1
+                gpu = [r for r in runs if not r.get("cpu")]
+                if gpu:
+                    running[ds] = dict(run=gpu[0], splits=splits)
+                    print(f"{stamp()} {ds}: GPU 작업 제출 (돌고 있는 것 {len(running)}/{max_concurrent}, 남은 데이터셋 {len(queue)}개)")
+                else:  # GBDT 만: 기다릴 GPU 작업 없음
+                    if grade_after:
+                        request_grade([comp_name(ds, s) for s in splits], models, note)
+                    finished.add(ds)
+            if queue or running:
+                time.sleep(poll)
+    except (KeyboardInterrupt, Exception) as e:  # 제출·조회 실패도: 어디까지 냈는지 남기고 멈춤
+        left = [q for q, *_ in queue if q not in tries]
+        again = [q for q, *_ in queue if q in tries]
+        wait = sorted(set(tries) - finished - set(again))
+        print(f"\n멈춤 ({e!r}). 낸 작업은 원격에서 계속 돎."
+              + (f"\n  아직 안 낸 데이터셋: {' '.join(left)}" if left else "")
+              + (f"\n  GPU 작업을 다시 내야 하는 데이터셋 (System error, --models 에 GPU 모델만): {' '.join(again)}"
+                 if again else "")
+              + (f"\n  채점 요청을 아직 안 한 데이터셋 (작업이 끝난 뒤 fab ta grade <데이터셋...> --models "
+                 f"{' '.join(models)}): {' '.join(wait)}" if wait and grade_after else ""))
+        raise
+    print(f"{stamp()} 모두 끝남")
 
 
 # --- TabArena 공개 결과 ------------------------------------------------------------------------------------------
@@ -549,6 +648,11 @@ def main(argv: list[str] | None = None):
     f.add_argument("--timeout", type=int, default=720, help="작업 시간 제한 (분)")
     f.add_argument("--accelerator", default=None)
     f.add_argument("--no-grade", action="store_true", help="채점 요청을 따로 (fab ta grade)")
+    f.add_argument("--max-concurrent", type=int, default=5,
+                   help="동시 GPU 작업 상한 (기본 5, H100 은 7개쯤 넘게 내면 바로 실패). 끝날 때까지 이 명령이 떠 있음. "
+                        "0 = 상한 없이 한꺼번에 내고 바로 끝남 (예전 방식)")
+    f.add_argument("--retries", type=int, default=2, help="0분 System error 로 끝난 GPU 작업을 다시 낼 횟수 (상한 모드에서)")
+    f.add_argument("--poll", type=int, default=60, help="상태를 볼 간격 (초, 상한 모드에서)")
     g = sub.add_parser("grade", help="채점 요청 (원격 정리 작업) → fab sync 로 results/tabarena.csv")
     g.add_argument("datasets", nargs="+")
     g.add_argument("--models", nargs="+", required=True)
@@ -570,9 +674,13 @@ def main(argv: list[str] | None = None):
             make_comps(ds, pick_splits(ds, args.splits))
     elif args.cmd == "fm":
         check_models(args.models)  # 데이터셋을 하나라도 내기 전에
-        for ds in names(args.datasets):
-            submit_fm(ds, pick_splits(ds, args.splits), args.models, args.note, args.timeout, args.accelerator,
-                      not args.no_grade)
+        todo = [(ds, pick_splits(ds, args.splits)) for ds in names(args.datasets)]  # split 이름도 내기 전에 확인
+        if args.max_concurrent > 0:
+            submit_fm_throttled(todo, args.models, args.note, args.timeout, args.accelerator, not args.no_grade,
+                                args.max_concurrent, args.retries, args.poll)
+        else:
+            for ds, splits in todo:
+                submit_fm(ds, splits, args.models, args.note, args.timeout, args.accelerator, not args.no_grade)
         print("끝난 뒤 fab remote kick → 결과 합치기·채점, fab sync 로 results/tabarena.csv")
     elif args.cmd == "grade":
         check_models(args.models)
