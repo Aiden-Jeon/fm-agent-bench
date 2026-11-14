@@ -202,10 +202,14 @@ codes = []
 for comp, _, args in JOBS:  # 한 대회가 실패해도 나머지는 돌림. 종료 코드는 처음 실패한 것
     codes.append(subprocess.run([sys.executable, "-u", "-m", "fab", "run", comp, *args], cwd=SRC, env=env).returncode)
     step(f"fab run 종료: {comp} (코드 {codes[-1]})")
-    if len(JOBS) > 1 and (SRC / "results").exists():  # 대회마다 Volume 에 → 작업이 중간에 죽어도 끝난 대회는 남음
-        shutil.copytree(SRC / "results", out / "results", dirs_exist_ok=True)
+    # 대회마다 그 대회의 출력 + results.csv 만 Volume 에 → 작업이 중간에 죽어도 끝난 대회는 남음 (전체를 매번 복사하지 않음)
+    if len(JOBS) > 1 and (SRC / "results" / comp).exists():
+        shutil.copytree(SRC / "results" / comp, out / "results" / comp, dirs_exist_ok=True)
+    if len(JOBS) > 1 and (SRC / "results" / "results.csv").exists():
+        (out / "results").mkdir(parents=True, exist_ok=True)
+        shutil.copy(SRC / "results" / "results.csv", out / "results" / "results.csv")
 code = next((c for c in codes if c), 0)
-if (SRC / "results").exists():
+if len(JOBS) == 1 and (SRC / "results").exists():
     shutil.copytree(SRC / "results", out / "results", dirs_exist_ok=True)
 new = weights() - before
 if code == 0 and new and CACHE:

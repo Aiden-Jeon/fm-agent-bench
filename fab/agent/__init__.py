@@ -70,7 +70,8 @@ HARNESS_VERSIONS = {"aide": "v6.3.3", "claude-code": "2.1.319", "codex": "0.167.
 ACCELERATOR = "GPU_1xA10"
 AGENT_RUNS = OUTPUTS / "_mlebench" / "agents"  # 회수한 실행: <key>/ (원격 정리 작업에서는 내 Volume 의 outputs/ 아래)
 TABLE = RESULTS / "mlebench_runs.csv"  # 에이전트 실행별 채점 (git 추적)
-TA_TABLE = RESULTS / "tabarena_runs.csv"  # TabArena 에이전트 실행별 채점 (git 추적, 열은 mlebench_runs 와 같고 대회 열만 다름)
+# TabArena 에이전트 실행별 채점 (git 추적, 열은 mlebench_runs 와 같고 대회 열만 다름). 위치는 fab.bench.tabarena 에서 정함
+from fab.bench.tabarena import RUNS as TA_TABLE  # noqa: E402
 HERE = Path(__file__).parent
 # 사후 검사: 에이전트가 TFM 을 썼는지, Kaggle 풀이·토론을 봤는지 (기록에서 찾음)
 # 단어 경계: "carte" 가 "Cartesian" 에 걸렸음 (2026-11-09 nomad Codex). Kumo 는 코드에 KumoTabular 로 나옴 → kumo 로 셈
@@ -121,11 +122,22 @@ def dbx(cfg, *args, capture=True, check=True, timeout=1200):
     return res
 
 
+def content_hash(folder: Path) -> str:
+    """폴더 파일 (이름 · 내용, _ 로 시작하는 로컬 캐시 제외) 의 sha256 앞 12자리. tar 의 시각과 무관."""
+    h = hashlib.sha256()
+    for p in sorted(folder.iterdir()):
+        if p.is_file() and not p.name.startswith("_"):
+            h.update(p.name.encode() + b"\0" + p.read_bytes() + b"\0")
+    return h.hexdigest()[:12]
+
+
 def upload_data(cfg, cid: str, public: Path | None = None) -> str:
     """public 데이터를 tar 하나로 올림 (파일이 많은 대회도 한 번에). 이미 있으면 그대로.
-    public: 올릴 폴더 (TabArena: 대회 data/, cid 는 익명 id). 없으면 MLE-bench 의 public."""
-    remote = f"{cfg['volume']}/data/{cid}.tgz"
-    if dbx(cfg, "fs", "ls", f"dbfs:{cfg['volume']}/data", check=False).stdout.count(f"{cid}.tgz"):
+    public: 올릴 폴더 (TabArena: 대회 data/, cid 는 익명 id). 이때 묶음 이름에 내용 해시를 붙여 (<cid>-<해시>.tgz) 설명·데이터를
+    고친 뒤에는 새 묶음을 올림 (누출 검사를 한 로컬 파일 = 에이전트가 받는 묶음). 없으면 MLE-bench 의 public (이름은 <cid>.tgz)."""
+    name = f"{cid}-{content_hash(public)}.tgz" if public is not None else f"{cid}.tgz"
+    remote = f"{cfg['volume']}/data/{name}"
+    if name in dbx(cfg, "fs", "ls", f"dbfs:{cfg['volume']}/data", check=False).stdout.split():
         return remote
     if public is None:
         from fab.bench.mlebench import _driver
@@ -134,7 +146,7 @@ def upload_data(cfg, cid: str, public: Path | None = None) -> str:
     if not public.is_dir() or not any(public.iterdir()):
         raise SystemExit(f"{public} 비어 있음 → 먼저 fab download (mlebench: {cid} 인 대회)")
     with tempfile.TemporaryDirectory() as d:
-        tgz = Path(d) / f"{cid}.tgz"
+        tgz = Path(d) / name
         with tarfile.open(tgz, "w:gz") as tar:
             for p in sorted(public.iterdir()):
                 if not p.name.startswith("_"):  # _features/ 등 로컬 캐시
@@ -191,13 +203,13 @@ def leak_terms(comp) -> list[str]:
 
 
 def find_leaks(terms: list[str], texts: dict[str, str]) -> list[str]:
-    """texts {어디: 글} 에서 terms 가 나오는 곳. 숫자 (OpenML id) 는 앞뒤가 숫자가 아닐 때만 (긴 숫자의 일부는 안 셈)."""
+    """texts {어디: 글} 에서 terms 가 나오는 곳. 숫자 (OpenML id) 는 앞뒤가 숫자가 아닐 때만 (긴 숫자의 일부는 안 셈),
+    이름은 앞뒤가 영문·숫자가 아닐 때만 (대소문자 무시. 'mic' 가 'dynamic' 에, 'houses' 가 'warehouses' 에 걸리지 않게)."""
     found = []
     for where, text in texts.items():
-        low = text.lower()
         for t in terms:
-            hit = re.search(rf"(?<!\d){t}(?!\d)", text) if t.isdigit() else t.lower() in low
-            if hit:
+            edge = r"\d" if t.isdigit() else r"[a-z0-9]"
+            if re.search(rf"(?<!{edge}){re.escape(t)}(?!{edge})", text, re.I):
                 found.append(f"{where}: '{t}'")
     return found
 

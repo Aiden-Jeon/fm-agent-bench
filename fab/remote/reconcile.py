@@ -283,8 +283,9 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
         state.done("grade", key, graded=graded)
 
     def grade_tabarena(key, m):
-        """split 대회 × 모델. 끝난 대회는 진행 기록에 남겨 다시 시도할 때 건너뜀. 예측이 없는 (학습 실패) 것은
-        다시 시도해도 같으므로 오류로 남기고 끝냄 (done 의 missing)."""
+        """split 대회 × 모델. 끝난 대회는 진행 기록에 남겨 다시 시도할 때 건너뜀. 예측이 없는 (학습 실패) 것·채점에
+        실패한 것 (무효 제출, test.npy 의 NaN 등) 은 같은 입력이면 다시 해도 같으므로 그 (대회, 모델) 만 빼고 나머지는 씀
+        (done 의 missing · failed). 그 밖의 예외 (Volume 읽기 등) 는 대회째 되돌리고 다시 시도 (MAX_ATTEMPTS)."""
         need = {(c, x) for c in m["comps"] for x in m["models"]}
         if waiting := need & unfinished():
             print(f"  {key}: 처리가 안 끝난 모델 기다림 {len(waiting)}개 (예: {sorted(waiting)[:3]})")
@@ -296,19 +297,21 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             if c in graded:
                 continue
             tables.begin()
-            rows, errors = grade_ta([c], m["models"], m.get("note", ""), ta_grader.grade)
-            missing |= {k: v for k, v in errors.items() if v == "test 예측 없음"}
-            if bad := {k: v for k, v in errors.items() if v != "test 예측 없음"}:
+            try:
+                rows, errors = grade_ta([c], m["models"], m.get("note", ""), ta_grader.grade)
+            except BaseException:
                 tables.rollback()
-                failed |= bad
-                continue
+                raise
+            missing |= {k: v for k, v in errors.items() if v == "test 예측 없음"}
+            failed |= {k: v for k, v in errors.items() if v != "test 예측 없음"}
             tables.flush()
             graded.append(c)
             prog.write_text(json.dumps(graded))
-        if failed:
-            raise RuntimeError("채점 못 한 것:\n" + "\n".join(f"{k}: {v}" for k, v in failed.items()))
-        state.done("grade", key, graded=len(graded), missing=missing)
-        print(f"  {key}: 대회 {len(graded)}개 채점" + (f", 예측 없음 {len(missing)}개" if missing else ""))
+        state.done("grade", key, graded=len(graded), missing=missing, failed=failed)
+        print(f"  {key}: 대회 {len(graded)}개 채점" + (f", 예측 없음 {len(missing)}개" if missing else "")
+              + (f", 채점 실패 {len(failed)}개" if failed else ""))
+        for k, v in list(failed.items())[:10]:
+            print(f"    {k}: {v}")
 
     step("grade", state.pending("grade"), grade, state, tables, "grade")
 

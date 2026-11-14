@@ -314,13 +314,13 @@ LLM (Agent) 이 데이터셋과 풀이를 학습했을 수 있는지. 공개 풀
 |---|---|
 | 데이터 (`driver.py`) | 옆 venv (`FAB_TABARENA/.venv`: openml 0.15.1 · pyarrow · pandas) 에서 `-I` 로. `openml.tasks.get_task` → 데이터 + 고정 분할 (`get_train_test_split_indices`). 반복마다 TEST 가 전체를 한 번씩 나누는지 확인하고, TEST 행 위치만 `splits.csv` 로 넘김. 받은 것은 `FAB_TABARENA/data/cache/<task_id>/` |
 | split 대회 (`__init__.py`) | 저장소: `competitions/ta-<데이터셋>/` (r0f0, `config.yaml`·`description.md`·`features.py`). 다른 split 은 `tas-<데이터셋>-r<r>f<f>/` 로 생성 (git 제외, 설정은 r0f0 를 본뜸). r0f0 폴더가 없는 47개는 r0f0 도 `tas-` |
-| public | `train.csv`·`test.csv`·`sample_submission.csv`·`description.md`. 행 id 는 데이터셋·split 마다 고정 seed 의 무작위 순열 (train·test 가 한 순열을 나눔 → id 에 정보 없음), 파일은 id 순 (OpenML 순서도 안 줌) |
+| public | `train.csv`·`test.csv`·`sample_submission.csv`·`description.md`. 행 id 는 데이터셋·split 마다 고정 seed 의 무작위 순열 (train·test 가 한 순열을 나눔 → id 에 정보 없음), 파일은 id 순 (OpenML 순서도 안 줌). CSV 를 pandas 기본값으로 읽으면 범주 값 `nan`·`NA` 같은 글자는 결측이 됨 (TabArena 데이터의 범주 `nan` 은 원래 결측, in_vehicle·MIC·HR_Analytics 등) → FM·에이전트·채점 모두 같은 결측으로 봄. 클래스 이름이 그렇게 바뀌면 `prepare` 가 멈춤 (51개에는 없음) |
 | 정답 | `FAB_TABARENA/data/answers/<대회>.{csv,json}` (클래스·양성 클래스·지표) → 채점할 때 내 Volume 의 `tabarena/answers/` 로 (`remote.py`). 에이전트 SP 의 scratch Volume 에는 public 만 |
 | 피처 (F0) | 원본 열 그대로. 범주형 = OpenML 범주 표시 + 문자열 열 (in_vehicle 의 `coupon` 은 OpenML 에서 string 이라 표시가 없음). Amazon 의 숫자 id 9열도 범주 (TabArena 와 같은 표시). MLE-bench 의 `auto_types` (자료형으로만 고름) 와 다름 |
 | 채점 (`score_submission`) | fab 지표 (`auc`·`logloss`·`rmse`) 로 직접. 이진은 양성 = train 타깃 정렬의 두 번째 (`fab run` 의 LabelEncoder 와 같음), 다중은 확률을 1e-15 아래로 자르고 행 합 1. `metric_error` (AUC 는 1 − AUC) 를 같이 남김 |
 | FM·GBDT 제출 (`fab ta fm`) | 데이터셋 하나 = GPU 작업 하나 + CPU 작업 하나. 작업 안에서 split 대회마다 `fab run` 을 차례로 (`fab/runner/databricks.py` 의 `JOBS`). 816 split 을 작업 816개로 내지 않으려고. 대회가 끝날 때마다 결과를 Volume 에 복사 (작업이 중간에 죽어도 끝난 split 은 남음) |
-| 원격 채점 | 채점 요청 `bench: tabarena` → 정리 작업이 학습이 끝나기를 기다려 split × 모델마다 채점 → `results/tabarena.csv`. 예측이 없는 (학습 실패) 것은 `missing` 으로 남기고 끝냄 |
-| 비교 (`fab ta reference`·`compare`) | 공개 parquet 7개 (2 절) 의 기본 설정 행 → `results/tabarena_reference.csv` (5,310행). TabPFNv2 18개·TabICL 15개 데이터셋을 `can_run_*` 로 뺌. 남은 행에 대체값 (`imputed`) 없음 |
+| 원격 채점 | 채점 요청 `bench: tabarena` → 정리 작업이 학습이 끝나기를 기다려 split × 모델마다 채점 → `results/tabarena.csv`. 예측이 없는 (학습 실패) 것은 `missing`, 채점에 실패한 것 (무효 제출, test 예측의 NaN 등) 은 `failed` 로 그 (대회, 모델) 만 빼고 끝냄 (같은 입력이면 다시 해도 같아서 재시도 안 함). 그 밖의 예외는 대회째 되돌리고 다시 시도. 숫자가 아닌 예측 (확률 대신 레이블) 은 무효 제출 |
+| 비교 (`fab ta reference`·`compare`) | 공개 parquet 7개 (2 절) 의 기본 설정 행 → `results/tabarena_reference.csv` (5,310행). TabPFNv2 18개·TabICL 15개 데이터셋을 `can_run_*` 로 뺌. 남은 행에 대체값 (`imputed`) 없음. `compare` 의 평균·기본 GBDT 는 고른 split 에서, 표준편차는 늘 데이터셋의 모든 split 에서 (`--splits r0f0` 처럼 하나만 고르면 그 split 의 표준편차가 0 이라서) |
 | Agent (`fab ta agent run ta-<데이터셋> <설정>`) | `fab mleb agent` 와 같은 실행기·지시문 (MLE-bench `instructions.txt` 그대로)·프록시. 결과는 `results/tabarena_runs.csv` (열은 `mlebench_runs.csv` 와 같고 대회 열이 `comp`·`anon_id`) |
 
 명령 (설치는 `fab/bench/tabarena/__init__.py` 위쪽 설명, 위치는 `FAB_TABARENA`. Agent 는 `FAB_MLEBENCH` 도 필요: 지시문)
@@ -348,9 +348,10 @@ uv run --frozen fab ta compare --detail
 
 익명화 (5 의 "익명화" 를 구현)
 
-- 에이전트에게 보이는 이름은 설정의 `anon_id` (`tabarena-p01` hazelnut, `p02` in_vehicle, `p03`·`p04` 는 Amazon·physiochemical 에 붙여 두었지만 Agent 는 안 돌림): 원격 실행 이름·MLflow run·Volume 의 데이터 묶음 (`data/<anon_id>.tgz`)·`run.json`·실행 키
+- 에이전트에게 보이는 이름은 설정의 `anon_id` (`tabarena-p01` hazelnut, `p02` in_vehicle, `p03`·`p04` 는 Amazon·physiochemical 에 붙여 두었지만 Agent 는 안 돌림): 원격 실행 이름·MLflow run·Volume 의 데이터 묶음 (`data/<anon_id>-<내용 해시>.tgz`: 설명·데이터를 고치면 새 묶음, 옛 묶음을 다시 쓰지 않음)·`run.json`·실행 키
 - 대회 이름은 내 Volume 의 제출 기록 (`state/agent/<key>.json` 의 `comp`) 에만. 정리 작업이 이걸로 정답을 찾음
-- 제출 전 누출 검사 (`fab/agent/__init__.py` 의 `leak_check`): 에이전트 노드에 가는 코드 묶음 (실행기·지시문·`run.json`)·실행 이름·데이터 파일 이름·`description.md` 에 데이터셋 이름 (구분자 바꾼 꼴 포함)·대회 이름·OpenML task·dataset id 가 있으면 제출 안 함
+- 제출 전 누출 검사 (`fab/agent/__init__.py` 의 `leak_check`): 에이전트 노드에 가는 코드 묶음 (실행기·지시문·`run.json`)·실행 이름·데이터 파일 이름·`description.md` 에 데이터셋 이름 (구분자 바꾼 꼴 포함)·대회 이름·OpenML task·dataset id 가 있으면 제출 안 함.
+  이름은 단어 경계로 봄 (짧은 이름 `mic` 가 `dynamic` 에 걸리지 않게), 숫자는 앞뒤가 숫자가 아닐 때. 검사 전에 `data/description.md` 를 대회 폴더의 것으로 맞춤
 - 로컬 확인: 코드 묶음 8개 파일에 TabArena 데이터셋 이름 51개가 하나도 없음 (대응표가 섞이지 않음). 심은 누출 (run.json 에 이름, 설명에 task id) 은 잡음
 - `description.md` 는 영어, 이름·출처·연도·수집 기관 없이. 열 뜻은 OpenML 설명·원래 출처를 보고 우리 말로 씀. hazelnut 은 "식품 용기·마이크로파 센서" 까지만 (무슨 식품인지 안 씀). 레이블 부호화가 문서화되지 않은 것 (hazelnut, TabArena 메모) 은 그렇게 적음
 - 지시문은 MLE-bench 그대로라 "MLE-bench, an offline version of Kaggle competitions" 라는 글이 들어감 (데이터셋 이름은 아님). 두 벤치마크의 Agent 가 같은 지시문을 받게 둠
@@ -367,6 +368,8 @@ uv run --frozen fab ta compare --detail
 - 채점: 상수 제출 AUC 0.5, 정답 제출 AUC 1 (행 순서를 섞어도), 뒤집은 제출 AUC 0 (양성 클래스 확인), 회귀 상수 제출의 RMSE = 식, 행이 빠지거나 열 이름이 틀리면 무효. 가짜 `test.npy` → `make_submission` → 채점 = 직접 계산 (FM 경로)
 - 피처: 범주 열이 category (정수 값은 `1` 꼴, train·test 를 따로 읽어 생기는 `1.0` 섞임 없음), 생성 split 의 `features.py` 가 r0f0 와 같은 열
 - 합 516개 통과
+- 코드 리뷰 반영 뒤 (2026-11-14): 레이블을 낸 제출 → 무효, test 예측에 NaN 인 모델만 빠지고 같은 대회의 다른 모델은 채점, 설명을 고치면 묶음 해시가 바뀜,
+  `--splits r0f0` 의 표준편차·기본 GBDT, 모델 이름 오타를 제출 전에 잡음 (`fab ta fm`·`grade`), 누출 검사의 단어 경계 등 19개. 모든 split 판정 결과는 그대로
 
 운영 기록
 

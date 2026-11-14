@@ -43,7 +43,7 @@ import yaml
 from fab.core.competition import COMP_DIR, ROOT, Competition, load_competition
 from fab.core.results import RESULTS, append_rows
 
-SUITE = 457  # OpenML 스위트 tabarena-v0.1
+# OpenML 스위트 457 (tabarena-v0.1)
 DATASETS = Path(__file__).with_name("datasets.csv")  # TabArena 메타데이터 (Apache-2.0) 중 필요한 열, 51개
 TA_DIR = Path(os.environ.get("FAB_TABARENA", ROOT.parent / "tabarena")).expanduser().resolve()
 CACHE = TA_DIR / "data" / "cache"
@@ -51,7 +51,7 @@ ANSWERS = TA_DIR / "data" / "answers"
 DRIVER = Path(__file__).with_name("driver.py")
 GRADES = RESULTS / "tabarena.csv"  # 우리 split 채점 (git 추적, 원격 정리 작업이 씀)
 REFERENCE = RESULTS / "tabarena_reference.csv"  # TabArena 공개 결과의 기본 설정 행 (git 추적, fab ta reference)
-RUNS = RESULTS / "tabarena_runs.csv"  # 에이전트 실행별 채점 (git 추적, 원격 정리 작업이 씀)
+RUNS = RESULTS / "tabarena_runs.csv"  # 에이전트 실행별 채점 (git 추적, 원격 정리 작업이 씀. fab.agent.TA_TABLE)
 SPLIT_PREFIX = "tas-"  # 생성 split 대회 (git 제외)
 ID_COL = "id"
 METRICS = {"binary": "auc", "multiclass": "logloss", "regression": "rmse"}
@@ -119,12 +119,6 @@ def comp_name(dataset: str, split: str) -> str:
     if split == "r0f0" and (c := committed().get(dataset)):
         return c.name
     return f"{SPLIT_PREFIX}{slug(dataset)}-{split}"
-
-
-def ta_comps() -> list[Competition]:
-    """지금 있는 TabArena 대회 전부 (저장소 + 생성 split)."""
-    comps = [load_competition(p.parent.name) for p in sorted(COMP_DIR.glob("*/config.yaml"))]
-    return [c for c in comps if c.tabarena]
 
 
 def resolve(target: str) -> str:
@@ -252,6 +246,11 @@ def prepare(comp: Competition):
     test[[ID_COL, *feats]].to_csv(comp.data_dir / "test.csv", index=False)
     # 클래스 = 학습이 보는 값 (train.csv 를 pandas 로 읽은 타깃의 정렬, fab run 의 LabelEncoder 와 같음)
     y_train = pd.read_csv(comp.data_dir / "train.csv", usecols=[y])[y]
+    # CSV 를 pandas 기본값으로 다시 읽으면 'NA'·'None'·'nan' 같은 글자는 결측이 됨 (fab run·에이전트·채점 모두 그렇게 읽음).
+    # 피처는 모두에게 같은 결측이라 그대로 둠 (TabArena 데이터의 범주 'nan' 은 원래 결측), 클래스 이름이 그렇게 바뀌면 채점이 틀어지므로 멈춤
+    if comp.is_classification and y_train.isna().any():
+        bad = sorted(set(df.iloc[tr][y].astype(str)) - set(y_train.dropna().astype(str)))
+        raise SystemExit(f"{comp.name}: 클래스 이름 {bad} 가 CSV 에서 결측으로 읽힘 → 클래스 이름을 바꿔야 함")
     classes = sorted(y_train.unique().tolist()) if comp.is_classification else None
     if comp.task == "binary":
         sample = pd.DataFrame({ID_COL: test[ID_COL], y: 0.5})
@@ -274,8 +273,13 @@ def prepare(comp: Competition):
 
 
 def ensure_prepared(comp: Competition):
+    """없으면 prepare. 있으면 description.md 만 대회 폴더의 것으로 맞춤 (설명을 고친 뒤 data/ 의 옛 사본이 남지 않게)."""
     if not ((comp.data_dir / "train.csv").exists() and (ANSWERS / f"{comp.name}.json").exists()):
-        prepare(comp)
+        return prepare(comp)
+    src, dst = comp.dir / "description.md", comp.data_dir / "description.md"
+    if src.exists() and (not dst.exists() or dst.read_bytes() != src.read_bytes()):
+        shutil.copy(src, dst)
+        print(f"{comp.name}: description.md 갱신")
 
 
 def make_comps(dataset: str, splits: list[str]) -> list[Competition]:
@@ -317,7 +321,10 @@ def score_submission(sub_csv: Path, answers_csv: Path, info: dict) -> dict:
     if len(sub) != len(ans) or set(sub[ID_COL]) != set(ans[ID_COL]):
         return dict(valid_submission=False, error=f"행·id 가 test 와 다름 ({len(sub)}행, test {len(ans)}행)")
     sub = sub.set_index(ID_COL).loc[ans[ID_COL]]
-    pred = sub.to_numpy(dtype=float)
+    try:
+        pred = sub.to_numpy(dtype=float)
+    except (TypeError, ValueError) as e:  # 확률 대신 레이블 ('Yes'·'No') 을 낸 제출 등
+        return dict(valid_submission=False, error=f"예측이 숫자가 아님: {e!r}"[:300])
     if not np.isfinite(pred).all():
         return dict(valid_submission=False, error="예측에 NaN/inf")
     if info["task"] == "binary":
@@ -331,7 +338,10 @@ def score_submission(sub_csv: Path, answers_csv: Path, info: dict) -> dict:
         target = ans[y].map({c: i for i, c in enumerate(info["classes"])}).to_numpy()
     else:
         target, proba = ans[y].to_numpy(dtype=float), pred[:, 0]
-    s = score(info["metric"], target, proba)
+    try:
+        s = score(info["metric"], target, proba)
+    except ValueError as e:  # 예: 확률이 [0, 1] 밖이라 sklearn 이 거부
+        return dict(valid_submission=False, error=f"채점 실패: {e!r}"[:300])
     return dict(valid_submission=True, score=s, metric_error=1 - s if info["metric"] == "auc" else s)
 
 
@@ -358,7 +368,11 @@ def grade(comps: list[str], models: list[str], note: str, grade_fn) -> tuple[lis
             if test_info(name, m) is None:
                 errors[f"{name}/{m}"] = "test 예측 없음"
                 continue
-            report = grade_fn(name, make_submission(name, [m]))
+            try:
+                report = grade_fn(name, make_submission(name, [m]))
+            except Exception as e:  # noqa: BLE001 - 예: test.npy 에 NaN (normalize_proba), classes 불일치
+                errors[f"{name}/{m}"] = f"채점 실패: {e!r}"[:500]
+                continue
             if not report.get("valid_submission"):
                 errors[f"{name}/{m}"] = f"채점 실패: {report.get('error')}"
                 continue
@@ -386,6 +400,16 @@ def request_grade(comps: list[str], models: list[str], note: str = ""):
 # --- FM·GBDT 제출 ----------------------------------------------------------------------------------------------
 
 
+def check_models(models: list[str]):
+    """제출 전에 모델 이름 확인: fab.models 의 REGISTRY·VARIANTS (컨텍스트 래퍼 @spec 허용). 피처 변형 (~) 은 split 대회에
+    없어서 거부."""
+    from fab.models import REGISTRY, VARIANTS
+
+    bad = [m for m in models if "~" in m or m.partition("@")[0] not in {*REGISTRY, *VARIANTS}]
+    if bad:
+        raise SystemExit(f"알 수 없는 모델 (또는 피처 변형 ~): {bad}. 사용 가능: {', '.join([*REGISTRY, *VARIANTS])}")
+
+
 def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, timeout: int, accelerator: str | None,
               grade_after: bool = True) -> list[dict]:
     """데이터셋 하나의 split 들을 GPU 작업 하나 (TFM) + CPU 작업 하나 (GBDT) 로 제출 (split 마다 작업을 내면 816개라).
@@ -395,6 +419,7 @@ def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, tim
     from fab.runner.databricks import CPU_MODELS, record, submit, submit_cpu
     from fab.runner.databricks import settings as dbx_settings
 
+    check_models(models)
     cfg = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))
     comps = make_comps(dataset, splits)
     data = upload_data(cfg, comps)
@@ -449,32 +474,33 @@ def reference() -> pd.DataFrame:
     return ref
 
 
-def default_gbdt(ref: pd.DataFrame) -> pd.Series:
-    """데이터셋별 TabArena 기본 GBDT (CatBoost·LightGBM 중 split 평균 metric_error 가 나은 쪽) 의 split 평균."""
-    g = ref[ref.ta_name.isin(["CatBoost", "LightGBM"])].groupby(["dataset", "ta_name"]).metric_error.mean().unstack()
-    return g.min(axis=1)
+def default_gbdt(ref: pd.DataFrame, dataset: str, splits: set[str]) -> float:
+    """TabArena 기본 GBDT (CatBoost·LightGBM 중 그 split 들의 평균 metric_error 가 나은 쪽) 의 평균. FM 과 같은 split 에서."""
+    g = ref[ref.ta_name.isin(["CatBoost", "LightGBM"]) & (ref.dataset == dataset) & ref.split.isin(splits)]
+    return float(g.groupby("ta_name").metric_error.mean().min()) if len(g) else np.nan
 
 
 def compare(models: list[str] | None = None, splits: str = "all") -> pd.DataFrame:
     """우리 FM (results/tabarena.csv) 과 TabArena 의 같은 split 결과 (results/tabarena_reference.csv) 를 데이터셋별로.
     맞춤 기준 (docs/tabarena.md 8, FM 마다): 데이터셋의 80% 이상에서 |우리 split 평균 − TabArena split 평균| ≤ TabArena
     split 표준편차, 그리고 TabArena 기본 GBDT 대비 승패가 같음. 같은 split 이 다 있는 데이터셋만 셈.
-    같은 (대회, 모델) 을 여러 번 채점했으면 마지막 행."""
+    평균·기본 GBDT 는 고른 split (splits) 에서, 표준편차는 늘 데이터셋의 모든 split 에서 (split 사이 흔들림의 크기라서.
+    --splits r0f0 처럼 하나만 고르면 그 split 의 표준편차는 0). 같은 (대회, 모델) 을 여러 번 채점했으면 마지막 행."""
     ours = pd.read_csv(GRADES).sort_values("timestamp").drop_duplicates(["comp", "model"], keep="last")
     ref = pd.read_csv(REFERENCE)
-    gbdt = default_gbdt(ref)
     rows = []
     for model in models or sorted(ours.model.unique()):
         ta_name = COUNTERPART.get(model)
         for dataset, o in ours[ours.model == model].groupby("dataset"):
             want = set(split_names(dataset)) if splits == "all" else set(splits.split(","))
             o = o[o.split.isin(want)]
-            r = ref[(ref.ta_name == ta_name) & (ref.dataset == dataset) & ref.split.isin(want)] if ta_name else ref.iloc[:0]
+            r_all = ref[(ref.ta_name == ta_name) & (ref.dataset == dataset)] if ta_name else ref.iloc[:0]
+            r = r_all[r_all.split.isin(want)]
             full = set(o.split) == want
             row = dict(model=model, ta=ta_name, dataset=dataset, n=len(o), ours=o.metric_error.mean(),
                        ours_std=o.metric_error.std(ddof=0), ta_mean=r.metric_error.mean() if len(r) else np.nan,
-                       ta_std=r.metric_error.std(ddof=0) if len(r) else np.nan, gbdt=gbdt.get(dataset, np.nan),
-                       complete=full and len(r) == len(want))
+                       ta_std=r_all.metric_error.std(ddof=0) if len(r_all) > 1 else np.nan,
+                       gbdt=default_gbdt(ref, dataset, want), complete=full and len(r) == len(want))
             row["within"] = abs(row["ours"] - row["ta_mean"]) <= row["ta_std"] if row["complete"] else None
             row["ours_wins"] = row["ours"] < row["gbdt"]
             row["ta_wins"] = row["ta_mean"] < row["gbdt"] if len(r) else None
@@ -543,11 +569,13 @@ def main(argv: list[str] | None = None):
         for ds in names(args.datasets):
             make_comps(ds, pick_splits(ds, args.splits))
     elif args.cmd == "fm":
+        check_models(args.models)  # 데이터셋을 하나라도 내기 전에
         for ds in names(args.datasets):
             submit_fm(ds, pick_splits(ds, args.splits), args.models, args.note, args.timeout, args.accelerator,
                       not args.no_grade)
         print("끝난 뒤 fab remote kick → 결과 합치기·채점, fab sync 로 results/tabarena.csv")
     elif args.cmd == "grade":
+        check_models(args.models)
         comps = [c.name for ds in names(args.datasets) for c in make_comps(ds, pick_splits(ds, args.splits))]
         request_grade(comps, args.models, args.note)
     elif args.cmd == "reference":
