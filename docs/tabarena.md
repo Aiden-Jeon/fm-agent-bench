@@ -1,6 +1,6 @@
 # TabArena (P4): 조사 · 연동 · 파일럿
 
-TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 전 조사 (2026-11-13), 9 는 연동 구현, "파일럿 결과" 는 2026-11-14 실행.
+TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 전 조사 (2026-11-13), 9 는 연동 구현, "파일럿 결과" 는 2026-11-14 실행 (Agent 2회째는 2026-11-14~15).
 
 - 조사일 2026-11-13. TabArena 저장소는 `autogluon/tabarena` 의 `c9f57b2` (2026-11-11 커밋) 기준
 - 확인 못 한 것은 "확인 못 함" 으로 적음. 추측으로 채우지 않음
@@ -433,36 +433,40 @@ FM·GBDT 는 튜닝 없음, 우리 `fab run` 의 test 예측 = train 의 5-fold 
 
 hazelnut (`tabarena-p01`): 이진 · train 1,600 / test 800 · 피처 30 (모두 수치)
 
-| 방식 | metric_error | AUC | 시간 |
+FM·GBDT 는 한 번 (결정적). Agent 는 같은 r0f0 에서 2번 (#17, 결정 2). 시간은 1회째 / 2회째
+
+| 방식 | 1회째 | 2회째 | 시간 |
 |---|---|---|---|
-| **FM: kumo** | **0.00449** | 0.99551 | 10초 |
+| **FM: kumo** | **0.00449** | | 10초 |
 | TabArena Kumo-Tabular (참고) | 0.00381 | | |
-| Agent: Codex × GPT | 0.00640 | 0.99360 | 58분 (TabICL·TabPFN 을 스스로 깔아 씀, 아래) |
-| FM: tabicl | 0.00729 | 0.99271 | 6초 |
-| FM: tabpfn_v2 | 0.01491 | 0.98509 | 6초 |
-| Agent: AIDE × GPT | 0.01624 | 0.98376 | 60분 |
-| Agent: Claude Code × Sonnet +cont | 0.01885 | 0.98115 | 6분 (이어 가기 7번) |
-| Agent: AIDE × Sonnet | 0.02108 | 0.97892 | 60분 |
-| Agent: Claude Code × Sonnet | 0.02219 | 0.97781 | 37초 (스스로 끝냄) |
-| GBDT: lgbm / catboost | 0.02947 / 0.03181 | 0.97053 / 0.96819 | 5초 / 28초 |
+| Agent: Codex × GPT | 0.00640 ¹ | 0.01335 | 58분 / 56분 |
+| FM: tabicl | 0.00729 | | 6초 |
+| FM: tabpfn_v2 | 0.01491 | | 6초 |
+| Agent: AIDE × GPT | 0.01624 | 0.01505 | 60분 / 60분 |
+| Agent: AIDE × Sonnet | 0.02108 | 0.01406 | 60분 / 60분 |
+| Agent: Claude Code × Sonnet +cont | 0.01885 | 0.01806 | 6분 / 2분 (이어 가기 7번 / 7번) |
+| Agent: Claude Code × Sonnet | 0.02219 | 0.03446 | 37초 / 19초 (스스로 끝냄) |
+| GBDT: lgbm / catboost | 0.02947 / 0.03181 | | 5초 / 28초 |
+
+- ¹ TabICL·TabPFN 을 스스로 깔아 씀 (아래). 2회째는 깔지 않음
 
 in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (범주 22)
 
-| 방식 | metric_error | AUC | 시간 |
+| 방식 | 1회째 | 2회째 | 시간 |
 |---|---|---|---|
-| **Agent: Codex × GPT** | **0.13150** | 0.86850 | 57분 (FM 안 씀) |
+| **Agent: Codex × GPT** | **0.13150** | **0.13295** | 57분 / 58분 (FM 안 씀) |
 | TabArena Kumo-Tabular (참고) | 0.13716 | | |
-| Agent: AIDE × Sonnet | 0.13813 | 0.86187 | 60분 |
-| Agent: AIDE × GPT | 0.13883 | 0.86118 | 60분 |
-| FM: kumo | 0.14524 | 0.85477 | 15초 |
-| Agent: Claude Code × Sonnet +cont | 0.14911 | 0.85089 | 10분 (이어 가기 7번) |
-| FM: tabicl | 0.15074 | 0.84926 | 8초 |
-| GBDT: catboost | 0.16031 | 0.83969 | 2분 |
-| Agent: Claude Code × Sonnet | 0.16192 | 0.83808 | 27초 (스스로 끝냄) |
-| GBDT: lgbm | 0.16331 | 0.83669 | 6초 |
-| FM: tabpfn_v2 | 0.19410 | 0.80590 | 11초 |
+| Agent: AIDE × Sonnet | 0.13813 | 0.13904 | 60분 / 60분 |
+| Agent: AIDE × GPT | 0.13883 | 0.14057 | 60분 / 60분 |
+| FM: kumo | 0.14524 | | 15초 |
+| Agent: Claude Code × Sonnet +cont | 0.14911 | 0.14919 | 10분 / 19분 (이어 가기 7번 / 8번) |
+| FM: tabicl | 0.15074 | | 8초 |
+| GBDT: catboost | 0.16031 | | 2분 |
+| Agent: Claude Code × Sonnet | 0.16192 | 0.16191 | 27초 / 27초 (스스로 끝냄) |
+| GBDT: lgbm | 0.16331 | | 6초 |
+| FM: tabpfn_v2 | 0.19410 | | 11초 |
 
-- 1회씩 (반복 없음). r0f0 한 split 의 test 는 800 / 4,228 행 → 차이 0.002 정도는 split 사이 흔들림 (아래 표의 split 표준편차: hazelnut kumo 0.0009, in_vehicle kumo 0.0032) 과 비슷
+- 아래 줄들은 1회째 기준 (2회째는 "2회째 (#17)"). r0f0 한 split 의 test 는 800 / 4,228 행 → 차이 0.002 정도는 split 사이 흔들림 (아래 표의 split 표준편차: hazelnut kumo 0.0009, in_vehicle kumo 0.0032) 과 비슷
 - hazelnut: FM 한 번 (kumo) 이 모든 Agent 보다 나음. FM 없는 Agent 중 최고는 AIDE × GPT 0.0162 (kumo 의 3.6배 오차). 모든 Agent 가 우리 GBDT 보다는 나음
 - in_vehicle: Agent 셋 (Codex·AIDE 둘) 이 FM 최고 (kumo 0.1452) 보다 나음. Codex 는 TabArena 의 Kumo (0.1372) 보다도 나음.
   Codex 는 인구통계 열로 응답자 id 를 다시 만들고 (`person`, 같은 응답자가 여러 시나리오에 답함) 쿠폰 × 상황 교차 피처 + CatBoost·LightGBM·XGBoost·선형 모델 섞기
@@ -479,6 +483,23 @@ in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (�
   (작업 디렉터리 코드·하네스 기록에서 `device='cuda'`·`task_type='GPU'`·`gpu_hist`·nvidia-smi 를 셈, 저장소 밖 스크립트)
 - Agent 의 A10 은 유지 (2026-11-14 사용자가 정함): MLE-bench 의 기본 설정 (A10 1장 · 1시간) 과 C2 (+fm, TFM 에 GPU 필요) 와 같은 환경으로 두려고.
   GPU 와 인터넷이 있으면 공식 설정에서도 FM 을 스스로 깔 수 있음 (hazelnut 의 Codex) → 그런 실행은 `tfm_runtime` 으로 가려 따로 읽음
+
+### 2회째 (#17, 2026-11-14~15)
+
+같은 r0f0 · 같은 설정 · 같은 순서 (Sonnet 줄: AIDE → Claude Code → +cont, GPT 줄: AIDE → Codex. 같은 엔드포인트는 한 번에 하나). 10회 모두 정상 종료·채점.
+
+- 같은 순위인가: **그렇다.** hazelnut 은 2회째에도 FM 한 번 (kumo 0.0045, tabicl 0.0073) 이 모든 Agent 보다 나음. 2회째 Agent 최고는 Codex 0.0134 (kumo 의 3배 오차).
+  in_vehicle 은 2회째에도 Codex (0.1330) · AIDE × Sonnet (0.1390) · AIDE × GPT (0.1406) 가 FM 최고 (kumo 0.1452) 보다 나음. Codex 는 또 TabArena Kumo (0.1372) 보다도 나음.
+  1회째와 2회째 차이: in_vehicle 은 모두 0.002 안 (split 흔들림 안), hazelnut 은 AIDE × Sonnet 0.021 → 0.014, Claude Code 공식 0.022 → 0.034 (우리 GBDT 보다 나쁨, 19초에 스스로 끝냄),
+  Codex 0.006 → 0.013 (아래). hazelnut 의 순위 안쪽 (Agent 끼리) 은 흔들리지만 "FM > 모든 Agent" 는 그대로
+- Codex 가 공식 설정에서 TFM 을 스스로 까는가: **2회째는 안 깔았음** (두 데이터셋 모두 `tfm_runtime`·`tfm_in_code`·`pip_target` 빈칸).
+  hazelnut 2회째는 처음에 `pip show tabpfn tabicl autogluon ...` 으로 깔렸는지만 보고 (없음), SVC·커널 릿지·NCA·torch MLP 섞기 (`generate_final.py`) 로 감 → 0.0134.
+  1회째의 0.0064 는 TFM 을 깐 덕으로 보임 (2회째 Codex 는 AIDE 들과 비슷한 자리). → hazelnut 의 Codex 는 1회째만 "FM 을 스스로 찾은 Agent", 2회째는 보통 Agent 로 읽음
+- in_vehicle 의 Codex 2회째도 인구통계 열로 응답자 id (`respondent`) 를 다시 만들고 train+test 를 합쳐 만든 응답자 id 로 응답자별 타깃 집계 피처 (다른 fold 에서) → GBDT·선형 모델 등 섞기 (`combine.py`).
+  1회째와 같은 "inductive 규칙 (5) 으로는 안 되는" 풀이가 두 번 다 나옴 → in_vehicle 의 "Codex > FM" 은 이 풀이 몫으로 읽음
+- 사후 검사: 10회 모두 `data_source_urls` 0, `kaggle_urls` 0 (원본 데이터 접근 흔적 없음). 429 재시도는 Codex 만 (hazelnut 4번, in_vehicle 57번). 입력 토큰 Codex 4,054만·4,234만, 나머지 9만~57만
+- 뺀 실행: hazelnut × Codex 2회째 첫 시도 (`tabarena-p01__codex-gpt__r2__20261114-205933`) 는 하네스 14분째 Databricks 에서 "Run cancelled by user" 로 취소 (누가 했는지 기록 없음).
+  진행 사본으로 0.01232 로 채점됐지만 (`run_crashed`) 1시간 조건이 아니라 `fab ta agent exclude` 로 빼고 같은 rep 2 로 다시 돌림 (위 0.01335)
 
 ### FM 이 TabArena 와 맞는지
 
@@ -601,7 +622,7 @@ in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (�
 |---|---|---|
 | 2만 행 넘는 12개 데이터셋 (FM 맞춤 확인용, tabicl·kumo) | [#16](https://github.com/Aiden-Jeon/fm-agent-bench/issues/16) | 끝 (refit, 8×H100 작업 하나 11분. 위 "51개 (#16)") |
 | kddcup09 에서 Kumo 가 TabArena 보다 나쁨 (범주 처리 차이로 봄) | – | 필요하면 |
-| Agent 2회째 (결정 2: 같은 r0f0 에서, 10회) | [#17](https://github.com/Aiden-Jeon/fm-agent-bench/issues/17) | |
+| Agent 2회째 (결정 2: 같은 r0f0 에서, 10회) | [#17](https://github.com/Aiden-Jeon/fm-agent-bench/issues/17) | 끝 (2026-11-15, 위 "2회째 (#17)") |
 | 사후 검사가 `pip install --target` 을 못 잡음 → `pip_target` 열 (9 의 "사후 검사") | [#18](https://github.com/Aiden-Jeon/fm-agent-bench/issues/18) | 완료 (2026-11-14) |
 | `fab ta fm` 의 동시 GPU 작업 상한 → `--max-concurrent` (9 의 "명령") | [#19](https://github.com/Aiden-Jeon/fm-agent-bench/issues/19) | 완료 (2026-11-14) |
 | 원격 채점 속도 (정리 작업 한 번 약 1시간) → 채점 약 3배 빠름, 남은 몫은 FM 합치기 (9 의 "원격 채점 속도") | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | 완료 (2026-11-14) |
@@ -744,7 +765,7 @@ minipfn 에서 가져올 것 없음 (Agent 실행은 1시간 고정, GPU 계산�
 - 분당 한도 (약 150만, [mle-bench.md](mle-bench.md) 의 "429") 를 쓰는 것은 Codex 뿐. AIDE 끼리 동시에 돌려도 부하가 없음은 확인함 ("동시 실행 부하 확인")
 - 안: Codex 둘 (hazelnut → in_vehicle) 만 GPT 엔드포인트에서 하나씩, 나머지 8개는 그와 동시에. 벽시계 약 4시간 30분 → 약 2시간 + 준비 (Codex 2번).
   다만 AIDE × GPT 가 Codex 와 같은 엔드포인트를 동시에 씀 (1회째와 조건이 다름, 입력은 Codex 의 1% 쯤)
-- 2회째는 이미 진행 중 (hazelnut 5설정 제출, in_vehicle 남음, 2026-11-14 21시 기준). 적용은 사용자가 정함
+- 2회째는 이 안을 쓰지 않고 1회째와 같은 순서로 돌림 (Sonnet 줄 · GPT 줄 하나씩, 2026-11-15 끝). 결과는 "파일럿 결과" 의 "2회째 (#17)"
 
 ### #16 에 쓴 것 (2026-11-14, 사용자가 정함)
 
