@@ -69,7 +69,9 @@ def measure(volume: Path, key: str, comps: list[str], models: list[str], grader,
 
     scratch = volume / "tmp" / "timing" / key
     scratch.mkdir(parents=True, exist_ok=True)
-    real, tables.remote = tables.remote, scratch
+    # _before 의 tables.begin 이 step 의 되돌리기 기억 (tables.saved) 을 timing 행이 든 표로 바꿈 → 끝나면 되돌림
+    # (안 그러면 실패했을 때 step 의 rollback 이 그 표를 진짜 Volume 의 tables/ 에 씀)
+    real, real_saved, tables.remote = tables.remote, getattr(tables, "saved", None), scratch
     out = dict(comps=len(comps), models=models)
     try:
         # 순서 효과 (Volume 읽기 캐시) 를 보려고 after → before → after
@@ -99,6 +101,6 @@ def measure(volume: Path, key: str, comps: list[str], models: list[str], grader,
                 out[f"merge_{name}"] = dict(seconds=round(time.perf_counter() - t0, 1), files=n)
     finally:
         restore()
-        tables.remote = real
+        tables.remote, tables.saved = real, real_saved
         shutil.rmtree(scratch, ignore_errors=True)
     return out

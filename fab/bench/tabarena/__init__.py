@@ -368,11 +368,11 @@ def grade_row(comp: Competition, model: str, report: dict, note: str = "", info:
                 run=(info or test_info(comp.name, model) or {}).get("run"), note=note)
 
 
-def grade(comps: list[str], models: list[str], note: str, grader, write: bool = True,
+def grade(comps: list[str], models: list[str], note: str, grader,
           timer: dict | None = None) -> tuple[list[dict], dict[str, str]]:
     """(대회, 모델) 마다 test.npy → 제출 표 (파일로 쓰지 않음, submission_frame) → score_frame → results/tabarena.csv.
     원격 정리 작업이 부름 (grader = remote.Grader: 정답을 대회마다 한 번 읽음). 대회의 test id 도 한 번만 읽음.
-    표는 끝에 한 번 씀 (write=False 면 안 씀: 부르는 쪽이 모아 씀). 예측이 없거나 채점에 실패한 것은 표에 쓰지 않음.
+    표는 끝에 한 번 씀. 예측이 없거나 채점에 실패한 것은 표에 쓰지 않음.
     timer: 단계별 걸린 초를 더해 넣음 (#20 의 측정). 계산은 예전 경로 (make_submission → 제출 csv → score_submission) 와 같음."""
     from fab.core.results import test_info
     from fab.submission import submission_frame
@@ -415,7 +415,7 @@ def grade(comps: list[str], models: list[str], note: str, grader, write: bool = 
                 errors[f"{name}/{m}"] = f"채점 실패: {report.get('error')}"
                 continue
             rows.append(grade_row(comp, m, report, note, infos[m]))
-    if rows and write:
+    if rows:
         t0 = time.perf_counter()
         append_rows(pd.DataFrame(rows), GRADES)
         tick("table", t0)
@@ -431,7 +431,8 @@ def request_grade(comps: list[str], models: list[str], note: str = ""):
 
     cfg = settings()
     upload_answers(cfg, comps)
-    key = f"tabarena__{datetime.now():%Y%m%d-%H%M%S}"
+    # 마이크로초까지: 상한 모드 (submit_fm_throttled) 는 한 차례에 여러 데이터셋의 요청을 같은 초에 낼 수 있음 (같은 key 면 덮어씀)
+    key = f"tabarena__{datetime.now():%Y%m%d-%H%M%S-%f}"
     submit_item(cfg, "grade", key, dict(bench="tabarena", comps=comps, models=models, note=note))
     print(f"채점 요청: {key} (대회 {len(comps)}개 × 모델 {len(models)}개) → 학습이 끝난 뒤 fab remote kick, 결과는 fab sync")
 
@@ -511,7 +512,8 @@ def gpu_state(profile: str, run_id) -> dict:
 
 
 def fast_system_error(st: dict) -> bool:
-    return st["result"] not in ("SUCCESS", None) and bool(SYSTEM_ERROR.search(st["message"])) \
+    # result 가 없을 수도 있음 (life INTERNAL_ERROR 로 끝나면 result_state 가 비기도 함)
+    return st["result"] != "SUCCESS" and bool(SYSTEM_ERROR.search(st["message"])) \
         and st["seconds"] is not None and st["seconds"] < FAST_FAIL_SECONDS
 
 
@@ -574,7 +576,7 @@ def submit_fm_throttled(todo: list[tuple[str, list[str]]], models: list[str], no
                     finished.add(ds)
             if queue or running:
                 time.sleep(poll)
-    except (KeyboardInterrupt, Exception) as e:  # 제출·조회 실패도: 어디까지 냈는지 남기고 멈춤
+    except BaseException as e:  # 제출·조회 실패 (SystemExit 포함: upload_answers 등) 도: 어디까지 냈는지 남기고 멈춤
         left = [q for q, *_ in queue if q not in tries]
         again = [q for q, *_ in queue if q in tries]
         wait = sorted(set(tries) - finished - set(again))

@@ -602,9 +602,9 @@ in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (�
 | 2만 행 넘는 12개 데이터셋 (FM 맞춤 확인용, tabicl·kumo) | [#16](https://github.com/Aiden-Jeon/fm-agent-bench/issues/16) | 끝 (refit, 8×H100 작업 하나 11분. 위 "51개 (#16)") |
 | kddcup09 에서 Kumo 가 TabArena 보다 나쁨 (범주 처리 차이로 봄) | – | 필요하면 |
 | Agent 2회째 (결정 2: 같은 r0f0 에서, 10회) | [#17](https://github.com/Aiden-Jeon/fm-agent-bench/issues/17) | |
-| 사후 검사가 `pip install --target` 을 못 잡음 (9 의 "빈틈") | [#18](https://github.com/Aiden-Jeon/fm-agent-bench/issues/18) | |
-| `fab ta fm` 의 동시 GPU 작업 상한 (지금은 저장소 밖 스크립트) | [#19](https://github.com/Aiden-Jeon/fm-agent-bench/issues/19) | |
-| 원격 채점 속도 (정리 작업 한 번 약 1시간) | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | |
+| 사후 검사가 `pip install --target` 을 못 잡음 → `pip_target` 열 (9 의 "사후 검사") | [#18](https://github.com/Aiden-Jeon/fm-agent-bench/issues/18) | 완료 (2026-11-14) |
+| `fab ta fm` 의 동시 GPU 작업 상한 → `--max-concurrent` (9 의 "명령") | [#19](https://github.com/Aiden-Jeon/fm-agent-bench/issues/19) | 완료 (2026-11-14) |
+| 원격 채점 속도 (정리 작업 한 번 약 1시간) → 채점 약 3배 빠름, 남은 몫은 FM 합치기 (9 의 "원격 채점 속도") | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | 완료 (2026-11-14) |
 | physiochemical 의 `tabpfn_v2` (TabArena 범위 밖이라 비교에는 필요 없음) | – | 안 함 |
 | Kumo·TabICL 이 TabArena 보다 조금 나쁜 쪽으로 기우는 까닭 (컨텍스트 80% 대 refit) | – | 12개 refit 에서는 기울지 않음 ("51개 (#16)"). 39개를 refit 으로 다시 돌리면 가려짐 (필요하면) |
 

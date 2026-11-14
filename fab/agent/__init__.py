@@ -374,7 +374,7 @@ def _words(cmd: str) -> list[str]:
     if len(words) >= 3 and words[0].rsplit("/", 1)[-1] in ("bash", "sh", "zsh") and re.fullmatch(r"-\w*c\w*", words[1]):
         return [*_words(words[2]), *words[3:]]
     out = []
-    for line in HEREDOC.sub(" ; ", cmd).splitlines():
+    for line in HEREDOC.sub(" ; ", cmd).replace("\\\n", " ").splitlines():  # 줄 이음 (\ 줄바꿈) 은 한 줄로
         out += [*_shell_split(line), ";"]
     return out
 
@@ -390,12 +390,15 @@ def pip_target(cmds: list[str]) -> list[str]:
         if not PIP_INSTALL.search(c):
             continue
         words = _words(c)
+        # 같은 명령 안에서 새 가상환경을 켠 뒤 (source <폴더>/bin/activate) 의 pip 는 그 환경에 깜
+        activated = any(re.search(rf"(?:\bsource|(?:^|[;&|(]\s*)\.)\s+{re.escape(v)}/bin/activate\b", c, re.M)
+                        for v in venvs)
         for i, w in enumerate(words):
             if w != "install" or i == 0 or words[i - 1].rsplit("/", 1)[-1] not in ("pip", "pip3"):
                 continue
             # 설치한 인터프리터: pip 앞 낱말 (… -m pip → python 경로, uv pip → uv, /tmp/v/bin/pip → 그 경로)
             exe = words[i - 3] if i >= 3 and words[i - 2] == "-m" else words[i - 1]
-            outside = any(exe.startswith(f"{v}/") for v in venvs)
+            outside = activated or any(exe.startswith(f"{v}/") for v in venvs)
             names, j = [], i + 1
             while j < len(words) and words[j] not in (";", "&&", "||", "|", "&"):
                 w2 = words[j]
@@ -407,8 +410,11 @@ def pip_target(cmds: list[str]) -> list[str]:
                     j += 2 if re.fullmatch(r"\d*(?:>>?|<|&>|>&)", w2) else 1
                     continue
                 opt = w2.split("=", 1)[0]
-                if opt in PIP_OUTSIDE_OPTS:
+                if opt in PIP_OUTSIDE_OPTS or re.fullmatch(r"-t\S+", w2):  # -t/tmp/x (값을 붙여 씀) 도
                     outside = True
+                if opt in ("--python", "-p"):  # uv pip install --python <새 가상환경>
+                    val = w2.split("=", 1)[1] if "=" in w2 else (words[j + 1] if j + 1 < len(words) else "")
+                    outside |= any(val == v or val.startswith(f"{v}/") for v in venvs)
                 if opt in PIP_VALUE_OPTS and "=" not in w2:
                     j += 2
                     continue
