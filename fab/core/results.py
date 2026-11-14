@@ -136,7 +136,8 @@ def merge_results(remote: Path, where: str):
                     warn_overwrite(OUTPUTS / d.name / m.name)
                     if not (m / TEST_INFO).exists():
                         clear_test_info(OUTPUTS / d.name / m.name)
-            shutil.copytree(d, OUTPUTS / d.name, dirs_exist_ok=True)
+            # copyfile: 내용만 (copy2 의 권한·시각 복사는 Volume 에서 파일마다 왕복이 늘어 합치기가 약 1.7배 느림, #20). 출력의 시각은 안 씀
+            shutil.copytree(d, OUTPUTS / d.name, dirs_exist_ok=True, copy_function=shutil.copyfile)
     if OUTPUTS != RESULTS:
         print(f"실행 출력 저장: {OUTPUTS} (results.csv 는 {RESULTS})")
     if not (remote / "results.csv").exists():  # --fold 실행은 results.csv 를 안 씀 (합칠 때 씀)

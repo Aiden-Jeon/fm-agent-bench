@@ -9,7 +9,7 @@
           (test_info 다시) → append_rows (tabarena.csv 읽고 씀) → 표 5개를 Volume 에 (tables.flush) → 진행 기록 쓰기
   after   지금 경로 (fab.bench.tabarena.grade): 제출 파일 없이 test.npy 로 바로, 정답·test id 는 대회마다 한 번, 표는 끝에 한 번
 두 경로의 점수가 같은지도 봄 (같은 (대회, 모델) 의 score 차이). FM 결과 합치기 (reconcile 의 fm: 실행 출력을 outputs/ 로
-복사) 는 그 데이터셋의 FM 실행 하나의 results/ 를 scratch 로 shutil.copytree (copy2, 지금) 대 copyfile (메타데이터 안 씀) 로 잼.
+복사) 는 그 데이터셋의 FM 실행 하나의 results/ 를 scratch 로 shutil.copytree 의 copyfile (지금) → copy2 (예전) → copyfile 순으로 잼.
 """
 
 from __future__ import annotations
@@ -93,9 +93,9 @@ def measure(volume: Path, key: str, comps: list[str], models: list[str], grader,
         out["identical"] = out["same_keys"] and all(a[k] == b[k] for k in a)
         if merge_src is not None and merge_src.is_dir():
             n = sum(1 for p in merge_src.rglob("*") if p.is_file())
-            for name, fn in (("copy2", shutil.copy2), ("copyfile", shutil.copyfile)):
+            for name, fn in (("copyfile", shutil.copyfile), ("copy2", shutil.copy2), ("copyfile2", shutil.copyfile)):
                 t0 = time.perf_counter()
-                shutil.copytree(merge_src, scratch / f"merge_{name}", copy_function=fn, dirs_exist_ok=True)
+                shutil.copytree(merge_src, scratch / f"merge_{name}", copy_function=fn, dirs_exist_ok=True)  # 매번 새 폴더
                 out[f"merge_{name}"] = dict(seconds=round(time.perf_counter() - t0, 1), files=n)
     finally:
         restore()
