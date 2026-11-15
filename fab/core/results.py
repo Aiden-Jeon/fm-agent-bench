@@ -47,11 +47,17 @@ def table_lock(csv: Path):
         yield
 
 
+def read_table(csv: Path) -> pd.DataFrame:
+    """고쳐 다시 쓸 표를 읽음. pandas 기본 float 파서는 17자리 값의 끝자리를 바꿔 읽음 → 다시 쓰면 건드리지 않은 행의 값이
+    바뀜 (2026-11-15: 원격 append 한 번에 tabarena.csv 의 옛 행 121개). round_trip 이면 쓴 값 그대로 읽음."""
+    return pd.read_csv(csv, float_precision="round_trip")
+
+
 def append_rows(rows: pd.DataFrame, csv: Path | None = None):
     """표(기본 results.csv)에 행 추가. 여러 작업자가 동시에 쓰므로 잠금을 걸고 씀."""
     csv = csv or RESULTS / "results.csv"
     with table_lock(csv):
-        pd.concat([pd.read_csv(csv), rows] if csv.exists() else [rows]).to_csv(csv, index=False)
+        pd.concat([read_table(csv), rows] if csv.exists() else [rows]).to_csv(csv, index=False)
 
 
 def read_results() -> pd.DataFrame:
