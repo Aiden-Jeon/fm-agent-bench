@@ -58,10 +58,13 @@ VARIANTS = {
     "kumo_e4": ("kumo", dict(n_estimators=4)),
     "kumo_e16": ("kumo", dict(n_estimators=16)),  # TabArena 의 Kumo-Tabular 와 같은 앙상블 수 (docs/tabarena.md 8, 결정 4)
     "sap_rpt8k": ("sap_rpt", dict(max_context_size=8192)),  # README 기본값, 80GB GPU 용
-    # 예측 속도 시험 (docs/tabarena.md "빠르게 돌리기"): TabICL 컨텍스트 KV 캐시 (예측 청크마다 컨텍스트를 다시 계산하지 않음),
-    # Kumo 질의 청크 (기본 2048 은 T4 기준)
+    # 예측 속도 (docs/tabarena.md "빠르게 돌리기"): TabICL 컨텍스트 KV 캐시, Kumo 질의 청크.
+    # 2026-11-15 부터 tabicl 은 캐시 켬·kumo 는 청크 8192 가 기본 (결정 11) → tabicl_kv·kumo_c8k 는 기본과 같음
+    # (이 이름으로 낸 TabArena 51개 refit 결과를 그대로 읽으려고 남김). 옛 기본은 tabicl_nokv·kumo_c2k
     "tabicl_kv": ("tabicl", dict(kv_cache=True)),
+    "tabicl_nokv": ("tabicl", dict(kv_cache=False)),
     "kumo_c8k": ("kumo", dict(chunk=8192)),
+    "kumo_c2k": ("kumo", dict(chunk=2048)),
     "kumo_c32k": ("kumo", dict(chunk=32768)),
 }
 
@@ -92,6 +95,26 @@ def is_refit(name: str) -> bool:
 def base_name(name: str) -> str:
     base = strip_refit(split_features(name)[0].partition("@")[0])
     return VARIANTS.get(base, (base,))[0]
+
+
+OPTS_SKIP = {"task", "cat_cols", "seed", "metric"}  # 팩토리 인자 중 설정이 아닌 것 (대회가 정함)
+
+
+def model_opts(name: str) -> str:
+    """실행 이름 → 그 모델의 설정 문자열 (팩토리 기본값 + VARIANTS 인자, 예: kumo → 'chunk=8192 n_estimators=8').
+    결과표 (results.csv·tabarena.csv·mlebench.csv) 의 opts 열: 같은 이름이라도 기본값이 바뀌기 전 행 (opts 빈칸,
+    2026-11-15 전: tabicl 캐시 없음·kumo 청크 2048) 과 뒤 행을 가름. 설정 인자가 없는 팩토리 (GBDT·tabpfn) 는 'default'.
+    test 예측 방식 (refit / 5-fold) 은 이름 (REFIT_SUFFIX) 으로 가르고 여기에는 넣지 않음."""
+    base = strip_refit(split_features(name)[0].partition("@")[0])
+    base, kwargs = VARIANTS.get(base, (base, {}))
+    if base not in REGISTRY:
+        return ""
+    module, fn = REGISTRY[base]
+    params = inspect.signature(getattr(importlib.import_module(module), fn)).parameters
+    opts = {k: p.default for k, p in params.items()
+            if k not in OPTS_SKIP and p.default is not inspect.Parameter.empty}
+    opts |= {k: v for k, v in kwargs.items() if k != "max_features"}
+    return " ".join(f"{k}={v}" for k, v in sorted(opts.items())) or "default"
 
 
 def make_model(name: str, task: str, cat_cols: list[str], seed: int, max_rows: int | None = None,

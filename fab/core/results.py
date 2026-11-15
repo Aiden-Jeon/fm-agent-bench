@@ -95,10 +95,11 @@ def save_test_info(out: Path, info: dict):
     os.replace(tmp, out / TEST_INFO)
 
 
-def write_test_info(out: Path, run: str, cv: float, n_folds: int, classes: list | None):
+def write_test_info(out: Path, run: str, cv: float, n_folds: int, classes: list | None, opts: str | None = None):
     """test.npy 를 저장한 직후에만 씀 → --no-test 재실행·원격 결과 병합(copytree)에도 예측과 출처가 함께 다님.
-    classes: 예측 열 순서 (meta.json 은 --no-test 재실행이 덮어쓰므로 제출 파일은 이 값으로 만듦)."""
-    save_test_info(out, dict(run=run, cv=cv, n_folds=n_folds, classes=classes))
+    classes: 예측 열 순서 (meta.json 은 --no-test 재실행이 덮어쓰므로 제출 파일은 이 값으로 만듦).
+    opts: 모델 설정 (fab.models.model_opts) → 채점표 (tabarena.csv·mlebench.csv) 의 opts 열. 2026-11-15 전 실행에는 없음."""
+    save_test_info(out, dict(run=run, cv=cv, n_folds=n_folds, classes=classes, opts=opts))
 
 
 def test_info(comp_name: str, model: str) -> dict | None:

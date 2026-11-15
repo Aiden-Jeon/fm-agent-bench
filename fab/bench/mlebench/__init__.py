@@ -183,6 +183,8 @@ def grade(cid: str, groups: list[list[str]], note: str, grade_fn) -> tuple[list[
         rows.append(dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"),
                          mlebench=cid, model="+".join(models), comps=" ".join(c.name for c in comps),
                          runs=" ".join(str(i.get("run")) for i in infos), note=note,
+                         # 모델 설정 (fab.models.model_opts): 묶음·타깃마다 다르면 ' | ' 로. 2026-11-15 전 실행은 빈칸
+                         opts=" | ".join(dict.fromkeys(str(i["opts"]) for i in infos if i.get("opts"))) or None,
                          **{k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal",
                                                        "silver_medal", "bronze_medal", "above_median",
                                                        "gold_threshold", "silver_threshold", "bronze_threshold",

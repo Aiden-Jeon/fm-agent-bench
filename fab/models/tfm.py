@@ -188,11 +188,11 @@ def make_tabpfn35(task, cat_cols, seed, **kw):
     return _tabpfn(task, cat_cols, seed, version="v3.5", **kw)
 
 
-def make_tabicl(task, cat_cols, seed, kv_cache=False):
+def make_tabicl(task, cat_cols, seed, kv_cache=True):
     """kv_cache: fit 에서 컨텍스트의 KV 를 한 번 만들어 둠 → 예측 청크 (PREDICT_CHUNK) 마다 컨텍스트를 다시 계산하지 않음
     (꺼 두면 test 7만 행이 청크 4개 = 컨텍스트 4번). 점수는 끈 것과 같음 (H100 에서 test 점수 6자리까지, 2026-11-14).
     캐시를 만들거나 예측하다 OOM 이면 캐시 없이 (_CacheFallback. A10 24GB 에서 컨텍스트 10만 행 × 피처 10 은 캐시를 만들다 OOM,
-    5만 × 170 은 들어감, 2026-11-14)."""
+    5만 × 170 은 들어감, 2026-11-14). 기본은 켬 (2026-11-15, docs/tabarena.md 결정 11). 옛 기본 (끔) 은 tabicl_nokv."""
     from tabicl import TabICLClassifier, TabICLRegressor
 
     cls = TabICLRegressor if task == "regression" else TabICLClassifier
@@ -304,10 +304,11 @@ def make_limix2m(task, cat_cols, seed):
     return _TFM(lambda cat_idx: _LimiX(task, cat_idx, "stable-ai/LimiX-1_2M", "LimiX-1_2M.ckpt"), cat_cols)
 
 
-def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=2048):
+def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=8192):
     # MAE 는 중앙값이 최적 점추정 (평균은 오른쪽 꼬리가 긴 타깃에서 위로 치우침, Allstate)
     point = "median" if metric == "mae" else "mean"
-    # 컨텍스트가 1만 행을 넘으면 질의 2만 행으로는 T4 메모리를 넘음 (S4E2 에서 13.7GiB 요청) → 기본 질의 청크 2048
+    # chunk: 질의 청크. 2026-11-15 부터 기본 8192 (H100·A10 에서 2048 보다 6~32% 빠름, 점수는 float16 계산 순서만큼 다름,
+    # docs/tabarena.md 결정 11). 옛 기본 2048 (컨텍스트 1만 행을 넘으면 질의 2만 행은 T4 메모리를 넘음, S4E2 13.7GiB) 은 kumo_c2k
     return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point), cat_cols, chunk=chunk)
 
 

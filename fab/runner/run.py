@@ -27,7 +27,7 @@ from sklearn.preprocessing import LabelEncoder
 from fab.core.competition import TRANSFORMS, build_features, get_folds, load_competition, load_data
 from fab.core.metrics import EXTRA, normalize_proba, score
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, warn_overwrite, write_test_info
-from fab.models import is_refit, make_model, split_features
+from fab.models import is_refit, make_model, model_opts, split_features
 from fab.runner.common import add_run_args, check_run_args, cpu_count, run_argv
 
 
@@ -165,11 +165,13 @@ def utc_now() -> str:
 
 
 def save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, note, no_test, where=None,
-             n_features=None):
+             n_features=None, opts=None):
     """전체 실행 결과: results/<대회>/<실행 이름>/{oof,test}.npy·meta.json·test.json + results.csv 한 줄.
     features = 피처 변형 (실행 이름의 ~<variant>, 없으면 base = 대회의 features.py), n_features = 모델에 넣은 열 수
-    (tfm_max_features 로 줄이기 전). refit 실행은 oof = None (oof.npy 안 씀, CV 점수 NaN, n_folds 0)."""
+    (tfm_max_features 로 줄이기 전). refit 실행은 oof = None (oof.npy 안 씀, CV 점수 NaN, n_folds 0).
+    opts = 모델 설정 (fab.models.model_opts, 기본은 지금 코드로 계산. fold 합치기는 fold 를 돌린 때의 값을 넘김)."""
     out = OUTPUTS / comp.name / name
+    opts = model_opts(name) if opts is None else opts
     out.mkdir(parents=True, exist_ok=True)
     if oof is not None:
         np.save(out / "oof.npy", oof)
@@ -177,19 +179,19 @@ def save_run(comp, name, oof, test_pred, scores, fold_scores, secs, classes, not
     features = split_features(name)[1] or "base"
     meta = dict(comp=comp.name, model=name, metric=comp.metric, scores=scores, fold_scores=fold_scores,
                 seconds=round(secs, 1), classes=classes, n_folds=len(fold_scores), note=note, features=features,
-                n_features=n_features, timestamp=utc_now())
+                n_features=n_features, opts=opts, timestamp=utc_now())
     (out / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
     if not no_test:  # 예측과 그 출처(test.json)는 함께만 씀
         warn_overwrite(out)
         clear_test_info(out)
         np.save(out / "test.npy", test_pred)
-        write_test_info(out, meta["timestamp"], cv, len(fold_scores), classes)
+        write_test_info(out, meta["timestamp"], cv, len(fold_scores), classes, opts)
 
     row = dict(timestamp=meta["timestamp"], comp=comp.name, model=name, metric=comp.metric,
                cv=np.nan if cv is None else cv, cv_std=float(np.std(fold_scores)) if fold_scores else np.nan,
                n_folds=len(fold_scores),
                seconds=meta["seconds"], **{f"cv_{k}": v for k, v in scores.items() if k != comp.metric},
-               note=note, test=not no_test, features=features, n_features=n_features,
+               note=note, test=not no_test, features=features, n_features=n_features, opts=opts,
                **({"where": where} if where else {}))
     append_rows(pd.DataFrame([row]))
     print(f"=> {name}: " + (f"{comp.metric}={cv:.5f} ± {row['cv_std']:.5f}" if cv is not None else "refit (CV 없음)")
@@ -204,7 +206,7 @@ def save_fold(comp, name, fold, oof, test_pred, fold_score, secs, classes, note,
     if not no_test:
         np.save(out / "test.npy", test_pred)
     meta = dict(fold=fold, fold_score=fold_score, seconds=round(secs, 1), classes=classes, note=note,
-                no_test=no_test, batch=batch, n_features=n_features, timestamp=utc_now())
+                no_test=no_test, batch=batch, n_features=n_features, opts=model_opts(name), timestamp=utc_now())
     (out / "meta.json").write_text(json.dumps(meta, indent=2, default=str))
     print(f"=> {name}: fold {fold} {comp.metric}={fold_score:.5f}  ({secs:.0f}s) → {out}\n")
 
@@ -220,7 +222,7 @@ def merge_folds(comp, name, y, fold_dirs: dict[int, Path], where=None) -> str | 
         return f"fold {missing} 결과 없음"
     metas = {k: json.loads((fold_dirs[k] / "meta.json").read_text()) for k in range(n)}
     # batch: 같은 제출 묶음인지. no_test·classes·note 가 다르면 한 실행으로 볼 수 없음
-    for key in ("batch", "no_test", "classes", "note"):
+    for key in ("batch", "no_test", "classes", "note", "opts"):
         if len({json.dumps(m.get(key)) for m in metas.values()}) > 1:
             return f"fold 마다 {key} 가 다름"
     first = metas[0]
@@ -244,7 +246,7 @@ def merge_folds(comp, name, y, fold_dirs: dict[int, Path], where=None) -> str | 
     test_pred = None if first["no_test"] else test_sum / n
     save_run(comp, name, oof, test_pred, cv_scores(comp, y, oof), [metas[k]["fold_score"] for k in range(n)],
              sum(m["seconds"] for m in metas.values()), first["classes"], f"{first['note']} (fold 분할)".strip(),
-             first["no_test"], where, first.get("n_features"))
+             first["no_test"], where, first.get("n_features"), first.get("opts", ""))
     return None
 
 

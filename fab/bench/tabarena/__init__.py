@@ -371,10 +371,11 @@ def grade_row(comp: Competition, model: str, report: dict, note: str = "", info:
     from fab.core.results import test_info
 
     ta = comp.tabarena
+    info = info or test_info(comp.name, model) or {}
     return dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"), comp=comp.name,
                 dataset=ta["dataset"], task_id=ta["task_id"], split=ta["split"], fold=fold_index(ta["split"]),
                 model=model, metric=comp.metric, score=report.get("score"), metric_error=report.get("metric_error"),
-                run=(info or test_info(comp.name, model) or {}).get("run"), note=note)
+                run=info.get("run"), note=note, opts=info.get("opts"))
 
 
 def grade(comps: list[str], models: list[str], note: str, grader,
@@ -637,6 +638,15 @@ def default_gbdt(ref: pd.DataFrame, dataset: str, splits: set[str]) -> float:
     return float(g.groupby("ta_name").metric_error.mean().min()) if len(g) else np.nan
 
 
+def warn_mixed_opts(model: str, rows: pd.DataFrame):
+    """같은 모델 이름의 채점 행이 서로 다른 설정 (opts 열, 빈칸 = 2026-11-15 전 기본값) 으로 돈 것이면 경고.
+    예: kumo 는 예전 행이 청크 2048 (빈칸), 기본값을 바꾼 뒤 행이 'chunk=8192 n_estimators=8' (docs/tabarena.md 결정 11)."""
+    opts = rows["opts"].fillna("(빈칸: 2026-11-15 전)") if "opts" in rows else pd.Series("(빈칸: 2026-11-15 전)", rows.index)
+    if opts.nunique() > 1:
+        counts = opts.groupby(opts).size().to_dict()
+        print(f"경고: {model} 의 행이 다른 설정으로 섞임 {counts} → 한 판정으로 읽지 말 것 (설정마다 다른 이름으로 돌림)")
+
+
 def compare(models: list[str] | None = None, splits: str = "all") -> pd.DataFrame:
     """우리 FM (results/tabarena.csv) 과 TabArena 의 같은 split 결과 (results/tabarena_reference.csv) 를 데이터셋별로.
     맞춤 기준 (docs/tabarena.md 8, FM 마다): 데이터셋의 80% 이상에서 |우리 split 평균 − TabArena split 평균| ≤ TabArena
@@ -647,6 +657,7 @@ def compare(models: list[str] | None = None, splits: str = "all") -> pd.DataFram
     ref = pd.read_csv(REFERENCE)
     rows = []
     for model in models or sorted(ours.model.unique()):
+        warn_mixed_opts(model, ours[ours.model == model])
         ta_name = counterpart(model)
         for dataset, o in ours[ours.model == model].groupby("dataset"):
             want = set(split_names(dataset)) if splits == "all" else set(splits.split(","))
