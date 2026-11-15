@@ -73,6 +73,8 @@ VARIANTS = {
     # (옛 결과가 있는 kumo·kumo_refit 과 겹치지 않게 새 결과는 이 이름으로), kumo_numcat 은 옛 동작 (정수 코드를 수치로, 청크 8192)
     "kumo_cat": ("kumo", dict(cats="categorical")),
     "kumo_numcat": ("kumo", dict(cats="numerical")),
+    # 진단용: TabArena 의 AutoGluon 전처리를 짐작으로 흉내 (한 번만 나온 범주 값 → 결측, 상수·중복 열 빼기). docs/tabarena.md 의 kddcup09
+    "kumo_cat_agp": ("kumo", dict(cats="categorical", agp=True)),
 }
 
 
@@ -121,6 +123,7 @@ def model_opts(name: str) -> str:
     opts = {k: p.default for k, p in params.items()
             if k not in OPTS_SKIP and p.default is not inspect.Parameter.empty}
     opts |= {k: v for k, v in kwargs.items() if k != "max_features"}
+    opts = {k: v for k, v in opts.items() if v is not None}  # None = 안 씀 (예: kumo 의 agp) → 예전 opts 와 같은 글
     return " ".join(f"{k}={v}" for k, v in sorted(opts.items())) or "default"
 
 

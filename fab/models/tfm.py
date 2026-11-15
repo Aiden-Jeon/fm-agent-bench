@@ -273,24 +273,62 @@ class _Kumo(_Transductive):
     TabArena kddcup09 에서 numerical 은 앙상블·청크·refit 과 상관없이 TabArena Kumo 보다 표준편차 2배쯤 나빴음 (docs/tabarena.md)
     """
 
-    def __init__(self, task, cat_idx, n_estimators=8, point="mean", cats="categorical"):
+    def __init__(self, task, cat_idx, n_estimators=8, point="mean", cats="categorical", agp=None):
         super().__init__(task, cat_idx)
-        self.n_estimators, self.point, self.cats = n_estimators, point, cats
+        self.n_estimators, self.point, self.cats, self.agp = n_estimators, point, cats, agp
+
+    def _agp_fit(self, X):
+        """agp (진단용, kumo_cat_agp): TabArena 가 모델 앞에 두는 AutoGluon 전처리를 짐작으로 흉내 (docs/tabarena.md 의 kddcup09).
+        컨텍스트에서 한 번만 나온 범주 값 → 결측, 그 뒤 값이 하나뿐인 열과 다른 열과 똑같은 열 (결측 위치 포함) 을 뺌.
+        돌려주는 것: 남길 열 위치. self.rare_ = {열: 결측으로 바꿀 값}"""
+        X = X.copy()
+        self.rare_ = {}
+        for i in self.cat_idx:
+            v = X[:, i][~np.isnan(X[:, i])]
+            vals, counts = np.unique(v, return_counts=True)
+            self.rare_[i] = vals[counts < 2]
+            X[np.isin(X[:, i], self.rare_[i]), i] = np.nan
+        keep, seen = [], set()
+        for i in range(X.shape[1]):
+            col = X[:, i]
+            if np.unique(col[~np.isnan(col)]).size <= 1:
+                continue
+            key = np.where(np.isnan(col), np.inf, col).tobytes()
+            if key in seen:
+                continue
+            seen.add(key)
+            keep.append(i)
+        return keep
+
+    def _agp(self, X):
+        X = X.copy()
+        for i, rare in self.rare_.items():
+            X[np.isin(X[:, i], rare), i] = np.nan
+        return X[:, self.keep_]
 
     def _run(self, X):
         import sdm
         import torch
 
         dev = torch.device(_device())
+        if self.agp:
+            if not hasattr(self, "keep_"):
+                self.keep_ = self._agp_fit(self.X_)
+                print(f"    [kumo agp] 열 {self.X_.shape[1]} → {len(self.keep_)}, 결측으로 바꾼 범주 값 "
+                      f"{sum(len(r) for r in self.rare_.values())}개", flush=True)
+            X, ctx_X = self._agp(X), self._agp(self.X_)
+            cat_pos = {j for j, i in enumerate(self.keep_) if i in set(self.cat_idx)}
+        else:
+            ctx_X, cat_pos = self.X_, set(self.cat_idx)
         cols = [f"f{i}" for i in range(X.shape[1])]
         if self.cats not in ("categorical", "numerical"):
             raise ValueError(f"cats 는 categorical 또는 numerical: {self.cats!r}")
-        cat = set(self.cat_idx) if self.cats == "categorical" else set()
+        cat = cat_pos if self.cats == "categorical" else set()
         # 범주 열은 정수 코드 (float, 결측 NaN) 그대로 categorical 로: sdm 이 값으로 범주를 만듦 (NaN = 결측)
         stypes = {c: "categorical" if i in cat else "numerical" for i, c in enumerate(cols)}
         autocast = torch.amp.autocast(dev.type, dtype=torch.float16, enabled=dev.type == "cuda")
         if not hasattr(self, "model_"):  # 청크마다 다시 만들지 않도록 재사용
-            ctx = pd.DataFrame(self.X_, columns=cols).assign(target=self.y_)
+            ctx = pd.DataFrame(ctx_X, columns=cols).assign(target=self.y_)
             target_stype = "numerical" if self.task == "regression" else "categorical"
             ctx = sdm.TableTensor.from_pandas(ctx, stypes={**stypes, "target": target_stype}, device=dev)
             self.model_ = sdm.models.KumoTabular(
@@ -312,13 +350,14 @@ def make_limix2m(task, cat_cols, seed):
     return _TFM(lambda cat_idx: _LimiX(task, cat_idx, "stable-ai/LimiX-1_2M", "LimiX-1_2M.ckpt"), cat_cols)
 
 
-def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=8192, cats="categorical"):
+def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=8192, cats="categorical", agp=None):
     # MAE 는 중앙값이 최적 점추정 (평균은 오른쪽 꼬리가 긴 타깃에서 위로 치우침, Allstate)
     point = "median" if metric == "mae" else "mean"
     # chunk: 질의 청크. 2026-11-15 부터 기본 8192 (H100·A10 에서 2048 보다 6~32% 빠름, 점수는 float16 계산 순서만큼 다름,
     # docs/tabarena.md 결정 11). 옛 기본 2048 (컨텍스트 1만 행을 넘으면 질의 2만 행은 T4 메모리를 넘음, S4E2 13.7GiB) 은 kumo_c2k
     # cats: 범주 열을 Kumo 에 범주로 (2026-11-15 부터 기본, _Kumo). 옛 동작 (정수 코드를 수치로) 은 kumo_numcat
-    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point, cats), cat_cols, chunk=chunk)
+    # agp: 진단용 (kumo_cat_agp, _Kumo._agp_fit). 기본 None = 안 함 (결과표 opts 에 안 나옴)
+    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point, cats, agp), cat_cols, chunk=chunk)
 
 
 class _Causilo(BaseEstimator):
