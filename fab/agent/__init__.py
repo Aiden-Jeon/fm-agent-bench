@@ -48,7 +48,7 @@ from pathlib import Path
 import pandas as pd
 
 from fab.agent.fm_audit import HEARTBEAT, WATCH
-from fab.core.results import OUTPUTS, RESULTS, table_lock
+from fab.core.results import OUTPUTS, RESULTS, read_table, table_lock
 from fab.remote import items, submit_item
 from fab.remote import settings as remote_settings
 
@@ -591,7 +591,7 @@ def run_table(info: dict) -> Path:
 def append_run(row: dict, table: Path = TABLE):
     """채점 행 하나를 표에 (옛 행의 새 열은 fill_defaults 로 채움)."""
     with table_lock(table):
-        t = pd.concat([pd.read_csv(table), pd.DataFrame([row])]) if table.exists() else pd.DataFrame([row])
+        t = pd.concat([read_table(table), pd.DataFrame([row])]) if table.exists() else pd.DataFrame([row])
         fill_defaults(t).to_csv(table, index=False)
 
 
@@ -630,7 +630,7 @@ def recheck_table():
 
 def recheck_one(table: Path):
     with table_lock(table):
-        t = pd.read_csv(table)
+        t = read_table(table)
         # 회수 기록이 있는 행만 (2026-11-10 이전 실행의 기록은 kaggle-master 로컬에 있고 Volume 에 없음 → 그 행은 그대로)
         have = t.index[[(AGENT_RUNS / key).is_dir() for key in t.key]]
         checks = pd.DataFrame([{k: " ".join(v) if isinstance(v, list) else v
