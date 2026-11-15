@@ -23,10 +23,8 @@ import time
 import traceback
 from pathlib import Path
 
-import pandas as pd
-
 from fab.core.competition import COMP_DIR, load_competition
-from fab.core.results import RESULTS, merge_results
+from fab.core.results import RESULTS, merge_results, read_table
 from fab.remote import KINDS, TABLES, now
 
 TERMINAL = {"TERMINATED", "SKIPPED", "INTERNAL_ERROR"}
@@ -153,7 +151,7 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             state.done("agent", k, excluded=m["reason"])
         for table in (AGENT_TABLE, TA_TABLE):
             if table.exists():
-                t = pd.read_csv(table)
+                t = read_table(table)
                 t[~t.key.isin(m["keys"])].to_csv(table, index=False)
         tables.flush()
         state.done("exclude", key, keys=m["keys"])
@@ -240,7 +238,7 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
                 raise RuntimeError(f"채점 실패:\n{report['error']}")
         table = run_table(m)
         if table.exists():  # 예전 시도가 행을 쓰고 done 을 못 남겼으면 그 행을 지우고 다시 씀
-            t = pd.read_csv(table)
+            t = read_table(table)
             t[t.key != key].to_csv(table, index=False)
         row = grade_run(key, m, report)
         tables.flush()
