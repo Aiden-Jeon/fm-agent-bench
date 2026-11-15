@@ -2,7 +2,7 @@
 TabArena 공개 결과와 비교. 조사·결정은 docs/tabarena.md.
 
     uv run --frozen fab ta prepare hazelnut-spread-contaminant-detection --splits all   # 데이터·분할 받기 → split 대회
-    uv run --frozen fab ta fm <데이터셋...> --models tabpfn_v2 tabicl kumo lgbm catboost --splits all  # 제출 + 채점 요청
+    uv run --frozen fab ta fm <데이터셋...> --models tabpfn_v2_refit tabicl_kv_refit kumo_cat_refit lgbm_refit catboost_refit --splits all  # 제출 + 채점 요청
     uv run --frozen fab ta reference                     # TabArena 공개 결과 (기본 설정) → results/tabarena_reference.csv
     uv run --frozen fab ta compare                       # results/tabarena.csv 와 TabArena 결과 비교 (맞춤 기준)
     uv run --frozen fab ta agent run ta-<데이터셋> aide-sonnet   # 에이전트 (r0f0, 익명 id 로)

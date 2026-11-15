@@ -188,18 +188,33 @@ def make_tabpfn35(task, cat_cols, seed, **kw):
     return _tabpfn(task, cat_cols, seed, version="v3.5", **kw)
 
 
+TABICL_KV_MAX_CLASSES = 10  # TabICL 의 KV 캐시는 계층 분류 (클래스 > 10) 에서 안 됨: fit 에서 ValueError (leaf 99 클래스, 2026-11-15)
+
+
+class _TabICL(_CacheFallback):
+    """클래스가 TABICL_KV_MAX_CLASSES 를 넘는 분류면 처음부터 캐시 없이 (점수는 캐시와 같음)."""
+
+    def __init__(self, make, task):
+        super().__init__(make, dict(kv_cache=True), dict(kv_cache=False), tag="tabicl")
+        self.task = task
+
+    def fit(self, X, y):
+        self.use_cache = self.task == "regression" or len(np.unique(y)) <= TABICL_KV_MAX_CLASSES
+        return super().fit(X, y)
+
+
 def make_tabicl(task, cat_cols, seed, kv_cache=True):
     """kv_cache: fit 에서 컨텍스트의 KV 를 한 번 만들어 둠 → 예측 청크 (PREDICT_CHUNK) 마다 컨텍스트를 다시 계산하지 않음
     (꺼 두면 test 7만 행이 청크 4개 = 컨텍스트 4번). 점수는 끈 것과 같음 (H100 에서 test 점수 6자리까지, 2026-11-14).
     캐시를 만들거나 예측하다 OOM 이면 캐시 없이 (_CacheFallback. A10 24GB 에서 컨텍스트 10만 행 × 피처 10 은 캐시를 만들다 OOM,
-    5만 × 170 은 들어감, 2026-11-14). 기본은 켬 (2026-11-15, docs/tabarena.md 결정 11). 옛 기본 (끔) 은 tabicl_nokv."""
+    5만 × 170 은 들어감, 2026-11-14). 기본은 켬 (2026-11-15, docs/tabarena.md 결정 11). 옛 기본 (끔) 은 tabicl_nokv.
+    클래스가 10 을 넘으면 (계층 분류) 캐시가 안 되므로 끔 (_TabICL)."""
     from tabicl import TabICLClassifier, TabICLRegressor
 
     cls = TabICLRegressor if task == "regression" else TabICLClassifier
     if not kv_cache:
         return _TFM(lambda cat_idx: cls(random_state=seed), cat_cols)
-    return _TFM(lambda cat_idx: _CacheFallback(lambda **kw: cls(random_state=seed, **kw), dict(kv_cache=True),
-                                               dict(kv_cache=False), tag="tabicl"), cat_cols)
+    return _TFM(lambda cat_idx: _TabICL(lambda **kw: cls(random_state=seed, **kw), task), cat_cols)
 
 
 def _device() -> str:
