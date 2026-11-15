@@ -1,4 +1,4 @@
-"""Tabular Foundation Model 래퍼. 범주형은 정수 코드(결측은 NaN)로 바꿔 numpy 로 전달."""
+"""Tabular Foundation Model 래퍼. 범주형은 정수 코드(결측은 NaN)로 바꿔 numpy 로 전달 (범주 열 위치 cat_idx 는 따로 넘김)."""
 
 from __future__ import annotations
 
@@ -267,11 +267,15 @@ class _Kumo(_Transductive):
     """컨텍스트는 sdm 의 fit() 으로 한 번만 인코딩해 KV 캐시에 두고, 쿼리 청크마다 predict() 로 재사용.
 
     회귀는 999개 분위수(q001~q999)로 분포를 예측 → point 로 점추정: mean(기대값, RMSE 용) / median(MAE 용).
+    cats: 범주 열 (cat_idx) 을 sdm 에 넘기는 stype. "categorical" (2026-11-15 부터 기본): Kumo 의 기본 전처리가 범주를 값 순으로
+    맞추고 (AlignCategories, 컨텍스트에 없는 값은 결측), 범주가 50개 이상인 열은 빈도 열을 더하고 (AddCategoryCounts), 모델에
+    범주 열 표시 (categorical_mask) 를 줌. "numerical": 예전처럼 정수 코드를 수치로 (빈도 열·범주 표시 없음, kumo_numcat).
+    TabArena kddcup09 에서 numerical 은 앙상블·청크·refit 과 상관없이 TabArena Kumo 보다 표준편차 2배쯤 나빴음 (docs/tabarena.md)
     """
 
-    def __init__(self, task, cat_idx, n_estimators=8, point="mean"):
+    def __init__(self, task, cat_idx, n_estimators=8, point="mean", cats="categorical"):
         super().__init__(task, cat_idx)
-        self.n_estimators, self.point = n_estimators, point
+        self.n_estimators, self.point, self.cats = n_estimators, point, cats
 
     def _run(self, X):
         import sdm
@@ -279,7 +283,11 @@ class _Kumo(_Transductive):
 
         dev = torch.device(_device())
         cols = [f"f{i}" for i in range(X.shape[1])]
-        stypes = {c: "numerical" for c in cols}  # Kumo 는 수치형 피처만 지원 → 범주형은 정수 코드
+        if self.cats not in ("categorical", "numerical"):
+            raise ValueError(f"cats 는 categorical 또는 numerical: {self.cats!r}")
+        cat = set(self.cat_idx) if self.cats == "categorical" else set()
+        # 범주 열은 정수 코드 (float, 결측 NaN) 그대로 categorical 로: sdm 이 값으로 범주를 만듦 (NaN = 결측)
+        stypes = {c: "categorical" if i in cat else "numerical" for i, c in enumerate(cols)}
         autocast = torch.amp.autocast(dev.type, dtype=torch.float16, enabled=dev.type == "cuda")
         if not hasattr(self, "model_"):  # 청크마다 다시 만들지 않도록 재사용
             ctx = pd.DataFrame(self.X_, columns=cols).assign(target=self.y_)
@@ -304,12 +312,13 @@ def make_limix2m(task, cat_cols, seed):
     return _TFM(lambda cat_idx: _LimiX(task, cat_idx, "stable-ai/LimiX-1_2M", "LimiX-1_2M.ckpt"), cat_cols)
 
 
-def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=8192):
+def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=8192, cats="categorical"):
     # MAE 는 중앙값이 최적 점추정 (평균은 오른쪽 꼬리가 긴 타깃에서 위로 치우침, Allstate)
     point = "median" if metric == "mae" else "mean"
     # chunk: 질의 청크. 2026-11-15 부터 기본 8192 (H100·A10 에서 2048 보다 6~32% 빠름, 점수는 float16 계산 순서만큼 다름,
     # docs/tabarena.md 결정 11). 옛 기본 2048 (컨텍스트 1만 행을 넘으면 질의 2만 행은 T4 메모리를 넘음, S4E2 13.7GiB) 은 kumo_c2k
-    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point), cat_cols, chunk=chunk)
+    # cats: 범주 열을 Kumo 에 범주로 (2026-11-15 부터 기본, _Kumo). 옛 동작 (정수 코드를 수치로) 은 kumo_numcat
+    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point, cats), cat_cols, chunk=chunk)
 
 
 class _Causilo(BaseEstimator):

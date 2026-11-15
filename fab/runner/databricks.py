@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import itertools
 import json
 import re
 import shutil
@@ -65,12 +66,14 @@ def step(msg):
 
 SRC = Path("/tmp/fab")  # code_source 를 쓰기 가능한 곳으로 복사 (folds.csv, results/ 생성)
 shutil.copytree(Path(sys.argv[0]).parent, SRC)  # serverless 작업(CPU)에는 __file__ 이 없음
-# JOBS = [(대회, Volume 데이터, fab run 인자), ...]: 보통 하나. TabArena 는 데이터셋의 split 대회들을 한 작업에서 차례로
+# JOBS = [(대회, Volume 데이터, fab run 인자), ...]: 보통 하나. TabArena 는 데이터셋의 split 대회들을 한 작업에서 차례로.
+# 같은 대회가 여러 번 나올 수 있음 (fab mleb fm: (대회, 모델) 마다 하나 → 모델을 GPU 마다) → 데이터는 한 번만 연결
 for comp, data_path, _ in JOBS:
     data = SRC / "competitions" / comp / "data"
     data.mkdir(parents=True, exist_ok=True)
     for f in Path(data_path).iterdir():
-        (data / f.name).symlink_to(f)
+        if not (data / f.name).is_symlink():
+            (data / f.name).symlink_to(f)
 
 
 def canon(name):
@@ -208,7 +211,8 @@ def save(comp):
     if len(JOBS) == 1:
         return
     if (SRC / "results" / comp).exists():
-        shutil.copytree(SRC / "results" / comp, out / "results" / comp, dirs_exist_ok=True)
+        with SAVE_LOCK:  # 같은 대회의 다른 모델이 동시에 끝나 같은 곳에 복사할 수 있음 (fab mleb fm)
+            shutil.copytree(SRC / "results" / comp, out / "results" / comp, dirs_exist_ok=True)
     if (SRC / "results" / "results.csv").exists():
         with SAVE_LOCK, open(SRC / "results" / ".results.lock", "w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
@@ -244,8 +248,8 @@ if len(GPUS) > 1 and len(JOBS) > 1:
     # 작업자마다 GPU 하나 (CUDA_VISIBLE_DEVICES) · CPU 를 나눠 받음 (fab run 의 run_parallel 과 같은 까닭: 스레드가 전체 코어를 잡으면 느림)
     import queue
     todo = queue.Queue()
-    for job in sorted(JOBS, key=lambda j: -sum(f.stat().st_size for f in Path(j[1]).glob("train*"))):
-        todo.put(job)
+    for i, job in sorted(enumerate(JOBS), key=lambda ij: -sum(f.stat().st_size for f in Path(ij[1][1]).glob("train*"))):
+        todo.put((i, *job))
     n = min(len(GPUS), len(JOBS))
     # CPU 수: affinity + cgroup v2 할당량 (fab/runner/common.py 의 cpu_count 와 같은 계산. 실행기는 fab 를 import 하지 않음)
     cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count() or 1
@@ -262,14 +266,14 @@ if len(GPUS) > 1 and len(JOBS) > 1:
         wenv = {**env, "CUDA_VISIBLE_DEVICES": gpu, "OMP_NUM_THREADS": per, "FAB_THREADS": per}
         while True:
             try:
-                comp, _, args = todo.get_nowait()
+                i, comp, _, args = todo.get_nowait()
             except queue.Empty:
                 return
             try:
-                codes[comp] = run_comp(comp, args, wenv, f"[g{gpu}]")
+                codes[i] = run_comp(comp, args, wenv, f"[g{gpu}]")
             except Exception as e:  # 복사 실패 등: 그 대회만 실패로 (다른 대회는 계속)
                 print(f"[runner] {comp} 실패: {e!r}", flush=True)
-                codes[comp] = 1
+                codes[i] = 1
 
     threads = [threading.Thread(target=worker, args=(g,)) for g in GPUS[:n]]
     for t in threads:
@@ -277,9 +281,9 @@ if len(GPUS) > 1 and len(JOBS) > 1:
     for t in threads:
         t.join()
 else:
-    for comp, _, args in JOBS:  # 한 대회가 실패해도 나머지는 돌림
-        codes[comp] = run_comp(comp, args, env)
-code = next((codes.get(c, 1) for c, _, _ in JOBS if codes.get(c, 1)), 0)  # 종료 코드는 (JOBS 순서로) 처음 실패한 것
+    for i, (comp, _, args) in enumerate(JOBS):  # 한 대회가 실패해도 나머지는 돌림
+        codes[i] = run_comp(comp, args, env)
+code = next((codes.get(i, 1) for i in range(len(JOBS)) if codes.get(i, 1)), 0)  # 종료 코드는 (JOBS 순서로) 처음 실패한 것
 if len(JOBS) == 1 and (SRC / "results").exists():
     shutil.copytree(SRC / "results", out / "results", dirs_exist_ok=True)
 new = weights() - before
@@ -356,8 +360,8 @@ def ensure_weights(models: list[str], profile: str, volume: str) -> str:
 
 def snapshot(work: Path, comp: str, run_args: list[str], models: list[str], data: str, out: str, cache: str,
              preinstalled: bool, weights: str, jobs: list | None = None):
-    """jobs: [(대회, Volume 데이터, fab run 인자), ...] 를 한 작업에서 차례로 (없으면 comp 하나). PIP 는 첫 대회 기준
-    (피처 변형의 PIP 는 대회마다 같다고 봄: TabArena split 대회는 피처 변형이 없음)."""
+    """jobs: [(대회, Volume 데이터, fab run 인자), ...] 를 한 작업에서 (없으면 comp 하나). PIP 는 job 마다 (그 대회 · 그
+    job 의 모델 = fab run 인자의 첫 '--' 앞) 의 합 (fab mleb fm 은 대회마다 피처 변형의 PIP 가 다름)."""
     jobs = [list(j) for j in jobs] if jobs else [[comp, data, run_args]]
     code = work / "fab"
     wanted = {j[0] for j in jobs}
@@ -375,7 +379,11 @@ def snapshot(work: Path, comp: str, run_args: list[str], models: list[str], data
             shutil.copytree(src, code / p, ignore=ignore)
         else:
             shutil.copy(src, code / p)
-    consts = dict(JOBS=jobs, PIP=BASE_PIP + pip_args(models, jobs[0][0]), IMAGE=preinstalled, OUT=out, CACHE=cache,
+    pip = []
+    for c, _, args in jobs:
+        ms = list(itertools.takewhile(lambda a: not a.startswith("--"), args))
+        pip += [a for a in pip_args(ms, c) if a not in pip]
+    consts = dict(JOBS=jobs, PIP=BASE_PIP + pip, IMAGE=preinstalled, OUT=out, CACHE=cache,
                   WEIGHTS=weights)
     (code / "air_runner.py").write_text("".join(f"{k} = {v!r}\n" for k, v in consts.items()) + "\n" + RUNNER)
     return code

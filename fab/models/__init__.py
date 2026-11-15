@@ -55,17 +55,24 @@ GATED = {"sap_rpt": [("SAP/sap-rpt-1-oss", "2025-11-04_sap-rpt-one-oss.pt")]}
 # 설정만 다른 변형: 이름 → (REGISTRY 모델, 인자). kumo_e4 는 앙상블 크기 벤치마크용 (기본값을 정하면 정리)
 # 인자 중 max_features 는 대회 설정 tfm_max_features 대신 쓰고, 나머지는 팩토리로 전달
 VARIANTS = {
-    "kumo_e4": ("kumo", dict(n_estimators=4)),
-    "kumo_e16": ("kumo", dict(n_estimators=16)),  # TabArena 의 Kumo-Tabular 와 같은 앙상블 수 (docs/tabarena.md 8, 결정 4)
+    # Kumo 진단 이름 (kumo_e*·kumo_c*) 은 범주 열을 수치로 (cats="numerical") 고정: 2026-11-15 전에 이 이름으로 낸 결과
+    # (TabArena 51개 refit 의 kumo_c8k_refit 등) 와 같은 뜻이 되게. 범주를 범주로 넘기는 새 기본은 kumo·kumo_cat
+    "kumo_e4": ("kumo", dict(n_estimators=4, cats="numerical")),
+    # TabArena 의 Kumo-Tabular 와 같은 앙상블 수 (docs/tabarena.md 8, 결정 4)
+    "kumo_e16": ("kumo", dict(n_estimators=16, cats="numerical")),
     "sap_rpt8k": ("sap_rpt", dict(max_context_size=8192)),  # README 기본값, 80GB GPU 용
     # 예측 속도 (docs/tabarena.md "빠르게 돌리기"): TabICL 컨텍스트 KV 캐시, Kumo 질의 청크.
-    # 2026-11-15 부터 tabicl 은 캐시 켬·kumo 는 청크 8192 가 기본 (결정 11) → tabicl_kv·kumo_c8k 는 기본과 같음
+    # 2026-11-15 부터 tabicl 은 캐시 켬·kumo 는 청크 8192 가 기본 (결정 11) → tabicl_kv 는 기본과 같음
     # (이 이름으로 낸 TabArena 51개 refit 결과를 그대로 읽으려고 남김). 옛 기본은 tabicl_nokv·kumo_c2k
     "tabicl_kv": ("tabicl", dict(kv_cache=True)),
     "tabicl_nokv": ("tabicl", dict(kv_cache=False)),
-    "kumo_c8k": ("kumo", dict(chunk=8192)),
-    "kumo_c2k": ("kumo", dict(chunk=2048)),
-    "kumo_c32k": ("kumo", dict(chunk=32768)),
+    "kumo_c8k": ("kumo", dict(chunk=8192, cats="numerical")),
+    "kumo_c2k": ("kumo", dict(chunk=2048, cats="numerical")),
+    "kumo_c32k": ("kumo", dict(chunk=32768, cats="numerical")),
+    # Kumo 범주 열 (fab/models/tfm.py 의 _Kumo): 2026-11-15 부터 범주로 넘기는 것이 기본. kumo_cat 은 기본과 같은 명시 이름
+    # (옛 결과가 있는 kumo·kumo_refit 과 겹치지 않게 새 결과는 이 이름으로), kumo_numcat 은 옛 동작 (정수 코드를 수치로, 청크 8192)
+    "kumo_cat": ("kumo", dict(cats="categorical")),
+    "kumo_numcat": ("kumo", dict(cats="numerical")),
 }
 
 
