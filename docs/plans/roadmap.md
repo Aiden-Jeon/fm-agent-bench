@@ -28,7 +28,8 @@
 TabArena 연동 전에 확인할 것 (2026-11-13 조사, 답은 [docs/tabarena.md](../tabarena.md))
 
 - (답함) 데이터셋 목록·크기, 분할 방식(반복 CV 의 fold 수·반복 수), 지표 → `fab run` 의 고정 fold 와 맞출 수 있는지:
-  외부 split 하나를 대회 하나로, `fab run` 의 5-fold 는 그 train 안의 내부 CV 로 둠 ("2. 분할·평가 프로토콜")
+  외부 split 하나를 대회 하나로, `fab run` 의 5-fold 는 그 train 안의 내부 CV 로 둠 ("2. 분할·평가 프로토콜").
+  2026-11-15 부터 FM·GBDT 의 test 예측은 refit (CV 없이 train 전체로 한 번, [docs/tabarena.md](../tabarena.md) 결정 11)
 - (답함) 공개 리더보드의 기준선(모델·설정)을 그대로 비교 대상으로 쓸 수 있는지, FM 이 이미 리더보드에 있는지:
   있음, split 별 결과를 받아 나란히 놓음. 전처리·앙상블 수가 달라 똑같이 나오진 않음 ("3. 리더보드·기준선")
 - (답함) 에이전트에게 줄 형식: MLE-bench 처럼 train/test csv + 설명(description.md) + sample_submission 을 만들어야 함.
@@ -46,7 +47,7 @@ TabArena 연동 전에 확인할 것 (2026-11-13 조사, 답은 [docs/tabarena.m
 | P1 ✓ | 신뢰도: Agent 2회째 (FM 시드 반복·부트스트랩은 안 함, 아래 "P1 범위") | [docs/mle-bench.md](../mle-bench.md) 의 "P1" |
 | P2 ✓ | **C1**: nomad × Codex 풀이에서 피처 추출 → F0/F2s/F2 × {tabpfn_v2, tabicl, kumo} + {lgbm, catboost}. 확장 (#12, 2026-11-13): leaf × AIDE × Sonnet · tps-may × Codex 의 `~f2` × {tabicl, kumo} + {lgbm, catboost} | [docs/mle-bench.md](../mle-bench.md) 의 "C1"·"C1 확장" |
 | P3 ✓ | MLE-bench 표 형식 대회 확장: tps-may-2022, leaf-classification (FM × Agent 1회씩, 2026-11-12). 남은 대회 (s3e18·dec-2021·taxi) 는 나중에 | [docs/mle-bench.md](../mle-bench.md) 의 "P3" |
-| P4 | TabArena 연동 (`fab/bench/tabarena/`, 2026-11-14). FM 맞춤 (tabicl·kumo 는 51개 refit = TabArena TFM 과 같은 test 예측 방식): tabicl 통과 (표준편차 안 98.0%, 비김을 뺀 승패 모두 같음), kumo 는 표준편차 안 94.1% 이나 kddcup09 하나에서 승패가 달라 못 넘음 (까닭은 아직 못 가림, 8 의 `kumo_e16` 확인 안 함). 실험에 쓰는 5-fold FM 은 39개에서 tabicl·kumo 통과 (TabArena 보다 조금 나쁜 쪽, refit 에서 그 기울기가 사라짐). tabpfn_v2 는 5-fold 33개에서만 판정 (통과, 프로토콜이 다름). Agent 파일럿: hazelnut · in_vehicle r0f0 × 5설정 × 2회 (#17, 2회째도 같은 순위) ([docs/tabarena.md](../tabarena.md) 의 "파일럿 결과"). 남음: Kumo 의 kddcup09 (P4 완료 기준이 Kumo 에서 아직 안 맞음). 끝: 큰 12개 (#16), Agent 2회째 (#17), 사후 검사·제출·채점 손보기 (#18~#20), 39개 refit | FM 채점이 TabArena 기준과 맞음, Agent 파일럿 1~2개 |
+| P4 ✓ | TabArena 연동 (`fab/bench/tabarena/`, 2026-11-14). FM 맞춤 (refit = TabArena TFM 과 같은 test 예측 방식, 2026-11-15 부터 실험의 FM·GBDT 도 refit, [docs/tabarena.md](../tabarena.md) 결정 11): tabicl 51개 통과 (표준편차 안 98.0%, 비김을 뺀 승패 29 / 29), tabpfn_v2 33개 통과 (93.9%, 9 / 9), kumo 51개는 범주 열을 범주로 넘기도록 고친 뒤 표준편차 안 98.0% · 승패 35 / 36 (kddcup09 하나가 남음). kddcup09 는 앙상블·청크·refit 이 아니라 범주 처리 (대부분) 와 TabArena 가 모델 앞에 두는 AutoGluon 전처리 (나머지) 탓: 그 전처리를 흉내 낸 진단 (`kumo_cat_agp_refit`) 이 0.1434 = TabArena 0.1434. 우리 FM 은 전처리를 맞추지 않음 (결정 4) → 이 하나를 적어 두고 완료로 봄 (2026-11-15, 사용자). Agent 파일럿: hazelnut · in_vehicle r0f0 × 5설정 × 2회 (#17). refit FM 으로 in_vehicle 은 Codex 만 FM 보다 나음 (예전 5-fold 로는 Agent 셋) ([docs/tabarena.md](../tabarena.md) 의 "파일럿 결과"). 끝: 큰 12개 (#16), Agent 2회째 (#17), 사후 검사·제출·채점 손보기 (#18~#20), 39개 refit, kddcup09 | FM 채점이 TabArena 기준과 맞음 (kddcup09 의 Kumo 하나는 전처리 차이로 적음), Agent 파일럿 1~2개 |
 | P5 ✓ | **C2**: Agent 설정에 FM 추가 (`--fm` → `codex-gpt+fm`, 아래 "C2 규칙"). nomad 1회째 (Codex·Claude Code +cont, 2026-11-12, [docs/mle-bench.md](../mle-bench.md) 의 "C2"). 마무리 (leaf·tps-may 4설정, nomad AIDE 2설정, 2026-11-12, "C2 마무리"). aide-sonnet+fm 3개는 #10 (프록시) 을 고친 뒤 다시 돌림 (2026-11-12, 동시 실행). 2회째: leaf 4설정 (+ Agent 2회째)·nomad 3설정 (#13, 2026-11-13, "C2 2회째") | Agent 와 C2 를 같은 대회·시드로 |
 | P6 | 정리 | 방식 × 벤치마크 결과 문서 |
 

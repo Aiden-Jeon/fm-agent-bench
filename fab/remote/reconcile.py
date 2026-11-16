@@ -282,6 +282,9 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             graded.append("+".join(g))
             prog.write_text(json.dumps(graded))
         if failed:  # 다시 시도 (MAX_ATTEMPTS 까지). 마지막엔 done 에 오류로 남음
+            # step 의 rollback 은 마지막 tables.begin() 으로 되돌림 → 지금 상태로 다시 잡아 두지 않으면 마지막으로 채점한 묶음의
+            # 행이 지워지고 (진행 기록에는 남아) 다시 채점되지 않음 (2026-11-15, leaf kumo_cat_refit~f2)
+            tables.begin()
             raise RuntimeError("채점 못 한 묶음:\n" + "\n".join(f"{k}: {v}" for k, v in failed.items()))
         state.done("grade", key, graded=graded)
 

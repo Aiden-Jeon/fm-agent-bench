@@ -11,7 +11,7 @@ MLE-bench 의 표 형식 대회에서 FM·GBDT·Agent·C1·C2 를 비교한 결�
 - [용어](#용어)
 - [대회별 결과](#대회별-결과) — 결론만 보려면 여기까지
 - [실험 설계](#실험-설계)
-- [단계별 결과 상세](#단계별-결과-상세): P0 · +cont · P1 · C1 · P3 · C2 · C1 확장
+- [단계별 결과 상세](#단계별-결과-상세): P0 · +cont · P1 · C1 · P3 · C2 · C1 확장 · FM·GBDT refit
 - [에이전트 실행 환경 (트랙 B)](#에이전트-실행-환경-트랙-b)
 - [명령](#명령)
 
@@ -32,8 +32,9 @@ MLE-bench 의 표 형식 대회에서 FM·GBDT·Agent·C1·C2 를 비교한 결�
 
 ## 대회별 결과
 
-2026-11-13 기준 (P0~P3·C1·C2·C1 확장). FM·GBDT 는 튜닝 없음. Agent·C2 는 "1회째 / 2회째" (tps 와 leaf 의 Claude Code 공식 설정은 1회째만).
-단계별 자세한 표·해석은 [단계별 결과 상세](#단계별-결과-상세).
+2026-11-15 기준 (P0~P3·C1·C2·C1 확장 + FM·GBDT refit). FM·GBDT 는 튜닝 없음, test 예측은 refit (CV 없이 train 전체로 한 번 fit, [refit 으로 다시](#fmgbdt-를-refit-으로-다시-2026-11-15)).
+옛 5-fold 값 (fold 모델 5개 평균, 2026-11-13 까지) 과 바뀐 해석은 그 절. Agent·C2 는 "1회째 / 2회째" (tps 와 leaf 의 Claude Code 공식 설정은 1회째만).
+단계별 자세한 표·해석은 [단계별 결과 상세](#단계별-결과-상세) (거기 FM·GBDT 숫자는 그때의 5-fold).
 
 ### nomad2018-predict-transparent-conductors
 
@@ -41,28 +42,29 @@ MLE-bench 의 표 형식 대회에서 FM·GBDT·Agent·C1·C2 를 비교한 결�
 
 | 방식 | 점수 | 시간 |
 |---|---|---|
-| **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04523 (1위)** / 0.04803 (1위) | 15분 / 1분 (피처 계산 포함) |
+| **FM + Agent 피처 (C1)**: kumo~f2 / kumo~f2s | **0.04488 (1위)** / 0.04810 (1위) | 157분 ¹ / 31초 |
 | FM 을 깐 Agent (C2): Codex × GPT +fm | 0.04589 (1위) / 0.04545 (1위) | 57분 / 57분 (FM 을 제출에 넣음: kumo / TabPFN·TabICL) |
 | FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.04554 (1위) / 0.04729 (1위) | 60분 (kumo / 세 FM 모두를 제출에 넣음) |
 | Agent: Codex × GPT | 0.04847 (1위) / 0.04567 (1위) | 59분 / 57분 |
-| GBDT + Agent 피처 (C1): catboost~f2s | 0.04976 (1위) | 23분 |
+| GBDT + Agent 피처 (C1): catboost~f2s | 0.05021 (1위) | 5분 |
 | FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.13875 (833위) / 0.05006 (1위) | 6분 / 32분 (1회째 에이전트 버그, 2회째 Kumo 약 85% 를 섞어 제출) |
 | Agent: Claude Code × Sonnet +cont | 0.05267 (4위) / 0.05157 (2위) | 5분 / 19분 |
 | Agent: AIDE × GPT | 제출 없음 / 0.05308 (5위) | 60분 |
 | FM 을 깐 Agent (C2): AIDE × GPT +fm | 0.05306 (5위) | 60분 (FM 안 씀) |
 | Agent: AIDE × Sonnet | 0.05494 (6위) / 0.05568 (9위) | 60분 |
-| FM: kumo (원본 열) | 0.05734 (17위) | 22초 |
+| FM: kumo (원본 열) | 0.05723 (16위) | 17초 |
 | Agent: Claude Code × Sonnet | 0.06134 (42위) / 0.06253 (53위) | 20초 / 40초 (스스로 끝냄) |
 
 - 원본 열만 쓴 FM 보다 Agent 가 앞섬. 이 대회에는 표 밖의 정보(결정 구조 파일 `geometry.xyz`)가 있고, Codex 는 이걸로 피처를 만듦
-- 그 피처를 FM 에 넣으면 (C1) FM 한 번이 에이전트 1시간을 넘음 (kumo~f2 0.04523)
+- 그 피처를 FM 에 넣으면 (C1) FM 한 번이 에이전트 1시간을 넘음 (kumo~f2 0.04488)
 - 다만 GBDT 도 비슷하게 좋아짐. "FM 에 특히 도움" 이라 할 만한 건 kumo × 전체 피처 하나뿐
 - Agent 2회째에도 설정 순위는 같음
 - C2 의 Claude Code 1회째 0.13875 는 FM 탓이 아님: 학습·test 의 열 순서가 어긋난 에이전트 버그 ([C2](#c2-fm-을-깐-agent-nomad-1회째-2026-11-12)).
   2회째는 같은 류 버그 없이 0.05006 (Agent 두 번 0.05267 / 0.05157 보다 좋음)
-- C2 의 AIDE × Sonnet +fm 은 두 번 다 FM 을 제출에 넣어 같은 설정의 Agent 두 번과 FM 한 번 (kumo 0.05734) 보다 좋음 (2회째에도 재현)
-- C2 최고는 Codex 2회째 0.04545 지만 Codex Agent 2회째 (0.04567) 와 같은 수준. C1 의 kumo~f2 (0.04523) 를 넘은 C2 실행은 없음
+- C2 의 AIDE × Sonnet +fm 은 두 번 다 FM 을 제출에 넣어 같은 설정의 Agent 두 번과 FM 한 번 (kumo 0.05723) 보다 좋음 (2회째에도 재현)
+- C2 최고는 Codex 2회째 0.04545 지만 Codex Agent 2회째 (0.04567) 와 같은 수준. C1 의 kumo~f2 (0.04488) 를 넘은 C2 실행은 없음
   ([C2 2회째](#c2-2회째-leaf--nomad-2026-11-13))
+- ¹ 모델 시간 (두 타깃 합). 8×H100 노드 하나에서 모델 여럿이 CPU 를 나눠 써 5-fold 때 (15분, 피처 계산 포함) 보다 길게 나옴 ([refit 으로 다시](#fmgbdt-를-refit-으로-다시-2026-11-15)의 "실행")
 
 ### spaceship-titanic
 
@@ -70,7 +72,7 @@ accuracy ↑ · 2288팀 · test 870행
 
 | 방식 | 점수 | 시간 |
 |---|---|---|
-| GBDT: catboost / FM: kumo / FM: tabpfn_v2 | **0.8241 (2위)** / 0.8218 (6위) / 0.8207 (11위) | 26초 / 47초 / 100초 |
+| GBDT: catboost / FM: kumo · tabpfn_v2 | **0.8276 (2위)** / 0.8218 (6위) · 0.8218 (6위) | 15초 / 7초 · 6초 |
 | Agent: Codex × GPT | 0.8184 (41위) / 0.8241 (2위) | 58분 |
 | Agent: AIDE × GPT | 0.8184 (41위) / 0.8149 (77위) | 60분 |
 | Agent: Claude Code × Sonnet | 0.8161 (58위) / 0.8058 (375위) | 18초 / 16초 |
@@ -78,7 +80,8 @@ accuracy ↑ · 2288팀 · test 870행
 | Agent: Claude Code × Sonnet +cont | 0.8115 (199위) / 0.8103 (217위) | 3분 / 2분 |
 
 - 순수 표 형식 대회. 방식 사이 차이가 대부분 test 크기에서 오는 흔들림 (정확도 표준오차 약 0.013) 안 → 뚜렷한 차이 없음
-- 예외는 Claude Code × Sonnet 2회째 하나 (0.8058, 최고 0.8241 과 0.018 차이, 16초 만에 스스로 끝낸 실행)
+- 예외는 Claude Code × Sonnet 2회째 하나 (0.8058, 최고 0.8276 과 0.022 차이, 16초 만에 스스로 끝낸 실행)
+- refit 으로 GBDT 가 혼자 최고 (catboost 0.8241 → 0.8276, 3행 차이). 흔들림 안이라 "GBDT > Agent" 로 읽지는 않음
 
 ### tabular-playground-series-may-2022
 
@@ -90,19 +93,19 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 | FM 을 깐 Agent (C2): Codex × GPT +fm | 0.99681 (296위) | 60분 (FM 안 씀) |
 | Agent: Claude Code × Sonnet +cont | 0.99658 (311위) | 38분 |
 | FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.99582 (351위) | 60분 (FM 안 씀) |
-| FM + Agent 피처 (C1): kumo@rand200000~f2 (Codex 피처, 컨텍스트 20만) | 0.99453 (382위) | 32분 |
+| FM + Agent 피처 (C1): kumo@rand200000~f2 (Codex 피처, 컨텍스트 20만) | 0.99381 (392위) | 4분 |
 | FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.99255 (410위) | 53분 (FM 안 씀) |
-| FM: kumo@rand200000~f1 (사람 피처, 컨텍스트 20만) | 0.99232 (417위) | 25분 |
 | FM 을 깐 Agent (C2): AIDE × GPT +fm | 0.99174 (428위) | 60분 (FM 안 씀) |
 | Agent: AIDE × GPT / Claude Code × Sonnet / AIDE × Sonnet | 0.99156 (434위) / 0.99145 (436위) / 0.99137 (437위) | 60분 / 1분 / 60분 |
-| GBDT + Agent 피처 (C1): catboost~f2 | 0.98638 (504위) | 30분 |
-| GBDT: catboost~f1 | 0.97223 (581위) | 13분 |
-| FM: kumo (원본 열, 컨텍스트 1만) | 0.93168 (708위) | 10분 |
+| FM: kumo@rand200000~f1 (사람 피처, 컨텍스트 20만) | 0.99113 (444위) | 3분 |
+| GBDT + Agent 피처 (C1): catboost~f2 | 0.98617 (505위) | 8분 |
+| GBDT: catboost~f1 | 0.97185 (585위) | 3분 |
+| FM: kumo (원본 열, 컨텍스트 1만) | 0.89595 (813위) | 50초 |
 
-- 컨텍스트를 20만 행으로 늘린 kumo 가 GBDT 최고보다 AUC 0.020 높고, Sonnet·AIDE 에이전트보다 위
+- 컨텍스트를 20만 행으로 늘린 kumo 가 GBDT 최고보다 AUC 0.019 높음. Sonnet·AIDE 에이전트 (0.9914~0.9916) 와는 0.0002~0.0004 차이로 바로 아래 (5-fold 의 0.99232 는 위였음: 5-fold 는 fold 마다 다른 20만 행 컨텍스트 5개의 평균, [refit 으로 다시](#fmgbdt-를-refit-으로-다시-2026-11-15))
 - Codex·Claude Code +cont 는 교차 피처·신경망으로 그보다 위. 메달은 아무도 없음
 - FM 을 깔아 줘도 (C2) 아무도 FM 을 안 씀 ([C2 마무리](#c2-마무리-leaf--tps-may--nomad-aide-2026-11-12))
-- Codex 의 피처를 넣으면 (C1) kumo 0.99232 → 0.99453 이지만 Codex 1시간에는 못 미치고, GBDT 가 더 좋아짐 (오차 −51% 대 kumo −29%,
+- Codex 의 피처를 넣으면 (C1) kumo 0.99113 → 0.99381 이지만 Codex 1시간에는 못 미치고, GBDT 가 더 좋아짐 (오차 −51% 대 kumo −30%,
   [C1 확장](#c1-확장-leaf--aide--sonnet--tps-may--codex-2026-11-13-12))
 
 ### leaf-classification
@@ -114,17 +117,17 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 | Agent: Codex × GPT | **0.00000 (1위)** / **0.00000 (1위)** (분할 구조를 씀, 아래) | 23분 / 56분 |
 | FM 을 깐 Agent (C2): Codex × GPT +fm | 0.00002 (25위) / **0.00000 (1위)** | 29분 / 58분 (분할 구조. 1회째 FM 시험만, 2회째 TabICL 확률로 배정) |
 | FM 을 깐 Agent (C2): AIDE × GPT +fm | 0.03090 (399위) / **0.00000 (1위)** | 60분 (1회째 tabicl 시험만, 2회째 FM 안 쓰고 분할 구조) |
-| FM + Agent 피처 (C1): tabicl~f2 / kumo~f2 (AIDE × Sonnet 1회째 피처) | 0.00232 (29위) / 0.00603 (58위) | 29초 / 3분 |
+| FM + Agent 피처 (C1): tabicl~f2 / kumo~f2 (AIDE × Sonnet 1회째 피처) | 0.00114 (29위) / 0.00311 (31위) | 7초 / 38초 |
 | Agent: AIDE × Sonnet | 0.00385 (33위) / 0.00195 (29위) | 60분 |
 | FM 을 깐 Agent (C2): AIDE × Sonnet +fm | 0.01392 (142위) / 0.01748 (179위) | 60분 (두 번 다 kumo 를 제출에 넣음) |
 | Agent: AIDE × GPT | 0.01821 (193위) / 0.01436 (148위) | 60분 |
 | FM 을 깐 Agent (C2): Claude Code × Sonnet +cont +fm | 0.02348 (268위) / 0.01989 (219위)¹ | 37분 / 14분 (kumo·tabicl / kumo 를 제출에 넣음) |
-| FM: kumo | 0.01998 (219위) | 3분 |
+| FM: kumo | 0.02059 (229위) | 36초 |
 | Agent: Claude Code × Sonnet +cont | 0.04197 (569위) / 0.05077 (619위) | 10분 / 5분 |
-| FM: tabicl | 0.05069 (619위) | 1분 |
+| FM: tabicl | 0.05095 (620위) | 58초 |
 | Agent: Claude Code × Sonnet | 0.06297 (682위) | 2분 |
-| GBDT + Agent 피처 (C1): catboost~f2 | 0.34624 (991위) | 90분 |
-| GBDT: lgbm (최고) | 0.40629 (1015위) | 6분 |
+| GBDT + Agent 피처 (C1): catboost~f2 | 0.26201 (946위) | 19분 |
+| GBDT: catboost (최고) | 0.35967 (1001위) | 17분 |
 
 - 클래스당 약 7행이라 GBDT 는 거의 못 배우고 FM 이 크게 앞섬
 - Codex 의 0.0 은 데이터 수집 방식을 쓴 결과: "원래 종마다 10장" 에서 test 의 종별 개수를 계산해 test 행을 1:1 로 배정.
@@ -136,7 +139,7 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
   이 설정들의 C2 − Agent 차이는 FM 이 아니라 이 배정을 찾았는지로 갈림
 - ¹ 2회째 4번째 시도. 하네스 14분째 AI Runtime 플랫폼 오류로 노드가 죽어 그때까지 저장한 제출로 채점 (`run_crashed`, 앞 3번은 제출 없이 죽어 뺌,
   [C2 2회째](#c2-2회째-leaf--nomad-2026-11-13))
-- AIDE × Sonnet 1회째의 이미지 9열을 넣으면 (C1) tabicl 한 번 0.00232 로 그 에이전트 1회째 (0.00385) 와 2회째 (0.00195) 사이.
+- AIDE × Sonnet 1회째의 이미지 9열을 넣으면 (C1) tabicl 한 번 0.00114 로 그 에이전트 두 실행 (0.00385·0.00195) 보다 좋음 (5-fold 의 0.00232 는 둘 사이).
   다만 FM 의 test 향상 대부분은 99행 중 한 행이고, CV 로는 FM 이 거의 그대로·GBDT 가 크게 좋아짐 ([C1 확장](#c1-확장-leaf--aide--sonnet--tps-may--codex-2026-11-13-12))
 
 ### 모든 대회 공통 주의
@@ -146,6 +149,8 @@ AUC ↑ · 1152팀 · 금 0.99823 · test 10만 행
 - 메달 기준선은 원래 Kaggle 리더보드, 채점은 다시 나눈 test → 근사. tabular playground 는 아주 작은 차이로 메달이 갈림
 - LLM 이 공개 Kaggle 풀이를 학습했을 수 있음 (FM 은 아님)
 - P0·P1·P3 의 Agent 는 아무도 FM 을 쓰지 않음 (환경에 미리 깔지 않음). C2 에서 바꿈
+- 공식 설정 (FM 을 미리 깔지 않은 환경) 에서 Agent 가 스스로 TFM 을 깔아 쓴 실행도 Agent 결과로 셈 (2026-11-15 사용자가 정함, [refit 으로 다시](#fmgbdt-를-refit-으로-다시-2026-11-15) 의 결정).
+  `tfm_runtime`·`pip_target` 표시는 남김. MLE-bench 공식 설정에는 아직 그런 실행이 없음 (TabArena hazelnut × Codex 1회째가 처음, [tabarena.md](tabarena.md))
 - C2 의 AIDE × Sonnet +fm 은 처음 3개가 프록시 문제 (#10) 로 실패해 결과에서 빼고 (`fab mleb agent exclude`), 프록시를 고친 뒤 다시 돌린 결과 (2026-11-12)
 
 ### 결과 파일
@@ -223,7 +228,7 @@ dev 세트 대회는 공개 리더보드 채점 결과에 없음 → 트랙 B �
 
 ## 단계별 결과 상세
 
-시간순. 단계 이름은 roadmap 과 같음.
+시간순. 단계 이름은 roadmap 과 같음. FM·GBDT 숫자는 그 단계 때의 5-fold (fold 모델 5개 평균). 2026-11-15 의 refit 값과 바뀐 해석은 맨 끝 [refit 으로 다시](#fmgbdt-를-refit-으로-다시-2026-11-15)
 
 ### P0: FM 채점 (2026-11-09)
 
@@ -768,12 +773,105 @@ AUC ↑, test 10만 행, 동 0.99818. F1 = 사람 피처 41열, F2 = 에이전�
 
 #### 해석 (nomad 포함 세 대회)
 
+5-fold 때의 해석. refit 으로 다시 본 것은 [refit 으로 다시](#fmgbdt-를-refit-으로-다시-2026-11-15) 의 "C1 다시 보기" (C1 지표의 부호는 같고, leaf 는 FM + 에이전트 피처가 그 에이전트 두 실행보다 좋아짐)
+
 - **"FM 에 특히 도움" (C1 지표 양수) 은 여전히 nomad × kumo × F2 하나**. FM 이 GBDT 를 크게 앞서는 leaf·tps 에서는 에이전트 피처가
   GBDT 를 더 많이 도움 (leaf CV, tps CV·test) → FM 이 이미 앞서는 곳에서는 GBDT 쪽 격차를 줄이는 방향
 - 그래도 **"에이전트 피처 + FM 한 번" 은 세 대회 모두 FM·GBDT 최고** (nomad kumo~f2, leaf tabicl~f2, tps kumo~f2)
 - 에이전트 1시간과 비교: nomad 는 조금 넘고 (kumo~f2 0.04523 < Codex 2회째 0.04567), leaf 는 피처를 만든 에이전트의 두 실행 사이
   (AIDE × Sonnet 0.00385 · 0.00195 대 tabicl~f2 0.00232), tps 는 못 미침 (0.99453 < Codex 0.99734). C1 은 1회씩이고 차이가 작거나 (nomad 0.0004)
   test 가 작아 (leaf 99행) 확정은 아님 → "에이전트 1시간과 같은 수준까지는 감, tps 처럼 모델 쪽 이득이 큰 대회는 못 따라감"
+
+### FM·GBDT 를 refit 으로 다시 (2026-11-15)
+
+Agent 와 비교하는 FM 을 TabArena TFM 과 같은 test 예측 (refit) 으로 바꾸고, MLE-bench 의 FM·GBDT 를 모두 다시 돌림.
+TabArena 쪽 판정·까닭은 [tabarena.md](tabarena.md) 의 결정 11 · "FM 프로토콜과 이름" · "kddcup09".
+
+#### 결정
+
+| 정할 것 | 정한 것 (2026-11-15, 사용자) | 까닭 |
+|---|---|---|
+| FM 의 test 예측 | **refit**: CV 없이 train 전체로 한 번 fit → test 만 (이름 끝 `_refit`) | TabArena TFM (`refit_folds=True`) 과 같은 방식, 5-fold 의 기울기 (컨텍스트 80%) 가 사라짐, 계산 약 1/5 |
+| GBDT | **refit 도** (`lgbm_refit` 등) | 같은 프로토콜로 비교. CPU 만이라 비용이 작음 (대회 5개 작업, 5~94분) |
+| FM 기본값 | `tabicl` KV 캐시 켬 (OOM 이거나 클래스가 10 을 넘으면 끔), `kumo` 질의 청크 8192 · 범주 열을 범주로 | 캐시는 점수가 같음. 청크 8192 는 6~32% 빠름. 범주를 수치로 넘기던 Kumo 는 TabArena kddcup09 등에서 나빴음 |
+| 스스로 깐 TFM | 공식 설정에서 Agent 가 스스로 TFM 을 깔아 쓴 실행도 **Agent 결과** (`tfm_runtime`·`pip_target` 표시는 남김) | TFM 을 찾아 쓰는 것도 Agent 가 고른 풀이 |
+| 옛 결과와 가르기 | 이름 (`_refit`) + `opts` 열 (빈칸 = 2026-11-15 전 실행) | 같은 이름이 다른 뜻이 되지 않게. 규칙은 [tabarena.md](tabarena.md) 의 "FM 프로토콜과 이름" |
+| C2 (+fm) 환경 | **그대로** (`fab/agent/fm_notes.txt`·`fm_warmup.py` 안 바꿈) | Agent 가 받는 안내·사전 점검은 그 실행들과 같아야 이어 읽음 |
+
+새 이름: `tabpfn_v2_refit` · `tabicl_kv_refit` · `kumo_cat_refit` · `lgbm_refit` · `xgb_refit` · `catboost_refit` (+ `~f1`·`~f2s`·`~f2`, tps 는 전처럼 `@rand200000`).
+`tabicl_kv_refit` 은 기본 `tabicl_refit` 과, `kumo_cat_refit` 은 기본 `kumo_refit` 과 같은 설정 (TabArena 와 같은 이름을 씀)
+
+#### 실행
+
+| 작업 | 자원 | 벽시계 | 비고 |
+|---|---|---|---|
+| FM 35개 (대회 4개 × F0·F1·F2s·F2, `fab mleb fm`) | 8×H100 작업 하나 (대회·모델마다 GPU 하나) | 85분 | 33개 성공 (leaf TabICL 2개는 다음 줄). nomad `~f2` 6개가 모델마다 41~78분 (5-fold 때는 7~8분). 아래 |
+| leaf TabICL 2개 다시 | 1×H100 | 3.7분 | 처음 작업에서 TabICL 의 KV 캐시가 99 클래스에서 거부 (`KV caching is not supported when the number of classes (99) exceeds ... (10)`) → 클래스가 10 을 넘으면 캐시를 끄게 고침 |
+| GBDT 22개 | serverless CPU 5개 (대회마다) | 5~94분 | nomad catboost~f2 가 대회당 72분 (5-fold 5.6시간) |
+
+- nomad `~f2` (38,832열, TFM 은 LightGBM 중요도 상위 500열) 의 TFM 이 5-fold 보다 5~10배 느림: 까닭은 나눠 재지 않음. 짐작: 노드 하나에서 작업자 8개가 CPU 를 8등분해 받아 TFM 앞의 피처 고르기 (LightGBM, 3만 8천 열) 가 느려짐.
+  점수에는 상관없음. 시간 열은 이 사정이 섞인 값
+- `fab mleb fm` (2026-11-15 추가): `<대회>=<모델>,...` 여럿을 GPU 작업 하나로. GPU 모델은 (대회, 모델) 마다 GPU 하나, 끝나면 모델별 채점 요청 (`fab mleb grade --each` 와 같음)
+- 정리 작업의 채점 버그를 고침: 한 요청 안에서 채점 못 한 묶음이 있으면 마지막으로 채점한 묶음의 행이 되돌려지고 진행 기록에는 남아 다시 채점되지 않았음 (leaf `kumo_cat_refit~f2`). 다시 채점함
+
+#### 옛 5-fold → refit
+
+MLE-bench test, 괄호는 원래 리더보드 순위. ↑·↓ 는 지표 방향. FM 은 `*_refit` (Kumo 는 범주 고침 포함), GBDT 는 `*_refit`
+
+| 대회 | 모델 | 5-fold | refit |
+|---|---|---|---|
+| nomad (RMSLE ↓) | kumo / tabicl / tabpfn_v2 | 0.05734 (17) / 0.05838 (22) / 0.05874 (25) | 0.05723 (16) / 0.05839 (22) / 0.05872 (25) |
+| | kumo~f2s / tabicl~f2s / tabpfn_v2~f2s | 0.04803 / 0.04972 / 0.04972 (모두 1) | 0.04810 / 0.04962 / 0.04977 (모두 1) |
+| | kumo~f2 / tabicl~f2 / tabpfn_v2~f2 | 0.04523 / 0.04931 / 0.04929 (모두 1) | **0.04488** / 0.04976 / 0.04925 (모두 1) |
+| | catboost / lgbm / xgb | 0.06001 (31) / 0.06107 (40) / 0.06434 (76) | 0.06036 (34) / 0.06219 (47) / 0.06667 (118) |
+| | catboost~f2s / lgbm~f2s | 0.04976 (1) / 0.04998 (1) | 0.05021 (1) / 0.05055 (1) |
+| | catboost~f2 / lgbm~f2 | 0.04992 (1) / 0.05102 (2) | 0.05081 (1) / 0.05136 (2) |
+| spaceship (accuracy ↑) | kumo / tabpfn_v2 / tabicl | 0.8218 (6) / 0.8207 (11) / 0.8184 (41) | 0.8218 (6) / 0.8218 (6) / 0.8195 (26) |
+| | catboost / lgbm / xgb | 0.8241 (2) / 0.8172 (49) / 0.8184 (41) | **0.8276 (2)** / 0.8218 (6) / 0.8149 (77) |
+| tps (AUC ↑) | kumo / tabicl / tabpfn_v2 (컨텍스트 1만) | 0.93168 (708) / 0.89663 (812) / 0.87639 (855) | 0.89595 (813) / 0.87768 (847) / 0.87096 (865) |
+| | kumo~f1 / tabicl~f1 / tabpfn_v2~f1 (컨텍스트 1만) | 0.97442 (572) / 0.95646 (628) / 0.93095 (710) | 0.97049 (591) / 0.95090 (641) / 0.93122 (709) |
+| | kumo@rand200000~f1 / tabicl@rand200000~f1 | 0.99232 (417) / 0.98189 (534) | 0.99113 (444) / 0.98102 (537) |
+| | kumo@rand200000~f2 / tabicl@rand200000~f2 | 0.99453 (382) / 0.97019 (593) | 0.99381 (392) / 0.96874 (596) |
+| | catboost / lgbm | 0.91743 (751) / 0.90474 (794) | 0.91716 (752) / 0.90397 (798) |
+| | catboost~f1 / xgb~f1 / lgbm~f1 | 0.97223 (581) / 0.96626 (600) / 0.96585 (601) | 0.97185 (585) / 0.96614 (600) / 0.96553 (602) |
+| | catboost~f2 / lgbm~f2 | 0.98638 (504) / 0.98367 (529) | 0.98617 (505) / 0.98347 (530) |
+| leaf (logloss ↓) | kumo / tabicl | 0.01998 (219) / 0.05069 (619) | 0.02059 (229) / 0.05095 (620) |
+| | kumo~f2 / tabicl~f2 | 0.00603 (58) / 0.00232 (29) | 0.00311 (31) / **0.00114 (29)** |
+| | lgbm / catboost / xgb | 0.40629 (1015) / 0.45896 (1037) / 0.88510 (1293) | 0.41241 (1023) / 0.35967 (1001) / 0.77615 (1254) |
+| | lgbm~f2 / catboost~f2 | 0.36952 (1004) / 0.34624 (991) | 0.36045 (1001) / 0.26201 (946) |
+
+- **nomad · spaceship 의 FM 은 거의 그대로** (±1% 안). leaf 는 F0 이 조금 나빠지고 (kumo +3%, tabicl +0.5%) F2 가 크게 나아짐 (kumo~f2 0.00603 → 0.00311, tabicl~f2 0.00232 → 0.00114, 99행 test 라 몇 행 몫).
+  대회별 최고 FM 은 같은 모델 (nomad·leaf kumo, spaceship kumo)
+- **tps 는 TFM 이 거의 모두 조금 나빠짐** (`~f1` 1만 행 kumo 0.9744 → 0.9705, 20만 행 0.99232 → 0.99113. tabpfn_v2~f1 만 같음). tps 는 TFM 컨텍스트에 상한이 있음 (대회 설정 1만 행, `@rand200000` 은 20만 행).
+  5-fold 는 fold 마다 다른 무작위 컨텍스트로 fit 한 모델 5개의 평균 → 컨텍스트를 5번 뽑아 섞는 셈, refit 은 한 번. 상한이 없는 대회 (nomad·spaceship·leaf) 에서는 이런 차이가 없음 (짐작, 따로 재지 않음).
+  F0 kumo 의 −0.036 은 범주 처리도 섞임: `f_27` (값 67만 가지, test 값의 72% 가 train 에 없음) 을 이제 범주로 넘김 → 1만 행 컨텍스트에서는 거의 결측·빈도 1. 두 몫을 나눠 보지 않음
+- GBDT: leaf 의 catboost 가 크게 나아짐 (0.459 → 0.360, 클래스당 약 7행이라 fold 학습 80% 대 전체 100% 차이가 큼), spaceship lgbm 0.8172 → 0.8218. nomad 는 조금 나빠짐 (오차 +0.6~+3.6%, xgb 가 가장 큼)
+- leaf 의 FM F0 test 는 refit 에서도 한 행 (id 451) 이 손실의 87% (kumo) · 94% (tabicl). F2 에서 그 행이 맞음 (kumo~f2 0.126, tabicl~f2 0.072). F2 test 의 tabicl~f2 0.00114 는 가장 나쁜 3행을 빼면 0.00030
+- refit 은 CV 점수가 없음 → C1 의 CV 근거 (leaf·tps 의 "CV F0 → F2") 는 5-fold 의 것을 그대로 씀
+
+#### C1 다시 보기 (FM 향상 − GBDT 향상, refit test)
+
+| 대회 | FM (F0 또는 F1 → F2) | GBDT (같은 비교) | C1 지표 | 5-fold 때 |
+|---|---|---|---|---|
+| nomad F2s | kumo −16.0% · tabicl −15.0% · tabpfn_v2 −15.2% | catboost −16.8% · lgbm −18.7% | 음수 (GBDT 가 더) | 같음 (−15~−16% 대 −17~−18%) |
+| nomad F2 | **kumo −21.6%** · tabicl −14.8% · tabpfn_v2 −16.1% | catboost −15.8% · lgbm −17.4% | kumo 만 양수 (+4~6%p) | 같음 (kumo −21.1% 대 −16.5~−16.8%) |
+| tps F1 → F2 (오차) | kumo −30% · tabicl +65% | catboost −51% · lgbm −52% | 음수 | 같음 (−29% · +65% 대 −51~−53%) |
+| leaf F2 (test) | tabicl −98% · kumo −85% | catboost −27% · lgbm −13% | test 로는 양수, 한 행 몫 | 같음 (CV 로는 음수, 5-fold) |
+
+- **해석은 그대로**: "FM 에 특히 도움" (C1 지표 양수) 은 nomad × kumo × F2 하나. leaf·tps 에서는 에이전트 피처가 GBDT 를 더 도움 (leaf 는 CV, tps 는 test)
+- "에이전트 피처 + FM 한 번" 은 세 대회 모두 FM·GBDT 최고 (nomad kumo~f2 0.04488, leaf tabicl~f2 0.00114, tps kumo~f2 0.99381)
+- 에이전트 1시간과 비교가 조금 바뀜: nomad 는 조금 넘고 (0.04488 < Codex 2회째 0.04567, 차이 0.0004 → 0.0008),
+  **leaf 는 피처를 만든 에이전트의 두 실행보다 좋아짐** (tabicl~f2 0.00114 < AIDE × Sonnet 0.00385·0.00195, 5-fold 는 둘 사이), tps 는 못 미침 (0.99381 < Codex 0.99734).
+  leaf 의 차이는 99행 test 의 몇 행 몫이라 (위) 확정은 아님
+
+#### 대시보드에서 바뀐 것
+
+| 대회 | 칸 | 5-fold | refit |
+|---|---|---|---|
+| nomad | FM / GBDT / C1 | 0.05734 (17위) / 0.06001 (31위) / 0.04523 (1위) | 0.05723 (16위) / 0.06036 (34위) / 0.04488 (1위) |
+| spaceship | GBDT | 0.8241 (2위, Agent 와 같음) | **0.8276 (2위, 혼자 최고)** |
+| tps | FM / GBDT / C1 | 0.99232 (417위) / 0.97223 (581위) / 0.99453 (382위) | 0.99113 (444위) / 0.97185 (585위) / 0.99381 (392위) |
+| leaf | FM / GBDT / C1 | 0.01998 (219위) / 0.40629 (1015위, lgbm) / 0.00232 (29위) | 0.02059 (229위) / 0.35967 (1001위, catboost) / 0.00114 (29위) |
 
 ## 에이전트 실행 환경 (트랙 B)
 
