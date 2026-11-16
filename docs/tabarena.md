@@ -380,6 +380,10 @@ uv run --frozen fab ta compare --detail
 - `pip install --target <폴더>` 로 깐 패키지는 `pip_added` (pip freeze 전·후 비교) 에 안 나옴 → `pip_target` 열을 더함 (2026-11-14, #18).
   실행한 명령의 `pip install` 중 `--target`·`-t`·`--prefix`·`--root` 또는 실행 중 만든 가상환경의 pip 로 깐 패키지 이름. 규칙은 [mle-bench.md](mle-bench.md) 의 "구현" 사후 검사.
   hazelnut × Codex 1회째는 `recheck` 로 tabpfn·tabicl·transformers·tokenizers·safetensors·scikit-learn·einops·huggingface-hub 이 잡힘. TFM 은 실행 중 import 기록 (`tfm_runtime`) 도 잡음
+- 작업 디렉터리 코드를 볼 때 에이전트가 `pip install --target` 으로 작업 디렉터리 안에 깐 패키지의 코드는 뺌 (2026-11-16, #26).
+  polish × Codex 가 `deps_ignore/`·`tabpfn_pkg/` 에 sklearn 을 깔아 그 `datasets` 코드 (`fetch_openml`·`openml.org`·`archive.ics.uci.edu` 주소) 가 `data_source_urls` 에 271번 걸렸음 (에이전트가 쓴 코드·하네스 기록·LLM 요청에는 0).
+  규칙: `*.dist-info`·`*.egg-info` 가 있는 폴더 (`fab/agent` 의 `install_roots`) 의 하위 폴더 안 파일은 안 봄. 그 폴더 바로 아래 파일은 봄 (`--target .` 으로 작업 디렉터리에 깔아도 에이전트 스크립트는 남게).
+  `recheck` 뒤 바뀐 것은 그 실행 하나 (`data_source_urls` 271 → 0, `tfm_in_code` 의 autogluon (깐 패키지 안의 이름) 빠짐). TabArena·MLE-bench 의 다른 실행은 값이 같음
 
 원격 채점 속도 (2026-11-14, #20)
 

@@ -316,6 +316,22 @@ def tfm_imports(code: str) -> list[str]:
     return sorted({WATCH[m.split(".")[0]] for m in mods if m.split(".")[0] in WATCH})
 
 
+DIST_INFO = re.compile(r"^(.*)/[^/]+\.(?:dist|egg)-info(?:/|$)")
+
+
+def install_roots(names: list[str]) -> set[str]:
+    """작업 디렉터리 안에 pip 가 패키지를 깐 폴더 (`pip install --target <폴더>`: 폴더 아래에 *.dist-info 가 생김).
+    2026-11-16 polish × Codex: --target 으로 깐 sklearn 의 datasets 코드 (fetch_openml·openml.org 주소) 가 data_source_urls 에
+    271번 걸림 (에이전트가 쓴 코드에는 없음)."""
+    return {m[1] for n in names if (m := DIST_INFO.match(n))}
+
+
+def in_installed(name: str, roots: set[str]) -> bool:
+    """패키지를 깐 폴더의 하위 폴더 안 파일 (깐 패키지의 코드). 그 폴더 바로 아래 파일 (에이전트가 --target . 으로
+    작업 디렉터리에 깔았을 때의 에이전트 스크립트) 은 빼지 않음."""
+    return any(name.startswith(r + "/") and "/" in name[len(r) + 1:] for r in roots)
+
+
 def code_text(name: str, raw: bytes) -> str:
     """작업 디렉터리 파일 → 코드 글. .ipynb 는 코드 셀 source 만 이어 붙임 (JSON 그대로면 줄이 따옴표로 시작해
     import 문 검사에 안 걸림). 깨진 노트북은 원문 그대로."""
@@ -475,8 +491,10 @@ def posthoc(d: Path) -> dict:
     code, cmds = [], []
     if (d / "workspace.tgz").exists():
         with tarfile.open(d / "workspace.tgz") as tar:
-            for m in tar.getmembers():
-                if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")):
+            members = tar.getmembers()
+            roots = install_roots([m.name for m in members])
+            for m in members:
+                if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")) and not in_installed(m.name, roots):
                     code.append(code_text(m.name, tar.extractfile(m).read()))
     logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl")
             if p.name not in ("proxy.jsonl", "otel.jsonl", "fm_audit.jsonl")]
