@@ -107,6 +107,27 @@ def base_name(name: str) -> str:
 
 
 OPTS_SKIP = {"task", "cat_cols", "seed", "metric"}  # 팩토리 인자 중 설정이 아닌 것 (대회가 정함)
+# opts 를 비교할 때 빈칸 (2026-11-15 전 실행) 과 글에 없는 키를 채우는 값 = 그 인자가 생기기 전 (기본값을 바꾸기 전) 의 동작.
+# 기본값이 있는 팩토리 인자를 새로 더하거나 기본값을 바꾸면 여기에 그 전 값을 적을 것 (안 적으면 옛 행과 새 행이 다른 설정으로 보임)
+OPTS_BEFORE = {"kumo": dict(chunk=2048, cats="numerical", n_estimators=8), "tabicl": dict(kv_cache=False)}
+
+
+def is_known_model(name: str) -> bool:
+    """실행 이름의 모델 부분 (~variant·@spec·_refit 을 뗀 것) 이 REGISTRY·VARIANTS 에 있는지. 제출 명령들이 같이 씀."""
+    return strip_refit(split_features(name)[0].partition("@")[0]) in {*REGISTRY, *VARIANTS}
+
+
+def effective_opts(name: str, opts) -> dict[str, str]:
+    """결과표의 opts 글 (빈칸이면 2026-11-15 전 실행) → 실제 설정 {인자: 값 글}. 빈칸은 OPTS_BEFORE + 그 이름의 VARIANTS 인자,
+    글에 없는 키는 OPTS_BEFORE 로 채움 → 글 모양이 달라도 (인자가 나중에 더해짐) 같은 설정이면 같은 dict."""
+    base = strip_refit(split_features(name)[0].partition("@")[0])
+    reg, kwargs = VARIANTS.get(base, (base, {}))
+    out = {k: str(v) for k, v in OPTS_BEFORE.get(reg, {}).items()}
+    if opts is None or (isinstance(opts, float) and opts != opts) or str(opts).strip() == "":
+        out |= {k: str(v) for k, v in kwargs.items() if k != "max_features" and v is not None}
+    elif str(opts) != "default":
+        out |= dict(kv.split("=", 1) for kv in str(opts).split())
+    return out
 
 
 def model_opts(name: str) -> str:

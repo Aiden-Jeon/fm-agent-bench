@@ -793,7 +793,7 @@ TabArena 쪽 판정·까닭은 [tabarena.md](tabarena.md) 의 결정 11 · "FM �
 |---|---|---|
 | FM 의 test 예측 | **refit**: CV 없이 train 전체로 한 번 fit → test 만 (이름 끝 `_refit`) | TabArena TFM (`refit_folds=True`) 과 같은 방식, 5-fold 의 기울기 (컨텍스트 80%) 가 사라짐, 계산 약 1/5 |
 | GBDT | **refit 도** (`lgbm_refit` 등) | 같은 프로토콜로 비교. CPU 만이라 비용이 작음 (대회 5개 작업, 5~94분) |
-| FM 기본값 | `tabicl` KV 캐시 켬 (OOM 이거나 클래스가 10 을 넘으면 끔), `kumo` 질의 청크 8192 · 범주 열을 범주로 | 캐시는 점수가 같음. 청크 8192 는 6~32% 빠름. 범주를 수치로 넘기던 Kumo 는 TabArena kddcup09 등에서 나빴음 |
+| FM 기본값 | `tabicl` KV 캐시 켬 (OOM 이거나 TabICL 이 거부하면 끔: 클래스 10 넘음), `kumo` 질의 청크 8192 · 범주 열을 범주로 | 캐시는 점수가 같음. 청크 8192 는 6~32% 빠름. 범주를 수치로 넘기던 Kumo 는 TabArena kddcup09 등에서 나빴음 |
 | 스스로 깐 TFM | 공식 설정에서 Agent 가 스스로 TFM 을 깔아 쓴 실행도 **Agent 결과** (`tfm_runtime`·`pip_target` 표시는 남김) | TFM 을 찾아 쓰는 것도 Agent 가 고른 풀이 |
 | 옛 결과와 가르기 | 이름 (`_refit`) + `opts` 열 (빈칸 = 2026-11-15 전 실행) | 같은 이름이 다른 뜻이 되지 않게. 규칙은 [tabarena.md](tabarena.md) 의 "FM 프로토콜과 이름" |
 | C2 (+fm) 환경 | **그대로** (`fab/agent/fm_notes.txt`·`fm_warmup.py` 안 바꿈) | Agent 가 받는 안내·사전 점검은 그 실행들과 같아야 이어 읽음 |
@@ -806,12 +806,13 @@ TabArena 쪽 판정·까닭은 [tabarena.md](tabarena.md) 의 결정 11 · "FM �
 | 작업 | 자원 | 벽시계 | 비고 |
 |---|---|---|---|
 | FM 35개 (대회 4개 × F0·F1·F2s·F2, `fab mleb fm`) | 8×H100 작업 하나 (대회·모델마다 GPU 하나) | 85분 | 33개 성공 (leaf TabICL 2개는 다음 줄). nomad `~f2` 6개가 모델마다 41~78분 (5-fold 때는 7~8분). 아래 |
-| leaf TabICL 2개 다시 | 1×H100 | 3.7분 | 처음 작업에서 TabICL 의 KV 캐시가 99 클래스에서 거부 (`KV caching is not supported when the number of classes (99) exceeds ... (10)`) → 클래스가 10 을 넘으면 캐시를 끄게 고침 |
+| leaf TabICL 2개 다시 | 1×H100 | 3.7분 | 처음 작업에서 TabICL 의 KV 캐시가 99 클래스에서 거부 (`KV caching is not supported when the number of classes (99) exceeds ... (10)`) → TabICL 이 캐시를 거부하면 캐시 없이 다시 fit 하게 고침 (상한은 TabICL 이 정함) |
 | GBDT 22개 | serverless CPU 5개 (대회마다) | 5~94분 | nomad catboost~f2 가 대회당 72분 (5-fold 5.6시간) |
 
 - nomad `~f2` (38,832열, TFM 은 LightGBM 중요도 상위 500열) 의 TFM 이 5-fold 보다 5~10배 느림: 까닭은 나눠 재지 않음. 짐작: 노드 하나에서 작업자 8개가 CPU 를 8등분해 받아 TFM 앞의 피처 고르기 (LightGBM, 3만 8천 열) 가 느려짐.
   점수에는 상관없음. 시간 열은 이 사정이 섞인 값
-- `fab mleb fm` (2026-11-15 추가): `<대회>=<모델>,...` 여럿을 GPU 작업 하나로. GPU 모델은 (대회, 모델) 마다 GPU 하나, 끝나면 모델별 채점 요청 (`fab mleb grade --each` 와 같음)
+- `fab mleb fm` (2026-11-15 추가): `<대회>=<모델>,...` 여럿을 GPU 작업 하나로. GPU 가 여러 장이면 (대회, 모델) 마다 GPU 하나, 한 장이면 대회마다 `fab run` 하나 (데이터·피처를 한 번만).
+  같은 MLE-bench 대회로 가는 인자는 모델을 합침 (nomad 의 두 이름). 끝나면 대회마다 모델별 채점 요청 (`fab mleb grade --each` 와 같음)
 - 정리 작업의 채점 버그를 고침: 한 요청 안에서 채점 못 한 묶음이 있으면 마지막으로 채점한 묶음의 행이 되돌려지고 진행 기록에는 남아 다시 채점되지 않았음 (leaf `kumo_cat_refit~f2`). 다시 채점함
 
 #### 옛 5-fold → refit

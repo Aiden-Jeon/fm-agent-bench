@@ -184,7 +184,9 @@ def grade(cid: str, groups: list[list[str]], note: str, grade_fn) -> tuple[list[
                          mlebench=cid, model="+".join(models), comps=" ".join(c.name for c in comps),
                          runs=" ".join(str(i.get("run")) for i in infos), note=note,
                          # 모델 설정 (fab.models.model_opts): 묶음·타깃마다 다르면 ' | ' 로. 2026-11-15 전 실행은 빈칸
-                         opts=" | ".join(dict.fromkeys(str(i["opts"]) for i in infos if i.get("opts"))) or None,
+                         # 빈칸인 것 (옛 예측) 이 섞이면 '(빈칸)' 으로 남겨 섞인 것이 보이게. 모두 빈칸이면 빈칸
+                         opts=" | ".join(dict.fromkeys(str(i.get("opts") or "(빈칸)") for i in infos))
+                         if any(i.get("opts") for i in infos) else None,
                          **{k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal",
                                                        "silver_medal", "bronze_medal", "above_median",
                                                        "gold_threshold", "silver_threshold", "bronze_threshold",
@@ -215,8 +217,10 @@ def request_grade(cid: str, groups: list[list[str]], note: str = ""):
 
 
 def parse_fm_targets(targets: list[str]) -> list[tuple[str, list[str]]]:
-    """`<대회>=<모델>,<모델>...` → [(MLE-bench 대회 id, 모델)]. 대회는 MLE-bench id 또는 fab 대회 이름 (nomad 는 두 타깃이 같은 모델)."""
-    out = []
+    """`<대회>=<모델>,<모델>...` → [(MLE-bench 대회 id, 모델)]. 대회는 MLE-bench id 또는 fab 대회 이름 (nomad 는 두 타깃이 같은 모델).
+    같은 MLE-bench 대회로 가는 인자 (예: nomad2018-... 와 mleb-nomad2018-formation) 는 모델을 합침 → 대회마다 채점 요청 하나
+    (같은 초에 둘을 내면 요청 키가 겹쳐 하나가 덮임), 같은 (대회, 모델) 을 두 번 돌리지 않음."""
+    out: dict[str, list[str]] = {}
     for t in targets:
         cid, sep, ms = t.partition("=")
         if not sep or not ms:
@@ -225,30 +229,33 @@ def parse_fm_targets(targets: list[str]) -> list[tuple[str, list[str]]]:
             cid = load_competition(cid).mlebench
         if not bench_comps(cid):
             raise SystemExit(f"config.yaml 에 mlebench: {cid} 인 대회가 없음")
-        out.append((cid, [m for m in ms.split(",") if m]))
-    return out
+        out.setdefault(cid, [])
+        out[cid] += [m for m in ms.split(",") if m and m not in out[cid]]
+    return list(out.items())
 
 
 def check_models(cid: str, models: list[str]):
     """제출 전에: 모델 이름 (fab.models 의 REGISTRY·VARIANTS, @spec·_refit 허용) 과 피처 변형 파일 (~<variant>) 이 그 대회에 있는지."""
-    from fab.core.competition import feature_pip
-    from fab.models import REGISTRY, VARIANTS, split_features, strip_refit
+    from fab.core.competition import load_features
+    from fab.models import is_known_model, split_features
 
     for m in models:
-        base, variant = split_features(m)
-        if strip_refit(base.partition("@")[0]) not in {*REGISTRY, *VARIANTS}:
+        if not is_known_model(m):
             raise SystemExit(f"{cid}: 알 수 없는 모델 {m}")
+        if not (variant := split_features(m)[1]):
+            continue
         for c in bench_comps(cid):
             try:
-                feature_pip(c, variant)  # 변형 모듈을 읽어 봄
-            except Exception as e:  # noqa: BLE001
-                raise SystemExit(f"{c.name}: 피처 변형 {variant} 를 못 읽음 ({e!r})") from e
+                load_features(c, variant)  # fab databricks 의 check_run_args 와 같은 확인 (이름·파일·build)
+            except (ValueError, FileNotFoundError, AttributeError) as e:
+                raise SystemExit(f"{c.name}: 피처 변형 {variant} 를 못 읽음 ({e})") from e
 
 
 def submit_fm(todo: list[tuple[str, list[str]]], note: str, timeout: int, accelerator: str | None,
               grade_after: bool = True) -> list[dict]:
     """MLE-bench 대회 여럿의 FM·GBDT 를 GPU 작업 하나 + CPU 작업 하나로 (`fab ta fm --one-job` 과 같은 생각, 노드를 한 번만 띄움).
-    GPU 모델은 (fab 대회, 모델) 마다 job 하나 → 여러 장 작업 (GPU_8xH100) 에서 실행기가 모델을 GPU 마다 나눠 돌림 (큰 train 부터).
+    GPU 모델은 GPU 가 여러 장이면 (GPU_8xH100) (fab 대회, 모델) 마다 job 하나 → 실행기가 모델을 GPU 마다 나눠 돌림 (큰 train 부터).
+    한 장이면 대회마다 job 하나 (모델은 fab run 안에서 차례로, 데이터·피처를 한 번만 읽고 만듦).
     GBDT 는 CPU 작업 하나에 대회마다 job 하나 (그 안에서 차례로). 끝에 대회마다 모델별 채점 요청 (fab mleb grade --each 와 같음)."""
     from fab.models import base_name
     from fab.runner.databricks import CPU_MODELS, ensure_data, record, submit, submit_cpu
@@ -259,13 +266,19 @@ def submit_fm(todo: list[tuple[str, list[str]]], note: str, timeout: int, accele
     cfg = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))
     data = {c.name: ensure_data(c, cfg["profile"], cfg["volume"]) for cid, _ in todo for c in bench_comps(cid)}
     label = f"mleb-{len(todo)}comps" if len(todo) > 1 else f"mleb-{todo[0][0]}"
-    gpu_jobs = [(c.name, data[c.name], [m, "--note", note]) for cid, ms in todo for c in bench_comps(cid)
-                for m in ms if base_name(m) not in CPU_MODELS]
+    many = int(re.match(r"GPU_(\d+)x", cfg["accelerator"])[1]) > 1
+    gpu_jobs = []
+    for cid, ms in todo:
+        if not (gm := [m for m in ms if base_name(m) not in CPU_MODELS]):
+            continue
+        for c in bench_comps(cid):
+            groups = [[m] for m in gm] if many else [gm]
+            gpu_jobs += [(c.name, data[c.name], [*g, "--note", note]) for g in groups]
     cpu_jobs = [(c.name, data[c.name], [*cpu, "--note", note]) for cid, ms in todo for c in bench_comps(cid)
                 if (cpu := [m for m in ms if base_name(m) in CPU_MODELS])]
     runs = []
     if gpu_jobs:
-        gpu = list(dict.fromkeys(j[2][0] for j in gpu_jobs))
+        gpu = list(dict.fromkeys(m for j in gpu_jobs for m in j[2][:-2]))
         run = submit(cfg, label, None, None, gpu, cfg["accelerator"], timeout, "", jobs=gpu_jobs)
         record(cfg, run)
         runs.append(run)

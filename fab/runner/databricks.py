@@ -204,15 +204,16 @@ env = {**os.environ, "XDG_CACHE_HOME": str(cache),
 SAVE_LOCK = threading.Lock()
 
 
-def save(comp):
-    """대회마다 그 대회의 출력 + results.csv 만 Volume 에 → 작업이 중간에 죽어도 끝난 대회는 남음 (전체를 매번 복사하지 않음).
+def save(comp, models):
+    """끝난 fab run 의 모델 출력 (results/<대회>/<모델>/) + results.csv 만 Volume 에 → 작업이 중간에 죽어도 끝난 것은 남음.
+    대회 폴더째가 아니라 그 fab run 의 모델만: 같은 대회의 다른 모델이 다른 GPU 에서 아직 쓰는 중일 수 있음 (fab mleb fm).
     results.csv 는 다른 GPU 의 fab run 이 쓰는 중일 수 있어 fab 의 표 잠금을 잡고 복사. 잠금 파일 이름은
     fab/core/results.py 의 table_lock (.<표 이름>.lock) 과 같아야 함 (실행기는 fab 를 import 하지 않음)."""
     if len(JOBS) == 1:
         return
-    if (SRC / "results" / comp).exists():
-        with SAVE_LOCK:  # 같은 대회의 다른 모델이 동시에 끝나 같은 곳에 복사할 수 있음 (fab mleb fm)
-            shutil.copytree(SRC / "results" / comp, out / "results" / comp, dirs_exist_ok=True)
+    for m in models:
+        if (SRC / "results" / comp / m).exists():
+            shutil.copytree(SRC / "results" / comp / m, out / "results" / comp / m, dirs_exist_ok=True)
     if (SRC / "results" / "results.csv").exists():
         with SAVE_LOCK, open(SRC / "results" / ".results.lock", "w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
@@ -234,7 +235,12 @@ def run_comp(comp, args, run_env, tag=""):
         finally:  # 출력을 읽다 실패해도 자식이 끝나기 전에 같은 GPU 에 다음 대회를 띄우지 않음
             rc = proc.wait()
     step(f"fab run 종료: {comp} (코드 {rc}){' ' + tag if tag else ''}")
-    save(comp)
+    models = []
+    for a in args:  # fab run 인자의 첫 '--' 앞 = 모델
+        if a.startswith("--"):
+            break
+        models.append(a)
+    save(comp, models)
     return rc
 
 
@@ -358,10 +364,10 @@ def ensure_weights(models: list[str], profile: str, volume: str) -> str:
     return remote
 
 
-def snapshot(work: Path, comp: str, run_args: list[str], models: list[str], data: str, out: str, cache: str,
+def snapshot(work: Path, comp: str, run_args: list[str], data: str, out: str, cache: str,
              preinstalled: bool, weights: str, jobs: list | None = None):
     """jobs: [(대회, Volume 데이터, fab run 인자), ...] 를 한 작업에서 (없으면 comp 하나). PIP 는 job 마다 (그 대회 · 그
-    job 의 모델 = fab run 인자의 첫 '--' 앞) 의 합 (fab mleb fm 은 대회마다 피처 변형의 PIP 가 다름)."""
+    job 의 모델 = fab run 인자의 첫 '--' 앞) 의 합 (fab mleb fm 은 대회마다 피처 변형의 PIP 가 다름). 모델 목록은 따로 받지 않음."""
     jobs = [list(j) for j in jobs] if jobs else [[comp, data, run_args]]
     code = work / "fab"
     wanted = {j[0] for j in jobs}
@@ -407,7 +413,7 @@ def submit(cfg: dict, comp: str, data: str, run_args: list[str], models: list[st
     image = cfg.get("image")
     work = Path(tempfile.mkdtemp())
     try:
-        code = snapshot(work, comp, run_args, models, data, out, f"{cfg['volume']}/{MODEL_CACHE}", bool(image),
+        code = snapshot(work, comp, run_args, data, out, f"{cfg['volume']}/{MODEL_CACHE}", bool(image),
                         ensure_weights(models, cfg["profile"], cfg["volume"]), jobs)
         (work / "air.yaml").write_text(yaml.safe_dump({
             "experiment_name": f"fab-{comp}", "mlflow_run_name": key,
@@ -457,7 +463,7 @@ def submit_cpu(cfg: dict, comp: str, data: str, run_args: list[str], models: lis
     remote = f"/Workspace/Users/{me}/.fab/{key}"
     work = Path(tempfile.mkdtemp())
     try:
-        code = snapshot(work, comp, run_args, models, data, out, cache="", preinstalled=True, weights="", jobs=jobs)
+        code = snapshot(work, comp, run_args, data, out, cache="", preinstalled=True, weights="", jobs=jobs)
         databricks(cfg["profile"], "workspace", "import-dir", str(code), remote, capture=True, timeout=1200)
         (work / "job.json").write_text(json.dumps({
             "run_name": f"fab-{key}", "timeout_seconds": timeout * 60,

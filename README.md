@@ -123,7 +123,7 @@ uv run --frozen fab download mleb-spaceship-titanic    # Kaggle zip → MLE-benc
 uv run --frozen fab databricks mleb-spaceship-titanic lgbm_refit catboost_refit tabpfn_v2_refit kumo_cat_refit  # TFM: AI Runtime GPU, GBDT: serverless CPU
 uv run --frozen fab mleb grade spaceship-titanic catboost_refit kumo_cat_refit --each      # 채점 요청 (학습이 아직 돌고 있어도 바로 내도 됨)
 uv run --frozen fab mleb fm spaceship-titanic=tabpfn_v2_refit,tabicl_kv_refit,kumo_cat_refit leaf-classification=kumo_cat_refit \
-    --accelerator GPU_8xH100                          # 대회 여럿을 GPU 작업 하나로 (대회·모델마다 GPU 하나) + 모델별 채점 요청
+    --accelerator GPU_8xH100                          # 대회 여럿을 GPU 작업 하나로 (여러 장이면 대회·모델마다 GPU 하나) + 모델별 채점 요청
 
 # 진행 확인과 결과 받기 (언제든)
 uv run --frozen fab remote status                     # 처리 대기 항목·최근 정리 작업 실행
@@ -153,7 +153,7 @@ uv run --frozen fab mleb agent list                    # 처리 상태 (회수·
 | `lgbm` / `xgb` / `catboost` | GBDT 기준선 | 고정 파라미터, early stopping 없음 |
 | `tabpfn_v2` | TabPFN v2 | 라이선스 동의 없이 사용 가능, 분류는 10 클래스까지 (leaf-classification 은 못 씀) |
 | `tabpfn` / `tabpfn35` | TabPFN 최신 / 3.5 | 브라우저 라이선스 동의 필요 |
-| `tabicl` | TabICL v2 | 10 클래스를 넘으면 계층 분류. KV 캐시 기본 (2026-11-15, OOM 이거나 10 클래스를 넘으면 끔, 옛 동작 `tabicl_nokv`) |
+| `tabicl` | TabICL v2 | 10 클래스를 넘으면 계층 분류. KV 캐시 기본 (2026-11-15, OOM 이거나 TabICL 이 거부하면 (10 클래스 넘음) 끔, 옛 동작 `tabicl_nokv`) |
 | `kumo` / `kumo_e4` | NVIDIA Kumo-Tabular (large) / estimator 4개 | 회귀는 999 분위수 평균 (지표가 MAE 면 중앙값). 2026-11-15 부터 질의 청크 8192 · 범주 열을 범주로 (옛 동작 `kumo_c2k`·`kumo_numcat`, 새 결과 이름은 `kumo_cat`) |
 | `exaone` | EXAONE-Tabular (LG) | 가중치 비상업 라이선스 |
 | `limix2m` | LimiX-2M | 비상업 라이선스 |

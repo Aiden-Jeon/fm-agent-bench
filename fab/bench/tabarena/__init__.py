@@ -453,9 +453,9 @@ def request_grade(comps: list[str], models: list[str], note: str = ""):
 def check_models(models: list[str]):
     """제출 전에 모델 이름 확인: fab.models 의 REGISTRY·VARIANTS (컨텍스트 래퍼 @spec 허용). 피처 변형 (~) 은 split 대회에
     없어서 거부."""
-    from fab.models import REGISTRY, VARIANTS, strip_refit
+    from fab.models import REGISTRY, VARIANTS, is_known_model
 
-    bad = [m for m in models if "~" in m or strip_refit(m.partition("@")[0]) not in {*REGISTRY, *VARIANTS}]
+    bad = [m for m in models if "~" in m or not is_known_model(m)]
     if bad:
         raise SystemExit(f"알 수 없는 모델 (또는 피처 변형 ~): {bad}. 사용 가능: {', '.join([*REGISTRY, *VARIANTS])}")
 
@@ -639,11 +639,15 @@ def default_gbdt(ref: pd.DataFrame, dataset: str, splits: set[str]) -> float:
 
 
 def warn_mixed_opts(model: str, rows: pd.DataFrame):
-    """같은 모델 이름의 채점 행이 서로 다른 설정 (opts 열, 빈칸 = 2026-11-15 전 기본값) 으로 돈 것이면 경고.
-    예: kumo 는 예전 행이 청크 2048 (빈칸), 기본값을 바꾼 뒤 행이 'chunk=8192 n_estimators=8' (docs/tabarena.md 결정 11)."""
-    opts = rows["opts"].fillna("(빈칸: 2026-11-15 전)") if "opts" in rows else pd.Series("(빈칸: 2026-11-15 전)", rows.index)
-    if opts.nunique() > 1:
-        counts = opts.groupby(opts).size().to_dict()
+    """같은 모델 이름의 채점 행이 서로 다른 설정으로 돈 것이면 경고. opts 글을 그대로 비교하지 않고 실제 설정
+    (fab.models.effective_opts: 빈칸 = 2026-11-15 전 기본값, 글에 없는 키 = 그 인자가 생기기 전 값) 으로 비교 → 글 모양만 다른 것은 안 셈.
+    예: kumo 는 예전 행이 청크 2048 · 범주를 수치로 (빈칸), 기본값을 바꾼 뒤 행이 청크 8192 · 범주로 (docs/tabarena.md 결정 11)."""
+    from fab.models import effective_opts
+
+    opts = rows["opts"] if "opts" in rows else pd.Series(None, rows.index, dtype=object)
+    setup = opts.map(lambda o: " ".join(f"{k}={v}" for k, v in sorted(effective_opts(model, o).items())) or "default")
+    if setup.nunique() > 1:
+        counts = setup.groupby(setup).size().to_dict()
         print(f"경고: {model} 의 행이 다른 설정으로 섞임 {counts} → 한 판정으로 읽지 말 것 (설정마다 다른 이름으로 돌림)")
 
 

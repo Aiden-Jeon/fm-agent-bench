@@ -188,19 +188,30 @@ def make_tabpfn35(task, cat_cols, seed, **kw):
     return _tabpfn(task, cat_cols, seed, version="v3.5", **kw)
 
 
-TABICL_KV_MAX_CLASSES = 10  # TabICL 의 KV 캐시는 계층 분류 (클래스 > 10) 에서 안 됨: fit 에서 ValueError (leaf 99 클래스, 2026-11-15)
+# TabICL 이 KV 캐시를 거부할 때의 오류 글 (tabicl 2.2: 계층 분류, 즉 클래스가 모델의 상한 10 을 넘을 때. leaf 99 클래스, 2026-11-15)
+TABICL_KV_REFUSED = "KV caching is not supported"
 
 
 class _TabICL(_CacheFallback):
-    """클래스가 TABICL_KV_MAX_CLASSES 를 넘는 분류면 처음부터 캐시 없이 (점수는 캐시와 같음)."""
+    """캐시를 켠 fit 이 캐시를 거부하면 (TABICL_KV_REFUSED 의 ValueError) 캐시 없이 다시 fit (점수는 캐시와 같음).
+    클래스 상한을 여기에 적어 두지 않고 TabICL 이 정하게 둠 (판·설정에 따라 상한이 바뀌어도 맞게)."""
 
     def __init__(self, make, task):
         super().__init__(make, dict(kv_cache=True), dict(kv_cache=False), tag="tabicl")
         self.task = task
 
     def fit(self, X, y):
-        self.use_cache = self.task == "regression" or len(np.unique(y)) <= TABICL_KV_MAX_CLASSES
-        return super().fit(X, y)
+        if not self.use_cache:
+            return super().fit(X, y)
+        try:
+            return super().fit(X, y)
+        except ValueError as e:
+            if TABICL_KV_REFUSED not in str(e):
+                raise
+        print(f"    [tabicl] 캐시 거부 (클래스 {len(np.unique(y))}개) → 캐시 없이 fit", flush=True)
+        self.X_, self.y_ = X, y
+        self.model_, self.cached_ = self.make(**self.plain).fit(X, y), False
+        return self
 
 
 def make_tabicl(task, cat_cols, seed, kv_cache=True):
@@ -208,7 +219,7 @@ def make_tabicl(task, cat_cols, seed, kv_cache=True):
     (꺼 두면 test 7만 행이 청크 4개 = 컨텍스트 4번). 점수는 끈 것과 같음 (H100 에서 test 점수 6자리까지, 2026-11-14).
     캐시를 만들거나 예측하다 OOM 이면 캐시 없이 (_CacheFallback. A10 24GB 에서 컨텍스트 10만 행 × 피처 10 은 캐시를 만들다 OOM,
     5만 × 170 은 들어감, 2026-11-14). 기본은 켬 (2026-11-15, docs/tabarena.md 결정 11). 옛 기본 (끔) 은 tabicl_nokv.
-    클래스가 10 을 넘으면 (계층 분류) 캐시가 안 되므로 끔 (_TabICL)."""
+    TabICL 이 캐시를 거부하면 (클래스가 10 을 넘는 계층 분류) 캐시 없이 (_TabICL)."""
     from tabicl import TabICLClassifier, TabICLRegressor
 
     cls = TabICLRegressor if task == "regression" else TabICLClassifier
@@ -327,11 +338,12 @@ class _Kumo(_Transductive):
 
         dev = torch.device(_device())
         if self.agp:
-            if not hasattr(self, "keep_"):
+            if not hasattr(self, "keep_"):  # 컨텍스트는 처음 한 번만 바꿈 (질의 청크마다 다시 하지 않음)
                 self.keep_ = self._agp_fit(self.X_)
+                self.ctx_agp_ = self._agp(self.X_)
                 print(f"    [kumo agp] 열 {self.X_.shape[1]} → {len(self.keep_)}, 결측으로 바꾼 범주 값 "
                       f"{sum(len(r) for r in self.rare_.values())}개", flush=True)
-            X, ctx_X = self._agp(X), self._agp(self.X_)
+            X, ctx_X = self._agp(X), self.ctx_agp_
             cat_pos = {j for j, i in enumerate(self.keep_) if i in set(self.cat_idx)}
         else:
             ctx_X, cat_pos = self.X_, set(self.cat_idx)

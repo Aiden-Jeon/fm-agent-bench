@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from fab.core.competition import feature_pip, load_competition, load_features
-from fab.models import REMOTE_PIP, base_name, is_refit, split_features
+from fab.models import REMOTE_PIP, base_name, is_known_model, is_refit, split_features
 
 CODE_PATHS = ["fab", "competitions"]  # 원격(fab databricks)에서는 이 위치를 cwd 로 두고 `python -m fab run` 실행
 
@@ -42,6 +42,8 @@ def run_argv(args: argparse.Namespace, models: list[str] | None = None) -> list[
 def check_run_args(ap: argparse.ArgumentParser, args: argparse.Namespace):
     """원격에 보내기 전에 확인 (원격에서 실패하면 준비 시간만 버림): 피처 변형(~<variant>) 파일, --fold 범위·--max-folds 충돌."""
     comp = load_competition(args.comp)
+    if unknown := [m for m in args.models if not is_known_model(m)]:
+        ap.error(f"알 수 없는 모델 {unknown} (fab/models 의 REGISTRY·VARIANTS)")
     seen = set()
     for m in args.models:
         try:

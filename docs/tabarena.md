@@ -437,8 +437,8 @@ uv run --frozen fab ta compare --detail
 | test 예측 방식 | 모델 이름 | 끝이 `_refit` (예: `kumo_cat_refit`, `catboost_refit~f2`, `kumo_cat_refit@rand200000~f1`) = refit. 없으면 5-fold (fold 모델 5개 평균). `results.csv` 의 `n_folds` 0 · `cv` 빈칸도 refit |
 | 모델 설정 | `opts` 열 (`results.csv`·`tabarena.csv`·`mlebench.csv`, `test.json`) | 실행할 때의 설정 글 (`fab.models.model_opts`). 예: `cats=categorical chunk=8192 n_estimators=8` (kumo), `kv_cache=True` (tabicl), `default` (GBDT·tabpfn). **빈칸 = 2026-11-15 전 실행** (tabicl 캐시 없음, kumo 청크 2048 · 범주를 수치로. 이름이 `_kv`·`_c8k` 면 그 설정) |
 | 바뀐 기본값 | `fab/models` | `tabicl`: 캐시 켬 (옛 동작 `tabicl_nokv`). `kumo`: 청크 8192 · 범주를 범주로 (옛 동작 `kumo_c2k` 의 청크, `kumo_numcat` 의 범주). 옛 진단 이름 `kumo_e4`·`kumo_e16`·`kumo_c8k`·`kumo_c2k`·`kumo_c32k` 는 범주를 수치로 고정 (그 이름의 옛 결과와 같은 뜻) |
-| 섞임 경고 | `fab ta compare` | 한 모델 이름의 행이 다른 `opts` (빈칸 포함) 로 섞이면 경고 |
-| `opts` 읽을 때 | | `cats=` 가 없는 kumo 의 `opts` (2026-11-15 오전 kddcup09 의 `kumo_e16_refit`·`kumo_c2k_refit`·`kumo_c8k`) = 범주를 수치로. tabicl 의 `kv_cache=True` 는 설정 값이라 클래스가 10 을 넘거나 OOM 이면 실제로는 캐시 없이 돎 (점수는 같음) |
+| 섞임 경고 | `fab ta compare` | 한 모델 이름의 행이 실제로 다른 설정으로 섞이면 경고. `opts` 글을 그대로 비교하지 않고 빈칸·글에 없는 키를 "그 인자가 생기기 전 값" (`fab.models` 의 `OPTS_BEFORE`) 으로 채워 비교 (`effective_opts`) → 글 모양만 다른 옛 행 (빈칸·`cats=` 없음) 은 안 셈. 팩토리에 기본값 있는 인자를 더하거나 기본값을 바꾸면 `OPTS_BEFORE` 에 그 전 값을 적음 |
+| `opts` 읽을 때 | | `cats=` 가 없는 kumo 의 `opts` (2026-11-15 오전 kddcup09 의 `kumo_e16_refit`·`kumo_c2k_refit`·`kumo_c8k`) = 범주를 수치로. tabicl 의 `kv_cache=True` 는 설정 값이라 TabICL 이 캐시를 거부하거나 (클래스가 10 을 넘는 계층 분류) OOM 이면 실제로는 캐시 없이 돎 (점수는 같음). MLE-bench 묶음 (평균·nomad 두 타깃) 의 `opts` 는 구성원마다 `|` 로, 옛 구성원은 `(빈칸)` |
 
 새 결과 이름 (두 벤치마크 같음): `tabpfn_v2_refit` · `tabicl_kv_refit` · `kumo_cat_refit` · `lgbm_refit` · `xgb_refit` · `catboost_refit` (+ `~f1`·`~f2s`·`~f2`, `@rand200000`).
 `tabicl_kv_refit` 은 51개 판정에 쓴 이름 그대로 (기본 `tabicl_refit` 과 같은 설정). `kumo_cat_refit` 은 기본 `kumo_refit` 과 같은 설정이지만 `kumo`·`kumo_refit` 은 옛 행이 있어 새 이름을 씀.
