@@ -653,13 +653,18 @@ def warn_mixed_opts(model: str, rows: pd.DataFrame):
         print(f"경고: {model} 의 행이 다른 설정으로 섞임 {counts} → 한 판정으로 읽지 말 것 (설정마다 다른 이름으로 돌림)")
 
 
+def latest_grades(grades: pd.DataFrame) -> pd.DataFrame:
+    """같은 (대회, 모델) 을 여러 번 채점했으면 마지막 행만 (compare · elo_tables 가 같이 씀)."""
+    return grades.sort_values("timestamp", kind="stable").drop_duplicates(["comp", "model"], keep="last")
+
+
 def compare(models: list[str] | None = None, splits: str = "all") -> pd.DataFrame:
     """우리 FM (results/tabarena.csv) 과 TabArena 의 같은 split 결과 (results/tabarena_reference.csv) 를 데이터셋별로.
     맞춤 기준 (docs/tabarena.md 8, FM 마다): 데이터셋의 80% 이상에서 |우리 split 평균 − TabArena split 평균| ≤ TabArena
     split 표준편차, 그리고 TabArena 기본 GBDT 대비 승패가 같음. 같은 split 이 다 있는 데이터셋만 셈.
     평균·기본 GBDT 는 고른 split (splits) 에서, 표준편차는 늘 데이터셋의 모든 split 에서 (split 사이 흔들림의 크기라서.
     --splits r0f0 처럼 하나만 고르면 그 split 의 표준편차는 0). 같은 (대회, 모델) 을 여러 번 채점했으면 마지막 행."""
-    ours = pd.read_csv(GRADES).sort_values("timestamp").drop_duplicates(["comp", "model"], keep="last")
+    ours = latest_grades(pd.read_csv(GRADES))
     ref = pd.read_csv(REFERENCE)
     rows = []
     for model in models or sorted(ours.model.unique()):
@@ -705,20 +710,25 @@ def elo_tables(rounds: int) -> pd.DataFrame:
     """두 풀 (fm·agent, elo.py) 의 Elo → results/tabarena_elo.csv."""
     from fab.bench.tabarena import elo
 
-    ref, grades, runs = pd.read_csv(REFERENCE), pd.read_csv(GRADES), pd.read_csv(RUNS)
-    have = set(grades[grades.model.isin(["kumo_cat_refit", "kumo_c8k_refit"])].dataset)
-    if miss := sorted(set(datasets().index) - have):
-        print(f"경고: kumo (ours) 가 없는 데이터셋 {miss} → RandomForest 로 채움")
+    ref, grades, runs = pd.read_csv(REFERENCE), latest_grades(pd.read_csv(GRADES)), pd.read_csv(RUNS)
+    all_ds = set(datasets().index)
+    for name, models in {**elo.FM_MODELS, **elo.GBDT_MODELS}.items():
+        for m in models:
+            warn_mixed_opts(m, grades[grades.model == m])
+        have = set(grades[grades.model.isin(models) & grades.metric_error.notna()].dataset)
+        if name in elo.FM_MODELS and (miss := sorted(all_ds - have)):
+            print(f"경고: {name} 가 없는 데이터셋 {miss} → RandomForest 로 채움")
     dataset_of = {c.name: ds for ds, c in committed().items()}
     out = []
     for pool, long in [("fm", elo.fm_pool(ref, grades)), ("agent", elo.agent_pool(ref, grades, runs, dataset_of))]:
-        t = elo.elo(long, rounds=rounds)
+        t = elo.elo(long, rounds=rounds)  # 데이터셋 MIN_CI_DATASETS 개 미만이면 elo() 가 부트스트랩을 건너뜀
         n = int(t.datasets.iloc[0])
         if pool == "agent":
-            t["runs"] = elo.agent_counts(runs)
-        if n < elo.MIN_CI_DATASETS:  # 데이터셋 2개를 복원 추출하면 뽑을 수 있는 묶음이 3가지뿐 → 구간이 수천~수만
+            t["runs"] = elo.agent_counts(ref, runs, dataset_of)
+        if n < elo.MIN_CI_DATASETS:
             print(f"주의: {pool} 풀의 데이터셋 {n}개 (< {elo.MIN_CI_DATASETS}) → 95% 구간은 비움 (데이터셋 부트스트랩이 뜻이 없음)")
-            t[["elo+", "elo-"]] = np.nan
+        elif rounds <= 0:
+            print(f"주의: --rounds {rounds} → 95% 구간은 비움 (점추정만)")
         out.append(t.reset_index().assign(pool=pool))
         units = long[["dataset", "split"]].drop_duplicates().shape[0]
         with pd.option_context("display.width", 200):
@@ -777,7 +787,7 @@ def main(argv: list[str] | None = None):
     c.add_argument("--splits", default="all", help="all 또는 r0f0 (Lite) 등")
     c.add_argument("--detail", action="store_true", help="데이터셋별 표도")
     e = sub.add_parser("elo", help="TabArena 식 Elo (RandomForest = 1000): FM 풀 (51개) · Agent 풀 (r0f0) → results/tabarena_elo.csv")
-    e.add_argument("--rounds", type=int, default=200, help="부트스트랩 횟수 (기본 200, TabArena 와 같음)")
+    e.add_argument("--rounds", type=int, default=200, help="부트스트랩 횟수 (기본 200, TabArena 와 같음. 0 = 점추정만)")
     sub.add_parser("agent", help="에이전트 실행 (fab ta agent -h, fab mleb agent 와 같은 명령)")
     args = ap.parse_args(argv)
 

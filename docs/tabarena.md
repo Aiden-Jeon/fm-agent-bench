@@ -773,7 +773,7 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 |---|---|
 | 모형 | Bradley-Terry 최대우도 (로지스틱 회귀, C = 1e6). Elo 400 차이 = 기대 승률 91% (1 / (1 + 10^(−Δ/400))) |
 | 짝 비교 | 같은 (데이터셋, split) 안에서 `metric_error` 가 낮으면 이김, 같으면 반씩. 가중치 1 / (그 데이터셋의 split 수) → 30 split 데이터셋과 9 split 데이터셋이 같은 무게 |
-| 빈칸 | 못 돈 (방법, 데이터셋, split) 은 RandomForest 기본 결과로 채움 (TabArena 의 fillna). `imputed` = 채운 비율 |
+| 빈칸 | 못 돈 (방법, 데이터셋, split) 은 RandomForest 기본 결과로 채움 (TabArena 의 fillna). Agent 의 실패한 회차 (무효 제출·점수 없음) 도 빼지 않고 회차 평균 전에 RandomForest 값으로. `imputed` = 채운 비율 (Agent 는 실패 회차 비율 포함) |
 | 95% 구간 | 데이터셋을 복원 추출하는 부트스트랩 200번 (seed 0), 보정 전 값의 2.5%·97.5% 분위수 − 점추정. 점추정은 전체 데이터의 최대우도 (부트스트랩 중앙값 아님). 마지막에 RandomForest 를 1000 으로 옮김 (`post_calibrate`, 구간 폭은 RandomForest 와 무관) |
 | `rank`·`winrate` | 단위 (데이터셋, split) 마다 순위·승률 (비김 반) 을 같은 가중치로 평균 |
 | 확인 | 같은 입력 (두 풀) 을 TabArena 저장소의 `elo_utils.py` 로 계산 → 점추정 같음 (소수 첫째 자리까지), FM 풀의 구간도 같음 (2026-11-16) |
@@ -799,13 +799,13 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 | TabArena LightGBM | 1175 | +44 / −54 | 7.56 | 0.271 | 0 |
 | TabArena RandomForest | 1000 | +48 / −66 | 8.94 | 0.118 | 0 |
 
-- 우리 FM 셋이 모두 TabArena 의 같은 모델 바로 옆 (구간 안): kumo −43, tabicl −3, tabpfn_v2 +46. "FM 이 TabArena 와 맞는지" 의 판정과 같은 그림
-- kumo (ours) 는 TabArena CatBoost 기본보다 +496 (기대 승률 95%), tabicl (ours) 보다 +294 (84%)
+- 우리 FM 셋이 모두 TabArena 의 같은 모델 바로 옆 (구간 안): kumo −43, tabicl −3, tabpfn_v2 +47 (반올림 전 값의 차). "FM 이 TabArena 와 맞는지" 의 판정과 같은 그림
+- kumo (ours) 는 TabArena CatBoost 기본보다 +495 (기대 승률 95%), tabicl (ours) 보다 +294 (84%)
 - tabpfn_v2 의 18개는 TabArena TabPFNv2 와 같은 데이터셋을 RandomForest 로 채움 (TabArena 와 같은 처리) → 두 줄은 같은 조건. 돌 수 있는 33개만의 Elo 는 따로 안 냄
 
 ### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (지금 2개)
 
-hazelnut · in_vehicle 의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균 (2회, TabArena 가 seed 를 평균하는 것과 같게).
+hazelnut · in_vehicle 의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균 (데이터셋마다 2회, 결과표의 `runs`. TabArena 가 seed 를 평균하는 것과 같게). 지금은 실패한 회차 없음 (`imputed` 0).
 
 | 방법 | Elo |
 |---|---|

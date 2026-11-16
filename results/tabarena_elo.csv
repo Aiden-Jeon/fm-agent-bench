@@ -11,16 +11,16 @@ fm,LightGBM,1175.3,44.1,54.0,7.558,0.2714,0.0,51,
 fm,RandomForest,1000.0,47.6,65.6,8.941,0.1177,0.0,51,
 agent,kumo (ours),2540.3,,,2.0,0.9375,0.0,2,
 agent,Kumo-Tabular,2540.3,,,2.0,0.9375,0.0,2,
-agent,agent: codex-gpt,2372.0,,,3.0,0.875,0.0,2,4.0
+agent,agent: codex-gpt,2372.0,,,3.0,0.875,0.0,2,2.0
 agent,tabicl (ours),2107.5,,,5.0,0.75,0.0,2,
 agent,TabICL_GPU,1997.3,,,6.0,0.6875,0.0,2,
-agent,agent: aide-sonnet,1944.4,,,6.5,0.6562,0.0,2,4.0
+agent,agent: aide-sonnet,1944.4,,,6.5,0.6562,0.0,2,2.0
 agent,TabICLv2,1944.4,,,6.5,0.6562,0.0,2,
-agent,agent: aide-gpt,1944.4,,,6.5,0.6562,0.0,2,4.0
-agent,agent: claude-code-sonnet+cont,1627.6,,,9.5,0.4688,0.0,2,4.0
+agent,agent: aide-gpt,1944.4,,,6.5,0.6562,0.0,2,2.0
+agent,agent: claude-code-sonnet+cont,1627.6,,,9.5,0.4688,0.0,2,2.0
 agent,tabpfn_v2 (ours),1440.9,,,11.5,0.3438,0.0,2,
 agent,CatBoost,1356.4,,,12.5,0.2812,0.0,2,
-agent,agent: claude-code-sonnet,1314.4,,,13.0,0.25,0.0,2,4.0
+agent,agent: claude-code-sonnet,1314.4,,,13.0,0.25,0.0,2,2.0
 agent,catboost (ours),1314.4,,,13.0,0.25,0.0,2,
 agent,lgbm (ours),1314.4,,,13.0,0.25,0.0,2,
 agent,LightGBM,1271.7,,,13.5,0.2188,0.0,2,
