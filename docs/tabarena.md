@@ -22,6 +22,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [FM 프로토콜과 이름 (2026-11-15)](#fm-프로토콜과-이름-2026-11-15)
 - [파일럿 결과 (2026-11-14~15)](#파일럿-결과-2026-11-1415)
 - [Agent 확장 1회째 (#26, 2026-11-16)](#agent-확장-1회째-26-2026-11-16)
+- [Elo (2026-11-16)](#elo-2026-11-16)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
 - [부록: 데이터셋 51개](#부록-데이터셋-51개)
@@ -456,7 +457,7 @@ uv run --frozen fab ta compare --detail
 FM·GBDT 는 튜닝 없음. 2026-11-15 부터 FM·GBDT 는 모두 refit (CV 없이 train 전체로 한 번 fit → test 만, TabArena TFM 의 `refit_folds=True` 와 같은 꼴, 결정 11).
 "Agent vs FM" 의 FM·GBDT 도 refit 값이고 (옛 5-fold 값은 표 오른쪽 열), "FM 이 TabArena 와 맞는지" 의 판정도 refit (tabicl·kumo 51개, tabpfn_v2 33개).
 Kumo 는 범주 열을 범주로 넘기도록 고친 뒤 값 (`kumo_cat_refit`, 아래 "kddcup09"). 5-fold 표 (39개) 는 옛 프로토콜의 기록으로 남김.
-결과 파일: `results/tabarena.csv` (우리 split 채점), `results/tabarena_reference.csv`, `results/tabarena_runs.csv` (Agent).
+결과 파일: `results/tabarena.csv` (우리 split 채점), `results/tabarena_reference.csv`, `results/tabarena_runs.csv` (Agent), `results/tabarena_elo.csv` (아래 "Elo").
 
 ### Agent vs FM (r0f0)
 
@@ -1095,6 +1096,71 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
 - **C2 (+fm)**: 할지, 한다면 어디서. FM 이 이긴 9개에서는 "FM 을 손에 쥔 Agent 가 FM 보다 나아지는가", Agent 가 이긴 3개 (범주 많음·오염 높음) 에서는 "FM 을 섞어 더 나아지는가" 를 봄. 같은 10개면 약 50 A10 시간
 - **2회째 (결정 2)**: Agent − FM 이 1σ 안인 6개 (QSAR_fish · MIC · Is-this · splice · polish · QSAR-TID) 는 1회째로 승패를 말하기 어려움. 10개 모두 (약 50 A10 시간) 또는 1σ 안인 6개만 (약 30)
 - 범주 많음 대 오염을 가르려면 **범주가 많고 덜 알려진 데이터** 가 필요 (예: 대안의 hiva_agnostic 은 수치, website_phishing 은 범주 9열 · UCI). 후보를 더 찾을지
+
+## Elo (2026-11-16)
+
+점수를 TabArena 처럼 한 숫자로: 우리 FM·Agent 를 TabArena 공개 결과 (기본 설정 7개, 3) 와 한 풀에 넣고 **RandomForest (기본) = 1000** 인 Elo.
+`uv run --frozen fab ta elo` → `results/tabarena_elo.csv` (`fab/bench/tabarena/elo.py`). 결과표가 바뀌면 (`fab sync`, `fab ta reference`) 다시 돌림.
+
+계산은 TabArena (`autogluon/tabarena` c9f57b2, bencheval 의 `EloHelper`·`BenchmarkEvaluator.compute_elo`, 논문 D.1) 와 같음
+
+| 항목 | 값 |
+|---|---|
+| 모형 | Bradley-Terry 최대우도 (로지스틱 회귀, C = 1e6). Elo 400 차이 = 기대 승률 91% (1 / (1 + 10^(−Δ/400))) |
+| 짝 비교 | 같은 (데이터셋, split) 안에서 `metric_error` 가 낮으면 이김, 같으면 반씩. 가중치 1 / (그 데이터셋의 split 수) → 30 split 데이터셋과 9 split 데이터셋이 같은 무게 |
+| 빈칸 | 못 돈 (방법, 데이터셋, split) 은 RandomForest 기본 결과로 채움 (TabArena 의 fillna). Agent 의 실패한 회차 (무효 제출·점수 없음) 도 빼지 않고 회차 평균 전에 RandomForest 값으로. `imputed` = 채운 비율 (Agent 는 실패 회차 비율 포함) |
+| 95% 구간 | 데이터셋을 복원 추출하는 부트스트랩 200번 (seed 0), 보정 전 값의 2.5%·97.5% 분위수 − 점추정. 점추정은 전체 데이터의 최대우도 (부트스트랩 중앙값 아님). 마지막에 RandomForest 를 1000 으로 옮김 (`post_calibrate`, 구간 폭은 RandomForest 와 무관) |
+| `rank`·`winrate` | 단위 (데이터셋, split) 마다 순위·승률 (비김 반) 을 같은 가중치로 평균 |
+| 확인 | 같은 입력 (두 풀) 을 TabArena 저장소의 `elo_utils.py` 로 계산 → 점추정 같음 (소수 첫째 자리까지), FM 풀의 구간도 같음 (2026-11-16) |
+
+- 풀 (참가자 묶음) 이 다르면 Elo 도 다름. TabArena 리더보드는 방법이 훨씬 많아 (모델 58개 + 시스템, 튜닝·앙상블 줄 포함) 같은 방법도 숫자가 다를 수 있음 → 이 표끼리만 비교
+- 리더보드 화면의 Elo 는 여전히 못 읽음 ("확인 못 한 것")
+
+### FM 풀: 51개 × 모든 split (816)
+
+우리 FM 은 refit (결정 11). `kumo (ours)` = 범주 열이 있는 34개는 `kumo_cat_refit`, 없는 17개는 같은 설정인 `kumo_c8k_refit` ("FM 프로토콜과 이름").
+우리 GBDT (`lgbm_refit`·`catboost_refit`) 는 4개 데이터셋뿐이라 이 풀에 안 넣음 (넣으면 47개가 RandomForest 값).
+
+| 방법 | Elo | 95% 구간 | 평균 순위 | 승률 | 채운 비율 |
+|---|---|---|---|---|---|
+| TabArena Kumo-Tabular | 1871 | +138 / −78 | 1.85 | 0.906 | 0 |
+| **kumo (ours)** | **1829** | +134 / −77 | 2.07 | 0.881 | 0 |
+| TabArena TabICLv2 | 1538 | +53 / −44 | 4.10 | 0.656 | 0 |
+| **tabicl (ours)** | **1535** | +49 / −48 | 4.12 | 0.653 | 0 |
+| TabArena CatBoost | 1333 | +44 / −48 | 6.02 | 0.443 | 0 |
+| TabArena TabICL (v1) | 1276 | +47 / −61 | 6.59 | 0.379 | 0.294 (범위 밖 15개) |
+| **tabpfn_v2 (ours)** | **1269** | +64 / −96 | 6.65 | 0.372 | 0.353 (범위 밖 18개) |
+| TabArena TabPFNv2 | 1223 | +62 / −84 | 7.11 | 0.321 | 0.353 (범위 밖 18개) |
+| TabArena LightGBM | 1175 | +44 / −54 | 7.56 | 0.271 | 0 |
+| TabArena RandomForest | 1000 | +48 / −66 | 8.94 | 0.118 | 0 |
+
+- 우리 FM 셋이 모두 TabArena 의 같은 모델 바로 옆 (구간 안): kumo −43, tabicl −3, tabpfn_v2 +47 (반올림 전 값의 차). "FM 이 TabArena 와 맞는지" 의 판정과 같은 그림
+- kumo (ours) 는 TabArena CatBoost 기본보다 +495 (기대 승률 95%), tabicl (ours) 보다 +294 (84%)
+- tabpfn_v2 의 18개는 TabArena TabPFNv2 와 같은 데이터셋을 RandomForest 로 채움 (TabArena 와 같은 처리) → 두 줄은 같은 조건. 돌 수 있는 33개만의 Elo 는 따로 안 냄
+
+### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (지금 2개)
+
+hazelnut · in_vehicle 의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균 (데이터셋마다 2회, 결과표의 `runs`. TabArena 가 seed 를 평균하는 것과 같게). 지금은 실패한 회차 없음 (`imputed` 0).
+
+| 방법 | Elo |
+|---|---|
+| kumo (ours) · TabArena Kumo-Tabular | 2540 |
+| **Agent: Codex × GPT** | **2372** |
+| tabicl (ours) | 2108 |
+| TabArena TabICL (v1) | 1997 |
+| **Agent: AIDE × Sonnet** · **AIDE × GPT** · TabArena TabICLv2 | **1944** |
+| **Agent: Claude Code × Sonnet +cont** | **1628** |
+| tabpfn_v2 (ours) | 1441 |
+| TabArena CatBoost | 1356 |
+| **Agent: Claude Code × Sonnet** · catboost (ours) · lgbm (ours) | **1314** |
+| TabArena LightGBM · TabPFNv2 | 1272 |
+| TabArena RandomForest | 1000 |
+
+- **데이터셋 2개라 이 Elo 는 순위를 다시 쓴 것에 가까움.** 같은 줄 = 두 데이터셋의 순위 합이 같음. 95% 구간은 비움
+  (데이터셋 2개를 복원 추출하면 묶음이 3가지뿐이라 폭이 수천~수만, `fab ta elo` 는 데이터셋 10개 미만이면 비움)
+- RandomForest 가 거의 다 져서 (승률 0.06) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 2540)
+- 읽을 수 있는 것: Codex 는 우리 FM 최고 (kumo) 와 tabicl 사이, AIDE 둘은 TabICLv2 와 같은 자리, Claude Code 공식 설정은 우리 GBDT 와 같은 자리
+- #26 (Agent 확장 10개) 가 들어오면 같은 명령으로 다시 계산. 데이터셋 10개부터 구간을 냄
 
 ## 빠르게 돌리기 (2026-11-14)
 
