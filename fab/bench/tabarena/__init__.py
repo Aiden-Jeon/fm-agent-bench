@@ -5,6 +5,7 @@ TabArena 공개 결과와 비교. 조사·결정은 docs/tabarena.md.
     uv run --frozen fab ta fm <데이터셋...> --models tabpfn_v2_refit tabicl_kv_refit kumo_cat_refit lgbm_refit catboost_refit --splits all  # 제출 + 채점 요청
     uv run --frozen fab ta reference                     # TabArena 공개 결과 (기본 설정) → results/tabarena_reference.csv
     uv run --frozen fab ta compare                       # results/tabarena.csv 와 TabArena 결과 비교 (맞춤 기준)
+    uv run --frozen fab ta elo                           # TabArena 식 Elo (RandomForest = 1000) → results/tabarena_elo.csv
     uv run --frozen fab ta agent run ta-<데이터셋> aide-sonnet   # 에이전트 (r0f0, 익명 id 로)
 
 대회 단위 (결정 5): (데이터셋, split) 마다 대회 하나. split = OpenML task 의 (repeat r, fold f) → 이름 r<r>f<f>,
@@ -52,6 +53,7 @@ ANSWERS = TA_DIR / "data" / "answers"
 DRIVER = Path(__file__).with_name("driver.py")
 GRADES = RESULTS / "tabarena.csv"  # 우리 split 채점 (git 추적, 원격 정리 작업이 씀)
 REFERENCE = RESULTS / "tabarena_reference.csv"  # TabArena 공개 결과의 기본 설정 행 (git 추적, fab ta reference)
+ELO = RESULTS / "tabarena_elo.csv"  # TabArena 식 Elo (git 추적, fab ta elo, elo.py)
 RUNS = RESULTS / "tabarena_runs.csv"  # 에이전트 실행별 채점 (git 추적, 원격 정리 작업이 씀. fab.agent.TA_TABLE)
 SPLIT_PREFIX = "tas-"  # 생성 split 대회 (git 제외)
 ID_COL = "id"
@@ -699,6 +701,37 @@ def summary(cmp: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
+def elo_tables(rounds: int) -> pd.DataFrame:
+    """두 풀 (fm·agent, elo.py) 의 Elo → results/tabarena_elo.csv."""
+    from fab.bench.tabarena import elo
+
+    ref, grades, runs = pd.read_csv(REFERENCE), pd.read_csv(GRADES), pd.read_csv(RUNS)
+    have = set(grades[grades.model.isin(["kumo_cat_refit", "kumo_c8k_refit"])].dataset)
+    if miss := sorted(set(datasets().index) - have):
+        print(f"경고: kumo (ours) 가 없는 데이터셋 {miss} → RandomForest 로 채움")
+    dataset_of = {c.name: ds for ds, c in committed().items()}
+    out = []
+    for pool, long in [("fm", elo.fm_pool(ref, grades)), ("agent", elo.agent_pool(ref, grades, runs, dataset_of))]:
+        t = elo.elo(long, rounds=rounds)
+        n = int(t.datasets.iloc[0])
+        if pool == "agent":
+            t["runs"] = elo.agent_counts(runs)
+        if n < elo.MIN_CI_DATASETS:  # 데이터셋 2개를 복원 추출하면 뽑을 수 있는 묶음이 3가지뿐 → 구간이 수천~수만
+            print(f"주의: {pool} 풀의 데이터셋 {n}개 (< {elo.MIN_CI_DATASETS}) → 95% 구간은 비움 (데이터셋 부트스트랩이 뜻이 없음)")
+            t[["elo+", "elo-"]] = np.nan
+        out.append(t.reset_index().assign(pool=pool))
+        units = long[["dataset", "split"]].drop_duplicates().shape[0]
+        with pd.option_context("display.width", 200):
+            print(f"\n== {pool}: 데이터셋 {n}개, (데이터셋, split) {units}개")
+            print(t.round({"elo": 0, "elo+": 0, "elo-": 0, "rank": 2, "winrate": 3, "imputed": 3}).to_string())
+    res = pd.concat(out, ignore_index=True)
+    cols = ["pool", "method", "elo", "elo+", "elo-", "rank", "winrate", "imputed", "datasets"]
+    res = res[cols + (["runs"] if "runs" in res else [])]
+    res.round({"elo": 1, "elo+": 1, "elo-": 1, "rank": 3, "winrate": 4, "imputed": 4}).to_csv(ELO, index=False)
+    print(f"\n{ELO}: {len(res)}행")
+    return res
+
+
 # --- 명령 ------------------------------------------------------------------------------------------------------
 
 
@@ -743,6 +776,8 @@ def main(argv: list[str] | None = None):
     c.add_argument("--models", nargs="*")
     c.add_argument("--splits", default="all", help="all 또는 r0f0 (Lite) 등")
     c.add_argument("--detail", action="store_true", help="데이터셋별 표도")
+    e = sub.add_parser("elo", help="TabArena 식 Elo (RandomForest = 1000): FM 풀 (51개) · Agent 풀 (r0f0) → results/tabarena_elo.csv")
+    e.add_argument("--rounds", type=int, default=200, help="부트스트랩 횟수 (기본 200, TabArena 와 같음)")
     sub.add_parser("agent", help="에이전트 실행 (fab ta agent -h, fab mleb agent 와 같은 명령)")
     args = ap.parse_args(argv)
 
@@ -789,3 +824,5 @@ def main(argv: list[str] | None = None):
             if args.detail:
                 print(cmp.round(5).to_string(index=False))
             print(summary(cmp).to_string(index=False))
+    elif args.cmd == "elo":
+        elo_tables(args.rounds)
