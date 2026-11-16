@@ -183,6 +183,10 @@ def grade(cid: str, groups: list[list[str]], note: str, grade_fn) -> tuple[list[
         rows.append(dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"),
                          mlebench=cid, model="+".join(models), comps=" ".join(c.name for c in comps),
                          runs=" ".join(str(i.get("run")) for i in infos), note=note,
+                         # 모델 설정 (fab.models.model_opts): 묶음·타깃마다 다르면 ' | ' 로. 2026-11-15 전 실행은 빈칸
+                         # 빈칸인 것 (옛 예측) 이 섞이면 '(빈칸)' 으로 남겨 섞인 것이 보이게. 모두 빈칸이면 빈칸
+                         opts=" | ".join(dict.fromkeys(str(i.get("opts") or "(빈칸)") for i in infos))
+                         if any(i.get("opts") for i in infos) else None,
                          **{k: report.get(k) for k in ["score", "valid_submission", "any_medal", "gold_medal",
                                                        "silver_medal", "bronze_medal", "above_median",
                                                        "gold_threshold", "silver_threshold", "bronze_threshold",
@@ -210,6 +214,83 @@ def request_grade(cid: str, groups: list[list[str]], note: str = ""):
     key = f"{cid}__{datetime.now():%Y%m%d-%H%M%S}"
     submit_item(cfg, "grade", key, dict(cid=cid, groups=groups, note=note))
     print(f"채점 요청: {key} ({len(groups)}개 묶음) → 학습이 끝난 뒤 fab remote kick, 결과는 fab sync")
+
+
+def parse_fm_targets(targets: list[str]) -> list[tuple[str, list[str]]]:
+    """`<대회>=<모델>,<모델>...` → [(MLE-bench 대회 id, 모델)]. 대회는 MLE-bench id 또는 fab 대회 이름 (nomad 는 두 타깃이 같은 모델).
+    같은 MLE-bench 대회로 가는 인자 (예: nomad2018-... 와 mleb-nomad2018-formation) 는 모델을 합침 → 대회마다 채점 요청 하나
+    (같은 초에 둘을 내면 요청 키가 겹쳐 하나가 덮임), 같은 (대회, 모델) 을 두 번 돌리지 않음."""
+    out: dict[str, list[str]] = {}
+    for t in targets:
+        cid, sep, ms = t.partition("=")
+        if not sep or not ms:
+            raise SystemExit(f"'{t}': <대회>=<모델>,<모델>... 꼴이어야 함")
+        if (COMP_DIR / cid / "config.yaml").exists() and load_competition(cid).mlebench:
+            cid = load_competition(cid).mlebench
+        if not bench_comps(cid):
+            raise SystemExit(f"config.yaml 에 mlebench: {cid} 인 대회가 없음")
+        out.setdefault(cid, [])
+        out[cid] += [m for m in ms.split(",") if m and m not in out[cid]]
+    return list(out.items())
+
+
+def check_models(cid: str, models: list[str]):
+    """제출 전에: 모델 이름 (fab.models 의 REGISTRY·VARIANTS, @spec·_refit 허용) 과 피처 변형 파일 (~<variant>) 이 그 대회에 있는지."""
+    from fab.core.competition import load_features
+    from fab.models import is_known_model, split_features
+
+    for m in models:
+        if not is_known_model(m):
+            raise SystemExit(f"{cid}: 알 수 없는 모델 {m}")
+        if not (variant := split_features(m)[1]):
+            continue
+        for c in bench_comps(cid):
+            try:
+                load_features(c, variant)  # fab databricks 의 check_run_args 와 같은 확인 (이름·파일·build)
+            except (ValueError, FileNotFoundError, AttributeError) as e:
+                raise SystemExit(f"{c.name}: 피처 변형 {variant} 를 못 읽음 ({e})") from e
+
+
+def submit_fm(todo: list[tuple[str, list[str]]], note: str, timeout: int, accelerator: str | None,
+              grade_after: bool = True) -> list[dict]:
+    """MLE-bench 대회 여럿의 FM·GBDT 를 GPU 작업 하나 + CPU 작업 하나로 (`fab ta fm --one-job` 과 같은 생각, 노드를 한 번만 띄움).
+    GPU 모델은 GPU 가 여러 장이면 (GPU_8xH100) (fab 대회, 모델) 마다 job 하나 → 실행기가 모델을 GPU 마다 나눠 돌림 (큰 train 부터).
+    한 장이면 대회마다 job 하나 (모델은 fab run 안에서 차례로, 데이터·피처를 한 번만 읽고 만듦).
+    GBDT 는 CPU 작업 하나에 대회마다 job 하나 (그 안에서 차례로). 끝에 대회마다 모델별 채점 요청 (fab mleb grade --each 와 같음)."""
+    from fab.models import base_name
+    from fab.runner.databricks import CPU_MODELS, ensure_data, record, submit, submit_cpu
+    from fab.runner.databricks import settings as dbx_settings
+
+    for cid, models in todo:
+        check_models(cid, models)
+    cfg = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))
+    data = {c.name: ensure_data(c, cfg["profile"], cfg["volume"]) for cid, _ in todo for c in bench_comps(cid)}
+    label = f"mleb-{len(todo)}comps" if len(todo) > 1 else f"mleb-{todo[0][0]}"
+    many = int(re.match(r"GPU_(\d+)x", cfg["accelerator"])[1]) > 1
+    gpu_jobs = []
+    for cid, ms in todo:
+        if not (gm := [m for m in ms if base_name(m) not in CPU_MODELS]):
+            continue
+        for c in bench_comps(cid):
+            groups = [[m] for m in gm] if many else [gm]
+            gpu_jobs += [(c.name, data[c.name], [*g, "--note", note]) for g in groups]
+    cpu_jobs = [(c.name, data[c.name], [*cpu, "--note", note]) for cid, ms in todo for c in bench_comps(cid)
+                if (cpu := [m for m in ms if base_name(m) in CPU_MODELS])]
+    runs = []
+    if gpu_jobs:
+        gpu = list(dict.fromkeys(m for j in gpu_jobs for m in j[2][:-2]))
+        run = submit(cfg, label, None, None, gpu, cfg["accelerator"], timeout, "", jobs=gpu_jobs)
+        record(cfg, run)
+        runs.append(run)
+    if cpu_jobs:
+        cpu = list(dict.fromkeys(m for j in cpu_jobs for m in j[2][:-2]))
+        run = submit_cpu(cfg, label, None, None, cpu, timeout, "", jobs=cpu_jobs)
+        record(cfg, run)
+        runs.append(run)
+    if grade_after:
+        for cid, models in todo:
+            request_grade(cid, [[m] for m in models], note)
+    return runs
 
 
 def agents() -> pd.DataFrame:
@@ -258,12 +339,23 @@ def main(argv: list[str] | None = None):
     g.add_argument("models", nargs="+", help="fab 모델 이름 (여러 개면 예측 평균)")
     g.add_argument("--each", action="store_true", help="모델마다 따로 채점 (평균하지 않음)")
     g.add_argument("--note", default="")
+    f = sub.add_parser("fm", help="FM·GBDT 를 GPU 작업 하나 (+ CPU 작업 하나) 로 + 모델별 채점 요청. "
+                                  "GPU 여러 장이면 (대회, 모델) 을 GPU 마다 나눠 돌림")
+    f.add_argument("targets", nargs="+", help="<대회>=<모델>,<모델>... (대회 = MLE-bench id 또는 fab 대회 이름)")
+    f.add_argument("--accelerator", default=None, help="예: GPU_8xH100 (기본: databricks.local.yaml 또는 GPU_1xH100)")
+    f.add_argument("--timeout", type=int, default=720, help="작업 시간 제한 (분)")
+    f.add_argument("--note", default="")
+    f.add_argument("--no-grade", action="store_true", help="채점 요청을 따로 (fab mleb grade --each)")
     sub.add_parser("agents", help="공개 리더보드 에이전트의 표 형식 대회 점수 → results/mlebench_agents.csv")
     sub.add_parser("agent", help="에이전트 직접 실행 (fab mleb agent -h)")
     args = ap.parse_args(argv)
 
     if args.cmd == "agents":
         agents()
+
+    if args.cmd == "fm":
+        submit_fm(parse_fm_targets(args.targets), args.note, args.timeout, args.accelerator, not args.no_grade)
+        print("끝난 뒤 fab remote kick → 결과 합치기·채점, fab sync 로 results/mlebench.csv")
 
     if args.cmd == "grade":
         cid = args.target

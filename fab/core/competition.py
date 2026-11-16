@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -137,5 +138,8 @@ def get_folds(comp: Competition, y: np.ndarray) -> np.ndarray:
     folds = np.empty(len(y), dtype=int)
     for i, (_, va) in enumerate(splitter.split(np.zeros(len(y)), y)):
         folds[va] = i
-    pd.DataFrame({"fold": folds}).to_csv(path, index=False)
+    # 임시 파일 → 교체: 같은 대회의 fab run 여럿이 동시에 시작해도 (fab mleb fm 의 (대회, 모델) 마다 GPU 하나) 반쯤 쓴 파일을 읽지 않음
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    pd.DataFrame({"fold": folds}).to_csv(tmp, index=False)
+    os.replace(tmp, path)
     return folds

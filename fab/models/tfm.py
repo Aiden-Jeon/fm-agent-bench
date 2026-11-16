@@ -1,4 +1,4 @@
-"""Tabular Foundation Model 래퍼. 범주형은 정수 코드(결측은 NaN)로 바꿔 numpy 로 전달."""
+"""Tabular Foundation Model 래퍼. 범주형은 정수 코드(결측은 NaN)로 바꿔 numpy 로 전달 (범주 열 위치 cat_idx 는 따로 넘김)."""
 
 from __future__ import annotations
 
@@ -188,18 +188,44 @@ def make_tabpfn35(task, cat_cols, seed, **kw):
     return _tabpfn(task, cat_cols, seed, version="v3.5", **kw)
 
 
-def make_tabicl(task, cat_cols, seed, kv_cache=False):
+# TabICL 이 KV 캐시를 거부할 때의 오류 글 (tabicl 2.2: 계층 분류, 즉 클래스가 모델의 상한 10 을 넘을 때. leaf 99 클래스, 2026-11-15)
+TABICL_KV_REFUSED = "KV caching is not supported"
+
+
+class _TabICL(_CacheFallback):
+    """캐시를 켠 fit 이 캐시를 거부하면 (TABICL_KV_REFUSED 의 ValueError) 캐시 없이 다시 fit (점수는 캐시와 같음).
+    클래스 상한을 여기에 적어 두지 않고 TabICL 이 정하게 둠 (판·설정에 따라 상한이 바뀌어도 맞게)."""
+
+    def __init__(self, make, task):
+        super().__init__(make, dict(kv_cache=True), dict(kv_cache=False), tag="tabicl")
+        self.task = task
+
+    def fit(self, X, y):
+        if not self.use_cache:
+            return super().fit(X, y)
+        try:
+            return super().fit(X, y)
+        except ValueError as e:
+            if TABICL_KV_REFUSED not in str(e):
+                raise
+        print(f"    [tabicl] 캐시 거부 (클래스 {len(np.unique(y))}개) → 캐시 없이 fit", flush=True)
+        self.X_, self.y_ = X, y
+        self.model_, self.cached_ = self.make(**self.plain).fit(X, y), False
+        return self
+
+
+def make_tabicl(task, cat_cols, seed, kv_cache=True):
     """kv_cache: fit 에서 컨텍스트의 KV 를 한 번 만들어 둠 → 예측 청크 (PREDICT_CHUNK) 마다 컨텍스트를 다시 계산하지 않음
     (꺼 두면 test 7만 행이 청크 4개 = 컨텍스트 4번). 점수는 끈 것과 같음 (H100 에서 test 점수 6자리까지, 2026-11-14).
     캐시를 만들거나 예측하다 OOM 이면 캐시 없이 (_CacheFallback. A10 24GB 에서 컨텍스트 10만 행 × 피처 10 은 캐시를 만들다 OOM,
-    5만 × 170 은 들어감, 2026-11-14)."""
+    5만 × 170 은 들어감, 2026-11-14). 기본은 켬 (2026-11-15, docs/tabarena.md 결정 11). 옛 기본 (끔) 은 tabicl_nokv.
+    TabICL 이 캐시를 거부하면 (클래스가 10 을 넘는 계층 분류) 캐시 없이 (_TabICL)."""
     from tabicl import TabICLClassifier, TabICLRegressor
 
     cls = TabICLRegressor if task == "regression" else TabICLClassifier
     if not kv_cache:
         return _TFM(lambda cat_idx: cls(random_state=seed), cat_cols)
-    return _TFM(lambda cat_idx: _CacheFallback(lambda **kw: cls(random_state=seed, **kw), dict(kv_cache=True),
-                                               dict(kv_cache=False), tag="tabicl"), cat_cols)
+    return _TFM(lambda cat_idx: _TabICL(lambda **kw: cls(random_state=seed, **kw), task), cat_cols)
 
 
 def _device() -> str:
@@ -267,22 +293,69 @@ class _Kumo(_Transductive):
     """컨텍스트는 sdm 의 fit() 으로 한 번만 인코딩해 KV 캐시에 두고, 쿼리 청크마다 predict() 로 재사용.
 
     회귀는 999개 분위수(q001~q999)로 분포를 예측 → point 로 점추정: mean(기대값, RMSE 용) / median(MAE 용).
+    cats: 범주 열 (cat_idx) 을 sdm 에 넘기는 stype. "categorical" (2026-11-15 부터 기본): Kumo 의 기본 전처리가 범주를 값 순으로
+    맞추고 (AlignCategories, 컨텍스트에 없는 값은 결측), 범주가 50개 이상인 열은 빈도 열을 더하고 (AddCategoryCounts), 모델에
+    범주 열 표시 (categorical_mask) 를 줌. "numerical": 예전처럼 정수 코드를 수치로 (빈도 열·범주 표시 없음, kumo_numcat).
+    TabArena kddcup09 에서 numerical 은 앙상블·청크·refit 과 상관없이 TabArena Kumo 보다 표준편차 2배쯤 나빴음 (docs/tabarena.md)
     """
 
-    def __init__(self, task, cat_idx, n_estimators=8, point="mean"):
+    def __init__(self, task, cat_idx, n_estimators=8, point="mean", cats="categorical", agp=None):
         super().__init__(task, cat_idx)
-        self.n_estimators, self.point = n_estimators, point
+        self.n_estimators, self.point, self.cats, self.agp = n_estimators, point, cats, agp
+
+    def _agp_fit(self, X):
+        """agp (진단용, kumo_cat_agp): TabArena 가 모델 앞에 두는 AutoGluon 전처리를 짐작으로 흉내 (docs/tabarena.md 의 kddcup09).
+        컨텍스트에서 한 번만 나온 범주 값 → 결측, 그 뒤 값이 하나뿐인 열과 다른 열과 똑같은 열 (결측 위치 포함) 을 뺌.
+        돌려주는 것: 남길 열 위치. self.rare_ = {열: 결측으로 바꿀 값}"""
+        X = X.copy()
+        self.rare_ = {}
+        for i in self.cat_idx:
+            v = X[:, i][~np.isnan(X[:, i])]
+            vals, counts = np.unique(v, return_counts=True)
+            self.rare_[i] = vals[counts < 2]
+            X[np.isin(X[:, i], self.rare_[i]), i] = np.nan
+        keep, seen = [], set()
+        for i in range(X.shape[1]):
+            col = X[:, i]
+            if np.unique(col[~np.isnan(col)]).size <= 1:
+                continue
+            key = np.where(np.isnan(col), np.inf, col).tobytes()
+            if key in seen:
+                continue
+            seen.add(key)
+            keep.append(i)
+        return keep
+
+    def _agp(self, X):
+        X = X.copy()
+        for i, rare in self.rare_.items():
+            X[np.isin(X[:, i], rare), i] = np.nan
+        return X[:, self.keep_]
 
     def _run(self, X):
         import sdm
         import torch
 
         dev = torch.device(_device())
+        if self.agp:
+            if not hasattr(self, "keep_"):  # 컨텍스트는 처음 한 번만 바꿈 (질의 청크마다 다시 하지 않음)
+                self.keep_ = self._agp_fit(self.X_)
+                self.ctx_agp_ = self._agp(self.X_)
+                print(f"    [kumo agp] 열 {self.X_.shape[1]} → {len(self.keep_)}, 결측으로 바꾼 범주 값 "
+                      f"{sum(len(r) for r in self.rare_.values())}개", flush=True)
+            X, ctx_X = self._agp(X), self.ctx_agp_
+            cat_pos = {j for j, i in enumerate(self.keep_) if i in set(self.cat_idx)}
+        else:
+            ctx_X, cat_pos = self.X_, set(self.cat_idx)
         cols = [f"f{i}" for i in range(X.shape[1])]
-        stypes = {c: "numerical" for c in cols}  # Kumo 는 수치형 피처만 지원 → 범주형은 정수 코드
+        if self.cats not in ("categorical", "numerical"):
+            raise ValueError(f"cats 는 categorical 또는 numerical: {self.cats!r}")
+        cat = cat_pos if self.cats == "categorical" else set()
+        # 범주 열은 정수 코드 (float, 결측 NaN) 그대로 categorical 로: sdm 이 값으로 범주를 만듦 (NaN = 결측)
+        stypes = {c: "categorical" if i in cat else "numerical" for i, c in enumerate(cols)}
         autocast = torch.amp.autocast(dev.type, dtype=torch.float16, enabled=dev.type == "cuda")
         if not hasattr(self, "model_"):  # 청크마다 다시 만들지 않도록 재사용
-            ctx = pd.DataFrame(self.X_, columns=cols).assign(target=self.y_)
+            ctx = pd.DataFrame(ctx_X, columns=cols).assign(target=self.y_)
             target_stype = "numerical" if self.task == "regression" else "categorical"
             ctx = sdm.TableTensor.from_pandas(ctx, stypes={**stypes, "target": target_stype}, device=dev)
             self.model_ = sdm.models.KumoTabular(
@@ -304,11 +377,14 @@ def make_limix2m(task, cat_cols, seed):
     return _TFM(lambda cat_idx: _LimiX(task, cat_idx, "stable-ai/LimiX-1_2M", "LimiX-1_2M.ckpt"), cat_cols)
 
 
-def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=2048):
+def make_kumo(task, cat_cols, seed, n_estimators=8, metric=None, chunk=8192, cats="categorical", agp=None):
     # MAE 는 중앙값이 최적 점추정 (평균은 오른쪽 꼬리가 긴 타깃에서 위로 치우침, Allstate)
     point = "median" if metric == "mae" else "mean"
-    # 컨텍스트가 1만 행을 넘으면 질의 2만 행으로는 T4 메모리를 넘음 (S4E2 에서 13.7GiB 요청) → 기본 질의 청크 2048
-    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point), cat_cols, chunk=chunk)
+    # chunk: 질의 청크. 2026-11-15 부터 기본 8192 (H100·A10 에서 2048 보다 6~32% 빠름, 점수는 float16 계산 순서만큼 다름,
+    # docs/tabarena.md 결정 11). 옛 기본 2048 (컨텍스트 1만 행을 넘으면 질의 2만 행은 T4 메모리를 넘음, S4E2 13.7GiB) 은 kumo_c2k
+    # cats: 범주 열을 Kumo 에 범주로 (2026-11-15 부터 기본, _Kumo). 옛 동작 (정수 코드를 수치로) 은 kumo_numcat
+    # agp: 진단용 (kumo_cat_agp, _Kumo._agp_fit). 기본 None = 안 함 (결과표 opts 에 안 나옴)
+    return _TFM(lambda cat_idx: _Kumo(task, cat_idx, n_estimators, point, cats, agp), cat_cols, chunk=chunk)
 
 
 class _Causilo(BaseEstimator):

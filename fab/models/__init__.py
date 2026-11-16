@@ -55,14 +55,26 @@ GATED = {"sap_rpt": [("SAP/sap-rpt-1-oss", "2025-11-04_sap-rpt-one-oss.pt")]}
 # 설정만 다른 변형: 이름 → (REGISTRY 모델, 인자). kumo_e4 는 앙상블 크기 벤치마크용 (기본값을 정하면 정리)
 # 인자 중 max_features 는 대회 설정 tfm_max_features 대신 쓰고, 나머지는 팩토리로 전달
 VARIANTS = {
-    "kumo_e4": ("kumo", dict(n_estimators=4)),
-    "kumo_e16": ("kumo", dict(n_estimators=16)),  # TabArena 의 Kumo-Tabular 와 같은 앙상블 수 (docs/tabarena.md 8, 결정 4)
+    # Kumo 진단 이름 (kumo_e*·kumo_c*) 은 범주 열을 수치로 (cats="numerical") 고정: 2026-11-15 전에 이 이름으로 낸 결과
+    # (TabArena 51개 refit 의 kumo_c8k_refit 등) 와 같은 뜻이 되게. 범주를 범주로 넘기는 새 기본은 kumo·kumo_cat
+    "kumo_e4": ("kumo", dict(n_estimators=4, cats="numerical")),
+    # TabArena 의 Kumo-Tabular 와 같은 앙상블 수 (docs/tabarena.md 8, 결정 4)
+    "kumo_e16": ("kumo", dict(n_estimators=16, cats="numerical")),
     "sap_rpt8k": ("sap_rpt", dict(max_context_size=8192)),  # README 기본값, 80GB GPU 용
-    # 예측 속도 시험 (docs/tabarena.md "빠르게 돌리기"): TabICL 컨텍스트 KV 캐시 (예측 청크마다 컨텍스트를 다시 계산하지 않음),
-    # Kumo 질의 청크 (기본 2048 은 T4 기준)
+    # 예측 속도 (docs/tabarena.md "빠르게 돌리기"): TabICL 컨텍스트 KV 캐시, Kumo 질의 청크.
+    # 2026-11-15 부터 tabicl 은 캐시 켬·kumo 는 청크 8192 가 기본 (결정 11) → tabicl_kv 는 기본과 같음
+    # (이 이름으로 낸 TabArena 51개 refit 결과를 그대로 읽으려고 남김). 옛 기본은 tabicl_nokv·kumo_c2k
     "tabicl_kv": ("tabicl", dict(kv_cache=True)),
-    "kumo_c8k": ("kumo", dict(chunk=8192)),
-    "kumo_c32k": ("kumo", dict(chunk=32768)),
+    "tabicl_nokv": ("tabicl", dict(kv_cache=False)),
+    "kumo_c8k": ("kumo", dict(chunk=8192, cats="numerical")),
+    "kumo_c2k": ("kumo", dict(chunk=2048, cats="numerical")),
+    "kumo_c32k": ("kumo", dict(chunk=32768, cats="numerical")),
+    # Kumo 범주 열 (fab/models/tfm.py 의 _Kumo): 2026-11-15 부터 범주로 넘기는 것이 기본. kumo_cat 은 기본과 같은 명시 이름
+    # (옛 결과가 있는 kumo·kumo_refit 과 겹치지 않게 새 결과는 이 이름으로), kumo_numcat 은 옛 동작 (정수 코드를 수치로, 청크 8192)
+    "kumo_cat": ("kumo", dict(cats="categorical")),
+    "kumo_numcat": ("kumo", dict(cats="numerical")),
+    # 진단용: TabArena 의 AutoGluon 전처리를 짐작으로 흉내 (한 번만 나온 범주 값 → 결측, 상수·중복 열 빼기). docs/tabarena.md 의 kddcup09
+    "kumo_cat_agp": ("kumo", dict(cats="categorical", agp=True)),
 }
 
 
@@ -92,6 +104,48 @@ def is_refit(name: str) -> bool:
 def base_name(name: str) -> str:
     base = strip_refit(split_features(name)[0].partition("@")[0])
     return VARIANTS.get(base, (base,))[0]
+
+
+OPTS_SKIP = {"task", "cat_cols", "seed", "metric"}  # 팩토리 인자 중 설정이 아닌 것 (대회가 정함)
+# opts 를 비교할 때 빈칸 (2026-11-15 전 실행) 과 글에 없는 키를 채우는 값 = 그 인자가 생기기 전 (기본값을 바꾸기 전) 의 동작.
+# 기본값이 있는 팩토리 인자를 새로 더하거나 기본값을 바꾸면 여기에 그 전 값을 적을 것 (안 적으면 옛 행과 새 행이 다른 설정으로 보임)
+OPTS_BEFORE = {"kumo": dict(chunk=2048, cats="numerical", n_estimators=8), "tabicl": dict(kv_cache=False)}
+
+
+def is_known_model(name: str) -> bool:
+    """실행 이름의 모델 부분 (~variant·@spec·_refit 을 뗀 것) 이 REGISTRY·VARIANTS 에 있는지. 제출 명령들이 같이 씀."""
+    return strip_refit(split_features(name)[0].partition("@")[0]) in {*REGISTRY, *VARIANTS}
+
+
+def effective_opts(name: str, opts) -> dict[str, str]:
+    """결과표의 opts 글 (빈칸이면 2026-11-15 전 실행) → 실제 설정 {인자: 값 글}. 빈칸은 OPTS_BEFORE + 그 이름의 VARIANTS 인자,
+    글에 없는 키는 OPTS_BEFORE 로 채움 → 글 모양이 달라도 (인자가 나중에 더해짐) 같은 설정이면 같은 dict."""
+    base = strip_refit(split_features(name)[0].partition("@")[0])
+    reg, kwargs = VARIANTS.get(base, (base, {}))
+    out = {k: str(v) for k, v in OPTS_BEFORE.get(reg, {}).items()}
+    if opts is None or (isinstance(opts, float) and opts != opts) or str(opts).strip() == "":
+        out |= {k: str(v) for k, v in kwargs.items() if k != "max_features" and v is not None}
+    elif str(opts) != "default":
+        out |= dict(kv.split("=", 1) for kv in str(opts).split())
+    return out
+
+
+def model_opts(name: str) -> str:
+    """실행 이름 → 그 모델의 설정 문자열 (팩토리 기본값 + VARIANTS 인자, 예: kumo → 'chunk=8192 n_estimators=8').
+    결과표 (results.csv·tabarena.csv·mlebench.csv) 의 opts 열: 같은 이름이라도 기본값이 바뀌기 전 행 (opts 빈칸,
+    2026-11-15 전: tabicl 캐시 없음·kumo 청크 2048) 과 뒤 행을 가름. 설정 인자가 없는 팩토리 (GBDT·tabpfn) 는 'default'.
+    test 예측 방식 (refit / 5-fold) 은 이름 (REFIT_SUFFIX) 으로 가르고 여기에는 넣지 않음."""
+    base = strip_refit(split_features(name)[0].partition("@")[0])
+    base, kwargs = VARIANTS.get(base, (base, {}))
+    if base not in REGISTRY:
+        return ""
+    module, fn = REGISTRY[base]
+    params = inspect.signature(getattr(importlib.import_module(module), fn)).parameters
+    opts = {k: p.default for k, p in params.items()
+            if k not in OPTS_SKIP and p.default is not inspect.Parameter.empty}
+    opts |= {k: v for k, v in kwargs.items() if k != "max_features"}
+    opts = {k: v for k, v in opts.items() if v is not None}  # None = 안 씀 (예: kumo 의 agp) → 예전 opts 와 같은 글
+    return " ".join(f"{k}={v}" for k, v in sorted(opts.items())) or "default"
 
 
 def make_model(name: str, task: str, cat_cols: list[str], seed: int, max_rows: int | None = None,

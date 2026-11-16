@@ -4,7 +4,7 @@
 
 | 방식 | 내용 | 비용 |
 |---|---|---|
-| **FM** | 튜닝 없는 Tabular Foundation Model 한 번 추론 (TabPFN, TabICL, Kumo 등). GBDT(LightGBM·XGBoost·CatBoost)는 기준선 | 초~분, GPU |
+| **FM** | 튜닝 없는 Tabular Foundation Model 한 번 추론 (TabPFN, TabICL, Kumo 등, train 전체로 한 번 fit = refit). GBDT(LightGBM·XGBoost·CatBoost)는 기준선 (같은 refit) | 초~분, GPU |
 | **Agent** | LLM 코딩 에이전트 (하네스 × LLM: AIDE·Claude Code·Codex CLI × Sonnet 5.5·GPT-6.1 Terra), 1시간 · A10 1장 | 1시간 GPU + 토큰 |
 | **FM + Agent 피처** (C1) | 에이전트가 만든 피처를 FM 에 넣어 한 번 추론 | Agent 1회 + FM 한 번 |
 | **FM 을 깐 Agent** (C2) | TFM 을 미리 설치한 환경에서 도는 에이전트 (설정 이름 뒤 `+fm`) | Agent 와 같음 |
@@ -30,17 +30,18 @@
 
 | 대회 (지표) | FM | GBDT | Agent | FM + Agent 피처 (C1) | FM 을 깐 Agent (C2) |
 |---|---|---|---|---|---|
-| nomad2018 (RMSLE ↓) | 0.05734 (17위) | 0.06001 (31위) | 0.04567 (1위) | **0.04523 (1위)** | 0.04545 (1위)³ |
-| spaceship-titanic (accuracy ↑) | 0.8218 (6위) | **0.8241 (2위)** | **0.8241 (2위)** | – | – |
-| tps-may-2022 (AUC ↑) | 0.99232 (417위)¹ | 0.97223 (581위)¹ | **0.99734 (240위)** | 0.99453 (382위)⁴ | 0.99681 (296위)³ |
-| leaf-classification (logloss ↓) | 0.01998 (219위) | 0.40629 (1015위) | **0.00000 (1위)**² | 0.00232 (29위)⁴ | **0.00000 (1위)**²·³ |
+| nomad2018 (RMSLE ↓) | 0.05723 (16위) | 0.06036 (34위) | 0.04567 (1위) | **0.04488 (1위)** | 0.04545 (1위)³ |
+| spaceship-titanic (accuracy ↑) | 0.8218 (6위) | **0.8276 (2위)** | 0.8241 (2위) | – | – |
+| tps-may-2022 (AUC ↑) | 0.99113 (444위)¹ | 0.97185 (585위)¹ | **0.99734 (240위)** | 0.99381 (392위)⁴ | 0.99681 (296위)³ |
+| leaf-classification (logloss ↓) | 0.02059 (229위) | 0.35967 (1001위) | **0.00000 (1위)**² | 0.00114 (29위)⁴ | **0.00000 (1위)**²·³ |
 
-FM·GBDT 는 튜닝 없음, Agent·C2 는 1~2회 실행 중 최고, – 는 아직 안 돌림. ¹ 사람 피처(`~f1`), FM 은 컨텍스트 20만 행.
+FM·GBDT 는 튜닝 없음, test 예측은 refit (CV 없이 train 전체로 한 번, 2026-11-15. 옛 5-fold 값은 [docs/mle-bench.md](docs/mle-bench.md) 의 "refit 으로 다시").
+Agent·C2 는 1~2회 실행 중 최고, – 는 아직 안 돌림. ¹ 사람 피처(`~f1`), FM 은 컨텍스트 20만 행 (refit 은 컨텍스트를 한 번만 뽑아 5-fold 의 0.99232 보다 조금 낮음).
 ² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님).
 ³ C2 최고: nomad 는 Codex × GPT +fm 2회째 (TabPFN·TabICL 을 제출에 섞음, Codex Agent 2회째와 같은 수준), leaf 는 Codex × GPT +fm 2회째와 AIDE × GPT +fm 2회째 (분할 구조 배정, AIDE 는 FM 안 씀),
   tps 는 Codex × GPT +fm (아무도 FM 을 안 씀). FM 을 제출에 넣어 같은 설정의 Agent 보다 두 번 다 좋아진 건 leaf × Claude Code +cont 와 nomad × AIDE × Sonnet ([C2 2회째](docs/mle-bench.md#c2-2회째-leaf--nomad-2026-11-13)).
 ⁴ C1 의 피처: nomad·tps 는 Codex × GPT, leaf 는 AIDE × Sonnet 1회째 (그 에이전트 1·2회째 0.00385·0.00195, Codex 는 ² 라 안 씀). tps 는 kumo 컨텍스트 20만 행, leaf 는 tabicl.
-leaf 의 FM 향상 대부분은 test 99행 중 한 행이고 CV 로는 작음. leaf·tps 에서는 같은 피처의 GBDT 가 FM 보다 더 좋아짐 (질문 2 의 답은 아직 nomad × kumo 하나만 예).
+leaf 의 FM 향상 대부분은 test 99행 중 한 행이고 CV (5-fold) 로는 작음. leaf·tps 에서는 같은 피처의 GBDT 가 FM 보다 더 좋아짐 (질문 2 의 답은 아직 nomad × kumo 하나만 예).
 결과 표: `results/mlebench.csv` (FM·GBDT 채점), `results/mlebench_runs.csv` (Agent 실행), `results/results.csv` (CV) 는
 Volume 의 `tables/` 가 원본이고 `fab sync` 로 받은 사본. `results/mlebench_agents.csv` (공개 리더보드 에이전트) 는 로컬 `fab mleb agents` 로 만듦.
 
@@ -117,10 +118,12 @@ Unity Gateway 의 unified trace 표는 쓰지 않음: 설정이 메타스토어 
 ```bash
 uv run --frozen fab                                   # 명령 목록, 명령별 인자는 fab <명령> -h
 
-# FM: MLE-bench 분할 준비 (로컬) → CV + test 예측 (Databricks) → MLE-bench test 로 채점 (정리 작업)
+# FM: MLE-bench 분할 준비 (로컬) → test 예측 (Databricks, `_refit` = train 전체로 한 번. 접미사가 없으면 5-fold CV + test) → MLE-bench test 로 채점 (정리 작업)
 uv run --frozen fab download mleb-spaceship-titanic    # Kaggle zip → MLE-bench 분할 → public 만 data/
-uv run --frozen fab databricks mleb-spaceship-titanic lgbm catboost tabpfn_v2 kumo  # TFM: AI Runtime GPU, GBDT: serverless CPU
-uv run --frozen fab mleb grade spaceship-titanic catboost kumo --each      # 채점 요청 (학습이 아직 돌고 있어도 바로 내도 됨)
+uv run --frozen fab databricks mleb-spaceship-titanic lgbm_refit catboost_refit tabpfn_v2_refit kumo_cat_refit  # TFM: AI Runtime GPU, GBDT: serverless CPU
+uv run --frozen fab mleb grade spaceship-titanic catboost_refit kumo_cat_refit --each      # 채점 요청 (학습이 아직 돌고 있어도 바로 내도 됨)
+uv run --frozen fab mleb fm spaceship-titanic=tabpfn_v2_refit,tabicl_kv_refit,kumo_cat_refit leaf-classification=kumo_cat_refit \
+    --accelerator GPU_8xH100                          # 대회 여럿을 GPU 작업 하나로 (여러 장이면 대회·모델마다 GPU 하나) + 모델별 채점 요청
 
 # 진행 확인과 결과 받기 (언제든)
 uv run --frozen fab remote status                     # 처리 대기 항목·최근 정리 작업 실행
@@ -150,14 +153,16 @@ uv run --frozen fab mleb agent list                    # 처리 상태 (회수·
 | `lgbm` / `xgb` / `catboost` | GBDT 기준선 | 고정 파라미터, early stopping 없음 |
 | `tabpfn_v2` | TabPFN v2 | 라이선스 동의 없이 사용 가능, 분류는 10 클래스까지 (leaf-classification 은 못 씀) |
 | `tabpfn` / `tabpfn35` | TabPFN 최신 / 3.5 | 브라우저 라이선스 동의 필요 |
-| `tabicl` | TabICL v2 | 10 클래스를 넘으면 계층 분류 |
-| `kumo` / `kumo_e4` | NVIDIA Kumo-Tabular (large) / estimator 4개 | 회귀는 999 분위수 평균 (지표가 MAE 면 중앙값) |
+| `tabicl` | TabICL v2 | 10 클래스를 넘으면 계층 분류. KV 캐시 기본 (2026-11-15, OOM 이거나 TabICL 이 거부하면 (10 클래스 넘음) 끔, 옛 동작 `tabicl_nokv`) |
+| `kumo` / `kumo_e4` | NVIDIA Kumo-Tabular (large) / estimator 4개 | 회귀는 999 분위수 평균 (지표가 MAE 면 중앙값). 2026-11-15 부터 질의 청크 8192 · 범주 열을 범주로 (옛 동작 `kumo_c2k`·`kumo_numcat`, 새 결과 이름은 `kumo_cat`) |
 | `exaone` | EXAONE-Tabular (LG) | 가중치 비상업 라이선스 |
 | `limix2m` | LimiX-2M | 비상업 라이선스 |
 | `mitra` / `mitra_ft` | Mitra-v2 zero-shot / +50 step fine-tune | 회귀는 v1 체크포인트 |
 | `causilo` | Nums AI Causilo | 가중치 비상업 라이선스 |
 | `sap_rpt` / `sap_rpt8k` | SAP-RPT-1-OSS, 컨텍스트 2048 / 8192 | HF gated + 연구용 라이선스, `fab databricks` 전용 |
 
+모델 이름 (`@` 앞) 끝의 `_refit` 은 CV 없이 train 전체로 한 번 fit → test 만 (예: `kumo_cat_refit`, `catboost_refit~f2`). 2026-11-15 부터 FM·GBDT 결과는 refit.
+결과표의 `opts` 열은 실행 때의 모델 설정 (빈칸 = 2026-11-15 전 실행, [docs/tabarena.md](docs/tabarena.md) 의 "FM 프로토콜과 이름").
 이름 뒤 `@<spec>` 은 컨텍스트 선택 래퍼 (예: `tabpfn_v2@knn1000`, `fab/models/context.py`).
 맨 뒤 `~<variant>` 는 피처 변형: 그 실행만 `competitions/<대회>/features/<variant>.py` 의 `build` 를 씀 (예: `catboost~f2`,
 `tabpfn_v2@knn1000~f2`). 실행 이름(결과 폴더, `results.csv`·`mlebench.csv` 의 `model`, `fab mleb grade` 인자)은 `~` 까지

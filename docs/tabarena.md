@@ -19,6 +19,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [7. 비용 어림과 파일럿](#7-비용-어림과-파일럿)
 - [8. 연동 설계 초안](#8-연동-설계-초안)
 - [9. 연동 (2026-11-14 구현)](#9-연동-2026-11-14-구현)
+- [FM 프로토콜과 이름 (2026-11-15)](#fm-프로토콜과-이름-2026-11-15)
 - [파일럿 결과 (2026-11-14~15)](#파일럿-결과-2026-11-1415)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
@@ -35,7 +36,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 | TFM | 이미 많음: TabPFNv2, TabICL·TabICLv2, Kumo-Tabular (large·medium·small), TabPFN-2.5·2.6·3·3.5, Mitra, LimiX, TabDPT 등. 대부분 기본 설정 한 개만 (TabPFNv2 는 튜닝 결과도 있음) |
 | TFM 설정 | 8-fold 내부 CV 로 검증 예측만 만들고, test 는 **외부 train 전체로 다시 fit 한 모델** 이 예측 (`refit_folds=True`) → 우리 FM 한 번 추론과 같은 꼴 |
 | fold 별 결과 | 공개 parquet 로 받음 (방법당 수십 KB~수 MB). split 마다 `metric_error`·학습·추론 시간 |
-| 우리 FM | tabpfn_v2 는 공식 범위 안 33개, tabicl·kumo 는 51개 전부 (TabArena 의 TabICLv2·Kumo-Tabular 가 51개 다 돎) |
+| 우리 FM | tabpfn_v2 는 공식 범위 안 33개, tabicl·kumo 는 51개 전부 (TabArena 의 TabICLv2·Kumo-Tabular 가 51개 다 돎). 2026-11-15 부터 FM·GBDT 모두 refit, Kumo 는 범주 열을 범주로 (결정 11) |
 | 격리 | 데이터 전체 (타깃 포함) 가 OpenML 에 공개 → MLE-bench 와 같은 정답 격리는 하되, 인터넷을 여는 한 "에이전트가 원본을 받아 답을 찾는 것" 은 사후 검사로만 막음 |
 
 ## 출처
@@ -97,7 +98,8 @@ TabArena-v0.1 = 51개. 1,053개 (기존 벤치마크 14개) 에서 손으로 골
 
 - TabArena 의 외부 split 하나 = 우리 "대회" 하나 (train/test). OpenML 분할을 그대로 쓰면 TabArena 와 같은 행으로 학습·채점함
 - `fab run` 의 5-fold (`folds.csv`) 는 그 split 의 train 안에서 도는 내부 CV 로 남김. test 예측도 이 fold 모델 5개 (train 의 80% 씩) 의 평균이라
-  TabArena TFM (train 전체로 refit, 아래 3) 과 다름 → 39개는 이대로, 2만 행 넘는 12개는 refit (모델 이름 `_refit`, 결정 10·"빠르게 돌리기").
+  TabArena TFM (train 전체로 refit, 아래 3) 과 다름 → 처음엔 39개는 이대로, 2만 행 넘는 12개는 refit (모델 이름 `_refit`, 결정 10·"빠르게 돌리기").
+  2026-11-15 부터 FM·GBDT 모두 refit (CV 없음, 결정 11). 5-fold 는 옛 결과와 CV 를 볼 때만
   (처음 설계 때 "FM 은 train 전체로 fit 이라 test 점수에 영향 없음" 이라고 적었으나 틀림, 2026-11-14 고침)
 - 비교는 test 점수 (`metric_error`) 끼리만. 우리 CV 점수와 TabArena `metric_error_val` 은 내부 분할이 달라 나란히 놓지 않음
 - 지표는 `fab/core/metrics.py` 에 이미 있음 (`auc`·`logloss`·`rmse`)
@@ -307,10 +309,10 @@ LLM (Agent) 이 데이터셋과 풀이를 학습했을 수 있는지. 공개 풀
   - 데이터셋의 80% 이상에서 |우리 split 평균 − TabArena split 평균| ≤ TabArena 의 split 표준편차
   - TabArena 기본 GBDT 와 비교한 승패 (FM 이 나은지) 가 우리 FM 과 TabArena FM 에서 같음.
     비김은 세지 않음: |TabArena FM − 기본 GBDT| ≤ TabArena split 표준편차인 데이터셋은 뺌 (2026-11-14 정함, [결정](#결정-2026-11-13) 9)
-- test 예측 방식 (2026-11-14 추가, [결정](#결정-2026-11-13) 10): tabicl·kumo 의 주 판정은 refit (train 전체로 한 번, `tabicl_kv_refit`·`kumo_c8k_refit`, 51개).
-  모델 설정 (가중치·앙상블 수·우리 전처리) 은 위와 같고 test 예측을 내는 방식만 TabArena TFM 과 같게 함. KV 캐시는 점수가 같고, Kumo 질의 청크 8192 는 float16 계산 순서 정도로 아주 조금 다름.
-  실험 (Agent vs FM · MLE-bench · C1 · C2) 에 쓰는 FM 은 `fab run` 기본 (5-fold 모델 5개 평균) 이라 refit 판정이 그 FM 을 그대로 덮지는 않음 → 5-fold 도 39개에서 따로 판정함 (파일럿 결과의 "5-fold" 표). tabpfn_v2 는 5-fold 만 (33개)
-- 기준을 못 넘으면 Kumo 의 `n_estimators` 16 으로 한 번 더 (`VARIANTS` 에 `kumo_e16`) 돌려 설정 차이인지 가림. 80%·표준편차 1배는 근거가 약한 첫 기준이라 결과를 보고 다시 정할 수 있음
+- test 예측 방식 (2026-11-14 추가, [결정](#결정-2026-11-13) 10·11): 판정은 refit (train 전체로 한 번, `tabicl_kv_refit`·`kumo_cat_refit`·`tabpfn_v2_refit`).
+  test 예측을 내는 방식이 TabArena TFM 과 같음. 2026-11-15 부터 Agent vs FM · MLE-bench · C1 에 쓰는 FM 도 refit 이라 (결정 11) 판정이 실험의 FM 을 그대로 덮음.
+  Kumo 는 범주 열을 범주로 넘기도록 고친 뒤 판정 (결정 11, "파일럿 결과" 의 "kddcup09"). 2026-11-14 의 5-fold 판정 (39개) 은 옛 프로토콜의 기록
+- 기준을 못 넘으면 Kumo 의 `n_estimators` 16 으로 한 번 더 (`VARIANTS` 에 `kumo_e16`) 돌려 설정 차이인지 가림. 80%·표준편차 1배는 근거가 약한 첫 기준이라 결과를 보고 다시 정할 수 있음 (2026-11-15: 앙상블·청크·refit 은 kddcup09 를 설명하지 못하고 범주 처리가 대부분을 설명함, "kddcup09")
 
 ## 9. 연동 (2026-11-14 구현)
 
@@ -334,7 +336,7 @@ LLM (Agent) 이 데이터셋과 풀이를 학습했을 수 있는지. 공개 풀
 | 명령 | 하는 일 |
 |---|---|
 | `fab ta prepare <데이터셋...\|all> --splits all` | OpenML 받기 → split 대회 (public 은 `data/`, 정답은 `FAB_TABARENA`). `fab download ta-<데이터셋>` 은 그 split 하나 |
-| `fab ta fm <데이터셋...> --models tabpfn_v2 tabicl kumo lgbm catboost --splits all [--accelerator GPU_1xA10] [--max-concurrent 5] [--retries 2]` | 데이터셋마다 GPU·CPU 작업 하나씩 + 채점 요청. 동시 GPU 작업은 `--max-concurrent` 개까지 (아래) |
+| `fab ta fm <데이터셋...> --models tabpfn_v2_refit tabicl_kv_refit kumo_cat_refit lgbm_refit catboost_refit --splits all [--accelerator GPU_1xA10] [--max-concurrent 5] [--retries 2]` | 데이터셋마다 GPU·CPU 작업 하나씩 + 채점 요청. 동시 GPU 작업은 `--max-concurrent` 개까지 (아래) |
 | `fab ta grade <데이터셋...> --models ...` | 채점 요청만 (원격 정리 작업) |
 | `fab ta timing <데이터셋...> --models ...` | 원격 채점 시간 재기: 예전 경로 대 지금 경로 (결과표는 안 바뀜, 아래 "원격 채점 속도") |
 | `fab ta reference` | TabArena 공개 결과 → `results/tabarena_reference.csv` |
@@ -345,7 +347,7 @@ LLM (Agent) 이 데이터셋과 풀이를 학습했을 수 있는지. 공개 풀
 ```bash
 export FAB_TABARENA=../tabarena FAB_MLEBENCH=../mle-bench
 uv run --frozen fab ta prepare hazelnut-spread-contaminant-detection --splits all
-uv run --frozen fab ta fm hazelnut-spread-contaminant-detection --models tabpfn_v2 tabicl kumo lgbm catboost
+uv run --frozen fab ta fm hazelnut-spread-contaminant-detection --models tabpfn_v2_refit tabicl_kv_refit kumo_cat_refit lgbm_refit catboost_refit
 uv run --frozen fab ta agent run ta-hazelnut-spread-contaminant-detection aide-sonnet aide-gpt   # Sonnet 줄·GPT 줄 하나씩
 uv run --frozen fab remote kick && uv run --frozen fab sync
 uv run --frozen fab ta compare --detail
@@ -426,12 +428,29 @@ uv run --frozen fab ta compare --detail
 | zsh 인자 | `--models $m` (`m="tabicl kumo"`) 이 zsh 에서 안 나뉘어 모델 이름 "tabicl kumo" 로 제출됨 | 취소, 다시 냄. 그 채점 요청은 예측 없음으로 끝남 |
 | 로컬 확인 행 | 로컬 확인 스크립트가 가짜 모델 행 4개를 `results/tabarena.csv` 에 씀 (표 위치가 `FAB_OUTPUTS` 밖) | 그 로컬 표를 지우고 `fab sync` 로 원격 표를 받음. 스크립트는 임시 위치로 |
 
+## FM 프로토콜과 이름 (2026-11-15)
+
+결정 11 로 FM·GBDT 의 test 예측을 refit 으로, tabicl·kumo 의 기본값을 바꿈. 옛 5-fold 결과와 새 결과가 결과표에서 섞이지 않게 이렇게 가름.
+
+| 가르는 것 | 어디에 | 규칙 |
+|---|---|---|
+| test 예측 방식 | 모델 이름 | 끝이 `_refit` (예: `kumo_cat_refit`, `catboost_refit~f2`, `kumo_cat_refit@rand200000~f1`) = refit. 없으면 5-fold (fold 모델 5개 평균). `results.csv` 의 `n_folds` 0 · `cv` 빈칸도 refit |
+| 모델 설정 | `opts` 열 (`results.csv`·`tabarena.csv`·`mlebench.csv`, `test.json`) | 실행할 때의 설정 글 (`fab.models.model_opts`). 예: `cats=categorical chunk=8192 n_estimators=8` (kumo), `kv_cache=True` (tabicl), `default` (GBDT·tabpfn). **빈칸 = 2026-11-15 전 실행** (tabicl 캐시 없음, kumo 청크 2048 · 범주를 수치로. 이름이 `_kv`·`_c8k` 면 그 설정) |
+| 바뀐 기본값 | `fab/models` | `tabicl`: 캐시 켬 (옛 동작 `tabicl_nokv`). `kumo`: 청크 8192 · 범주를 범주로 (옛 동작 `kumo_c2k` 의 청크, `kumo_numcat` 의 범주). 옛 진단 이름 `kumo_e4`·`kumo_e16`·`kumo_c8k`·`kumo_c2k`·`kumo_c32k` 는 범주를 수치로 고정 (그 이름의 옛 결과와 같은 뜻) |
+| 섞임 경고 | `fab ta compare` | 한 모델 이름의 행이 실제로 다른 설정으로 섞이면 경고. `opts` 글을 그대로 비교하지 않고 빈칸·글에 없는 키를 "그 인자가 생기기 전 값" (`fab.models` 의 `OPTS_BEFORE`) 으로 채워 비교 (`effective_opts`) → 글 모양만 다른 옛 행 (빈칸·`cats=` 없음) 은 안 셈. 팩토리에 기본값 있는 인자를 더하거나 기본값을 바꾸면 `OPTS_BEFORE` 에 그 전 값을 적음 |
+| `opts` 읽을 때 | | `cats=` 가 없는 kumo 의 `opts` (2026-11-15 오전 kddcup09 의 `kumo_e16_refit`·`kumo_c2k_refit`·`kumo_c8k`) = 범주를 수치로. tabicl 의 `kv_cache=True` 는 설정 값이라 TabICL 이 캐시를 거부하거나 (클래스가 10 을 넘는 계층 분류) OOM 이면 실제로는 캐시 없이 돎 (점수는 같음). MLE-bench 묶음 (평균·nomad 두 타깃) 의 `opts` 는 구성원마다 `|` 로, 옛 구성원은 `(빈칸)` |
+
+새 결과 이름 (두 벤치마크 같음): `tabpfn_v2_refit` · `tabicl_kv_refit` · `kumo_cat_refit` · `lgbm_refit` · `xgb_refit` · `catboost_refit` (+ `~f1`·`~f2s`·`~f2`, `@rand200000`).
+`tabicl_kv_refit` 은 51개 판정에 쓴 이름 그대로 (기본 `tabicl_refit` 과 같은 설정). `kumo_cat_refit` 은 기본 `kumo_refit` 과 같은 설정이지만 `kumo`·`kumo_refit` 은 옛 행이 있어 새 이름을 씀.
+범주 열이 없는 데이터셋에서는 `kumo_cat_refit` 과 `kumo_c8k_refit` 이 같은 설정 (범주 처리만 다름) → 그 17개는 `kumo_c8k_refit` 값을 그대로 씀.
+접미사 없는 이름 (`kumo`·`tabicl`·`lgbm` 등) 의 옛 행은 5-fold 이고 지우지 않음 (옛 표·해석의 근거). 새로 5-fold 를 돌릴 일이 있으면 `opts` 로 가름
+
 ## 파일럿 결과 (2026-11-14~15)
 
 숫자는 `metric_error` (낮을수록 좋음: 이진 1 − AUC, 다중 log loss, 회귀 RMSE). "TabArena" 는 공개 결과의 기본 설정 (3).
-FM·GBDT 는 튜닝 없음. "Agent vs FM" 의 FM·GBDT 는 `fab run` 기본 (test 예측 = train 의 5-fold 모델 5개 평균, MLE-bench·C1·C2 와 같음).
-"FM 이 TabArena 와 맞는지" 의 주 판정은 tabicl·kumo 51개 refit (train 전체로 한 번 fit, TabArena TFM 의 `refit_folds=True` 와 같은 꼴, 결정 10).
-실험에 쓰는 5-fold FM 의 판정은 같은 절의 "5-fold" 표 (39개, 통과. TabArena 보다 표준편차의 0.08·0.14배쯤 나쁜 쪽으로 기움).
+FM·GBDT 는 튜닝 없음. 2026-11-15 부터 FM·GBDT 는 모두 refit (CV 없이 train 전체로 한 번 fit → test 만, TabArena TFM 의 `refit_folds=True` 와 같은 꼴, 결정 11).
+"Agent vs FM" 의 FM·GBDT 도 refit 값이고 (옛 5-fold 값은 표 오른쪽 열), "FM 이 TabArena 와 맞는지" 의 판정도 refit (tabicl·kumo 51개, tabpfn_v2 33개).
+Kumo 는 범주 열을 범주로 넘기도록 고친 뒤 값 (`kumo_cat_refit`, 아래 "kddcup09"). 5-fold 표 (39개) 는 옛 프로토콜의 기록으로 남김.
 결과 파일: `results/tabarena.csv` (우리 split 채점), `results/tabarena_reference.csv`, `results/tabarena_runs.csv` (Agent).
 
 ### Agent vs FM (r0f0)
@@ -439,52 +458,56 @@ FM·GBDT 는 튜닝 없음. "Agent vs FM" 의 FM·GBDT 는 `fab run` 기본 (tes
 hazelnut (`tabarena-p01`): 이진 · train 1,600 / test 800 · 피처 30 (모두 수치)
 
 FM·GBDT 는 한 번 (결정적), Agent 는 같은 r0f0 에서 2번 (#17, 결정 2). 줄 순서는 1회째 점수 순 (TabArena 참고 줄은 kumo 옆), 시간은 1회째 / 2회째.
-굵게 = 그 회차의 전체 최고 (FM·GBDT 의 한 번은 두 회차 모두와 비교)
+굵게 = 그 회차의 전체 최고 (FM·GBDT 의 한 번은 두 회차 모두와 비교). FM·GBDT 는 refit (결정 11), 오른쪽 열은 2026-11-14 까지 쓰던 5-fold 값
 
-| 방식 | 1회째 | 2회째 | 시간 |
-|---|---|---|---|
-| **FM: kumo** | **0.00449** | (2회째도 최고) | 10초 |
-| TabArena Kumo-Tabular (참고) | 0.00381 | | |
-| Agent: Codex × GPT | 0.00640 ¹ | 0.01336 | 58분 / 56분 |
-| FM: tabicl | 0.00729 | | 6초 |
-| FM: tabpfn_v2 | 0.01491 | | 6초 |
-| Agent: AIDE × GPT | 0.01624 | 0.01505 | 60분 / 60분 |
-| Agent: Claude Code × Sonnet +cont | 0.01885 | 0.01806 | 6분 / 2분 (이어 가기 7번 / 7번) |
-| Agent: AIDE × Sonnet | 0.02108 | 0.01406 | 60분 / 60분 |
-| Agent: Claude Code × Sonnet | 0.02219 | 0.03446 | 37초 / 19초 (스스로 끝냄) |
-| GBDT: lgbm / catboost | 0.02947 / 0.03181 | | 5초 / 28초 |
+| 방식 | 1회째 | 2회째 | 시간 | 옛 5-fold |
+|---|---|---|---|---|
+| **FM: kumo** | **0.00390** | (2회째도 최고) | 10초 | 0.00449 |
+| TabArena Kumo-Tabular (참고) | 0.00381 | | | |
+| Agent: Codex × GPT | 0.00640 ¹ | 0.01336 | 58분 / 56분 | |
+| FM: tabicl | 0.00669 | | 6초 | 0.00729 |
+| FM: tabpfn_v2 | 0.01340 | | 6초 | 0.01491 |
+| Agent: AIDE × GPT | 0.01624 | 0.01505 | 60분 / 60분 | |
+| Agent: Claude Code × Sonnet +cont | 0.01885 | 0.01806 | 6분 / 2분 (이어 가기 7번 / 7번) | |
+| Agent: AIDE × Sonnet | 0.02108 | 0.01406 | 60분 / 60분 | |
+| Agent: Claude Code × Sonnet | 0.02219 | 0.03446 | 37초 / 19초 (스스로 끝냄) | |
+| GBDT: lgbm / catboost | 0.02623 / 0.02879 | | 2초 / 7초 | 0.02947 / 0.03181 |
 
-- ¹ TabICL·TabPFN 을 스스로 깔아 씀 (아래). 2회째는 깔지 않음
+- ¹ TabICL·TabPFN 을 스스로 깔아 씀 (아래). 2회째는 깔지 않음. 공식 설정의 실행이라 Agent 결과로 셈 (결정 11)
+- 모델 이름: `kumo_c8k_refit` (hazelnut 은 범주 열이 없어 범주를 고친 `kumo_cat_refit` 과 같은 설정) · `tabicl_kv_refit` · `tabpfn_v2_refit` · `lgbm_refit` · `catboost_refit`
 
 in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (범주 22)
 
-| 방식 | 1회째 | 2회째 | 시간 |
-|---|---|---|---|
-| **Agent: Codex × GPT** | **0.13150** | **0.13295** | 57분 / 58분 (FM 안 씀) |
-| TabArena Kumo-Tabular (참고) | 0.13716 | | |
-| Agent: AIDE × Sonnet | 0.13813 | 0.13904 | 60분 / 60분 |
-| Agent: AIDE × GPT | 0.13882 | 0.14057 | 60분 / 60분 |
-| FM: kumo | 0.14524 | | 15초 |
-| Agent: Claude Code × Sonnet +cont | 0.14911 | 0.14919 | 10분 / 19분 (이어 가기 7번 / 8번) |
-| FM: tabicl | 0.15074 | | 8초 |
-| GBDT: catboost | 0.16031 | | 2분 |
-| Agent: Claude Code × Sonnet | 0.16192 | 0.16192 ² | 27초 / 27초 (스스로 끝냄) |
-| GBDT: lgbm | 0.16331 | | 6초 |
-| FM: tabpfn_v2 | 0.19410 | | 11초 |
+| 방식 | 1회째 | 2회째 | 시간 | 옛 5-fold |
+|---|---|---|---|---|
+| **Agent: Codex × GPT** | **0.13150** | **0.13295** | 57분 / 58분 (FM 안 씀) | |
+| FM: kumo | 0.13707 | | 9초 | 0.14524 |
+| TabArena Kumo-Tabular (참고) | 0.13716 | | | |
+| Agent: AIDE × Sonnet | 0.13813 | 0.13904 | 60분 / 60분 | |
+| Agent: AIDE × GPT | 0.13882 | 0.14057 | 60분 / 60분 | |
+| FM: tabicl | 0.14891 | | 5초 | 0.15074 |
+| Agent: Claude Code × Sonnet +cont | 0.14911 | 0.14919 | 10분 / 19분 (이어 가기 7번 / 8번) | |
+| GBDT: catboost | 0.15899 | | 29초 | 0.16031 |
+| Agent: Claude Code × Sonnet | 0.16192 | 0.16192 ² | 27초 / 27초 (스스로 끝냄) | |
+| GBDT: lgbm | 0.16221 | | 1초 | 0.16331 |
+| FM: tabpfn_v2 | 0.18466 | | 7초 | 0.19410 |
 
 - ² 두 번 모두 같은 CatBoost 스크립트 하나 (`a.py`: 하이퍼파라미터·기본 시드 같음, 출력·import 만 다름) → 제출 파일이 바이트까지 같음 (채점 실수 아님)
 
-- 표의 FM 은 5-fold. refit 이면 r0f0 가 조금 나음 (hazelnut kumo 0.00449 → 0.00390 · tabicl 0.00729 → 0.00669, in_vehicle kumo 0.14524 → 0.14401 · tabicl 0.15074 → 0.14891).
-  순위는 그대로: hazelnut 은 kumo 가 모든 Agent 보다 나음, in_vehicle 은 Agent 셋 (1회째 0.1315~0.1388, 2회째 0.1330~0.1406) 이 refit kumo 보다도 나음
+- 모델 이름: `kumo_cat_refit` (범주 열을 범주로) · `tabicl_kv_refit` · `tabpfn_v2_refit` · `lgbm_refit` · `catboost_refit`
+- 5-fold → refit 으로 FM·GBDT 모두 r0f0 가 조금 나아짐 (오차 −4~−13%). in_vehicle 의 kumo 는 범주 고침이 더 큼: 범주를 수치로 넘긴 refit 0.14401 → 범주로 0.13707
+  (TabArena Kumo 0.13716 과 거의 같음). hazelnut 은 순위가 그대로, in_vehicle 은 바뀜 (아래)
 - 아래 줄들은 1회째 기준 (2회째는 "2회째 (#17)"). r0f0 한 split 의 test 는 800 / 4,228 행 → 차이 0.002 정도는 split 사이 흔들림 (아래 표의 split 표준편차: hazelnut kumo 0.0009, in_vehicle kumo 0.0032) 과 비슷
-- hazelnut: FM 한 번 (kumo) 이 모든 Agent 보다 나음. FM 없는 Agent 중 최고는 AIDE × GPT 0.0162 (kumo 의 3.6배 오차). 모든 Agent 가 우리 GBDT 보다는 나음
-- in_vehicle: Agent 셋 (Codex·AIDE 둘) 이 FM 최고 (kumo 0.1452) 보다 나음. Codex 는 TabArena 의 Kumo (0.1372) 보다도 나음.
+- hazelnut: FM 한 번 (kumo) 이 모든 Agent 보다 나음. TFM 을 깔지 않은 Agent 중 최고는 AIDE × GPT 0.0162 (kumo 의 4.2배 오차). 모든 Agent 가 우리 GBDT 보다는 나음
+- in_vehicle: **Codex 만 FM 최고 (kumo 0.1371) 보다 나음**. AIDE 둘 (0.1381·0.1388) 은 kumo 와 0.001~0.002 차이로 바로 아래 (split 흔들림 정도).
+  5-fold · 범주를 수치로 넘기던 kumo (0.1452) 로는 Agent 셋이 FM 보다 나았음 → "in_vehicle 은 Agent 셋 > FM" 은 Kumo 의 범주 처리 탓이 컸음.
+  Codex 는 TabArena 의 Kumo (0.1372) 보다도 나음.
   Codex 는 인구통계 열로 응답자 id 를 다시 만들고 (`person`, 같은 응답자가 여러 시나리오에 답함) 쿠폰 × 상황 교차 피처 + CatBoost·LightGBM·XGBoost·선형 모델 섞기
   (`assemble.py`). 응답자 id 피처는 train+test 를 합쳐 만듦 → TabArena 의 "inductive" 규칙 (5) 으로는 안 되는 풀이
 - Codex × GPT 의 hazelnut 풀이는 공식 설정 (TFM 없는 환경) 인데 `pip install --target /tmp/...` 로 `tabpfn==2.0.9`·`tabicl==2.2.0` 을 깔고 HF 에서
   가중치 (TabPFN v2, TabICL v2-20260212) 를 받아 CV·미세 조정·의사 레이블에 씀. 제출 = TabICL 예측 + 의사 레이블 섞기 (`finalize_submission.py`).
-  → 이 실행은 "Agent" 가 아니라 사실상 "FM 을 스스로 찾은 Agent". `tfm_runtime` 이 잡음 (TFM import 프로세스 90개), `pip_added` 는 못 잡음 (9 의 "빈틈").
-  MLE-bench P0 의 Codex 는 TabPFN 이 깔렸는지만 보고 안 썼음
+  → 공식 설정에서 스스로 TFM 을 찾아 깐 것도 Agent 의 풀이로 보고 **Agent 결과로 셈** (2026-11-15 사용자가 정함, 결정 11). 표시는 남김: `tfm_runtime` 이 잡음 (TFM import 프로세스 90개),
+  `pip_target` 이 잡음 (`recheck`, 9 의 "사후 검사"), `pip_added` 는 못 잡음. 이 실행을 빼도 hazelnut 의 "FM > 모든 Agent" 는 같음. MLE-bench P0 의 Codex 는 TabPFN 이 깔렸는지만 보고 안 썼음
 - Claude Code 공식 설정은 MLE-bench 처럼 1분 안에 스스로 끝냄 (27~37초). +cont 는 이어 가기 상한 (도구 0개 구간 연속 3번) 에 걸려 6~10분
 - 사후 검사: 10개 실행 모두 `data_source_urls` 0, `kaggle_urls` 0 (원본 데이터 접근 흔적 없음). 429 재시도는 Codex 만 (100번·19번)
 - 토큰 (입력): Codex 4,200만~4,700만, 나머지 9만~64만 (MLE-bench 와 같은 꼴)
@@ -492,20 +515,21 @@ in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (�
   AIDE × Sonnet hazelnut 은 탐색 중 torch·cuda 를 한 번 시도했고 최종은 SVC. 나머지 7개는 LightGBM·CatBoost·로지스틱·SVC·sklearn MLP 를 CPU 로만
   (작업 디렉터리 코드·하네스 기록에서 `device='cuda'`·`task_type='GPU'`·`gpu_hist`·nvidia-smi 를 셈, 저장소 밖 스크립트)
 - Agent 의 A10 은 유지 (2026-11-14 사용자가 정함): MLE-bench 의 기본 설정 (A10 1장 · 1시간) 과 C2 (+fm, TFM 에 GPU 필요) 와 같은 환경으로 두려고.
-  GPU 와 인터넷이 있으면 공식 설정에서도 FM 을 스스로 깔 수 있음 (hazelnut 의 Codex) → 그런 실행은 `tfm_runtime` 으로 가려 따로 읽음
+  GPU 와 인터넷이 있으면 공식 설정에서도 FM 을 스스로 깔 수 있음 (hazelnut 의 Codex) → 그런 실행도 Agent 결과로 셈 (결정 11). `tfm_runtime`·`pip_target` 으로 어느 실행인지는 보임
 
 ### 2회째 (#17, 2026-11-14~15)
 
 같은 r0f0 · 같은 설정. 데이터셋마다 1회째와 같은 순서 (Sonnet 줄: AIDE → Claude Code → +cont, GPT 줄: AIDE → Codex. 같은 엔드포인트는 한 번에 하나), hazelnut → in_vehicle.
 다만 hazelnut × Codex 는 첫 시도가 취소돼 (아래 "뺀 실행") in_vehicle × Codex 다음, 맨 끝에 다시 돌림 (hazelnut 묶음 시작 약 6시간 뒤, 그동안 이 저장소의 다른 GPT 실행 없음). 10회 모두 정상 종료·채점.
 
-- 같은 순위인가: **그렇다.** hazelnut 은 2회째에도 FM 한 번 (kumo 0.0045, tabicl 0.0073) 이 모든 Agent 보다 나음. 2회째 Agent 최고는 Codex 0.0134 (kumo 의 3배 오차).
-  in_vehicle 은 2회째에도 Codex (0.1330) · AIDE × Sonnet (0.1390) · AIDE × GPT (0.1406) 가 FM 최고 (kumo 0.1452) 보다 나음. Codex 는 또 TabArena Kumo (0.1372) 보다도 나음.
+- 같은 순위인가: **그렇다.** hazelnut 은 2회째에도 FM 한 번 (refit kumo 0.0039, tabicl 0.0067) 이 모든 Agent 보다 나음. 2회째 Agent 최고는 Codex 0.0134 (kumo 의 3.4배 오차).
+  in_vehicle 은 2회째에도 Codex (0.1330) 만 FM 최고 (refit kumo 0.1371) 보다 나음, AIDE × Sonnet (0.1390) · AIDE × GPT (0.1406) 는 그 아래. Codex 는 또 TabArena Kumo (0.1372) 보다도 나음.
+  (2026-11-14 의 5-fold · 범주를 수치로 넘긴 kumo 0.1452 로는 AIDE 둘도 FM 보다 나았음. FM 을 refit 으로 바꾼 뒤 다시 씀, 결정 11)
   1회째와 2회째 차이: in_vehicle 은 모두 0.002 안 (split 흔들림 안), hazelnut 은 AIDE × Sonnet 0.021 → 0.014, Claude Code 공식 0.022 → 0.034 (우리 GBDT 보다 나쁨, 19초에 스스로 끝냄),
   Codex 0.006 → 0.013 (아래). hazelnut 의 순위 안쪽 (Agent 끼리) 은 흔들리지만 "FM > 모든 Agent" 는 그대로
 - Codex 가 공식 설정에서 TFM 을 스스로 까는가: **2회째는 안 깔았음** (두 데이터셋 모두 `tfm_runtime`·`tfm_in_code`·`pip_target` 빈칸).
   hazelnut 2회째는 처음에 `pip show tabpfn tabicl autogluon ...` 으로 깔렸는지만 보고 (없음), SVC·커널 릿지·NCA·torch MLP 섞기 (`generate_final.py`) 로 감 → 0.0134.
-  1회째의 0.0064 는 TFM 을 깐 덕으로 보임 (2회째 Codex 는 AIDE 들과 비슷한 자리). → hazelnut 의 Codex 는 1회째만 "FM 을 스스로 찾은 Agent", 2회째는 보통 Agent 로 읽음
+  1회째의 0.0064 는 TFM 을 깐 덕으로 보임 (2회째 Codex 는 AIDE 들과 비슷한 자리). 두 실행 모두 Agent 결과로 셈 (결정 11). 1회째는 TFM 을 스스로 깔아 쓴 실행 (`tfm_runtime`·`pip_target`)
 - in_vehicle 의 Codex 2회째도 인구통계 열로 응답자 id (`respondent`) 를 다시 만들고 train+test 를 합쳐 만든 응답자 id 로 응답자별 타깃 집계 피처 (다른 fold 에서) → GBDT·선형 모델 등 섞기 (`combine.py`).
   1회째와 같은 "inductive 규칙 (5) 으로는 안 되는" 풀이가 두 번 다 나옴 → in_vehicle 의 "Codex > FM" 은 이 풀이 몫으로 읽음
 - 사후 검사: 10회 모두 `data_source_urls` 0, `kaggle_urls` 0 (원본 데이터 접근 흔적 없음). 429 재시도는 Codex 만 (hazelnut 4번, in_vehicle 57번). 입력 토큰 Codex 4,054만·4,234만, 나머지 9만~57만
@@ -513,6 +537,58 @@ in_vehicle (`tabarena-p02`): 이진 · train 8,456 / test 4,228 · 피처 24 (�
   진행 사본으로 0.01233 으로 채점됐지만 (`run_crashed`) 1시간 조건이 아니라 `fab ta agent exclude` 로 빼고 같은 rep 2 로 다시 돌림 (위 0.01336)
 
 ### FM 이 TabArena 와 맞는지
+
+범위: 51개 데이터셋의 모든 split (816개). 우리 FM 은 모두 refit (CV 없이 train 전체로 한 번 fit → test 예측, TabArena TFM 의 `refit_folds=True` 와 같은 꼴, 결정 10·11).
+판정 (2026-11-15)
+
+| 우리 FM | TabArena | 데이터셋 | split 표준편차 안 | 승패 같음 (비김 뺌) | 승패 같음 (비김까지, 참고) | 우리 − TabArena (표준편차 단위, 중앙값) | 우리가 나은 데이터셋 | 판정 (8 의 기준) |
+|---|---|---|---|---|---|---|---|---|
+| `tabicl_kv_refit` | TabICLv2 | 51 | 50 (98.0%) | 29 / 29 | 50 / 51 | +0.01 | 23 | **통과** |
+| `kumo_cat_refit` (범주 열이 있는 34개) + `kumo_c8k_refit` (나머지 17개, 같은 설정) | Kumo-Tabular | 51 | 50 (98.0%) | 35 / 36 | 50 / 51 | +0.01 | 17 | 못 넘음 (kddcup09 하나) → **완료로 봄** (아래, 사용자) |
+| `tabpfn_v2_refit` | TabPFNv2 | 33 | 31 (93.9%) | 9 / 9 | 28 / 33 | −0.13 | 25 | **통과** |
+
+- TabICL·TabPFNv2 는 통과. TabPFNv2 는 refit 으로 처음 판정 (2026-11-15, 33개 654 split): 5-fold (90.9%) 보다 조금 나음, 표준편차 밖은 NATICUSdroid (−1.07) · in_vehicle (−1.55) 둘 다 우리가 나은 쪽.
+  우리가 나은 데이터셋이 33개 중 25개 (중앙값 −0.13): 5-fold 의 −0.15 와 거의 같아 "TabArena TabPFNv2 보다 조금 나음" 은 test 예측 방식 탓이 아님 (패키지·가중치 판 차이로 짐작, 3 의 "다른 점")
+- Kumo 는 범주 열을 범주로 넘기도록 고친 뒤 (`_Kumo` 의 `cats`, 결정 11) 표준편차 안 94.1% → 98.0%. kddcup09 하나가 아직 밖 (+1.67) 이고 승패가 다름:
+  우리 0.1569 · 기본 GBDT 0.1543 · TabArena 0.1434. 이 하나 때문에 8 의 기준은 못 넘지만, 남은 차이는 TabArena 가 모델 앞에 두는 AutoGluon 전처리로 다 설명됨 (아래 "kddcup09").
+  우리 FM 은 TabArena 전처리를 맞추지 않으므로 (결정 4) 이 데이터셋을 적어 두고 **P4 완료로 봄** (2026-11-15, 사용자)
+- 비김으로 빠지는 데이터셋: tabicl 22 / 51, kumo 15 / 51, tabpfn_v2 24 / 33. 맞춤의 주 근거는 표준편차 기준
+- 판정은 비김을 뺀 기준 (2026-11-14 정함, 결정 9)
+
+kddcup09 (2026-11-15): 무엇 탓인지
+
+kddcup09_appetency × 9 split. 기준은 2026-11-14 의 `kumo_c8k_refit` (앙상블 8 · 청크 8192 · refit · 범주를 수치로). 줄마다 하나만 바꿈.
+TabArena Kumo-Tabular 0.1434 ± 0.0081, 기본 GBDT (CatBoost) 0.1543
+
+| 우리 모델 | 바꾼 것 | 9 split 평균 | 우리 − TabArena (표준편차 단위) | 기본 GBDT 보다 |
+|---|---|---|---|---|
+| `kumo_c8k_refit` | (기준) | 0.1618 | +2.27 | 나쁨 |
+| `kumo_e16_refit` | 앙상블 16 (TabArena 와 같음) | 0.1611 | +2.19 | 나쁨 |
+| `kumo_c2k_refit` | 질의 청크 2048 | 0.1619 | +2.29 | 나쁨 |
+| `kumo_c8k` | 5-fold (fold 모델 5개 평균) | 0.1618 | +2.27 | 나쁨 |
+| `kumo_cat_refit` | 범주 열을 범주로 (Kumo 기본 전처리: 값 순 맞춤 · 50개 이상이면 빈도 열 · 범주 표시) | 0.1569 | +1.67 | 나쁨 |
+| `kumo_cat_agp_refit` | 위 + AutoGluon 전처리 흉내 (진단용): 한 번만 나온 범주 값 → 결측, 상수·중복 열 빼기 | **0.1434** | **+0.01** | 나음 |
+
+- 앙상블·청크·refit 은 평균이 거의 그대로 (서로 0.0008 안, split 마다는 0.005 안) → 원인 아님. 넷 다 9 split 모두에서 TabArena 보다 나쁨
+- 범주 처리가 차이의 약 1/4 (0.1618 → 0.1569, 차이 0.0184 중 0.0049). 우리 `_Kumo` 는 범주를 정수 코드로 바꿔 수치로 넘겼음 → Kumo 가 범주 열인지 모르고 빈도 열도 없음.
+  kddcup09 의 범주 38열 중 9열은 값이 1,667~11,732 가지, 한 번만 나온 값이 열마다 745~8,472 행 (r0f0 train 33,333 행 기준)
+- 나머지는 AutoGluon 전처리 흉내로 다 없어짐 (TabArena 와 같은 값). kddcup09 에는 똑같은 열 (Var200 = Var214, Var198 = Var220 = Var222) 과 한 번만 나온 범주 값이 많음.
+  흉내는 AutoGluon 코드를 옮긴 것이 아니라 짐작 (중복 열 빼기 · 드문 범주 → 결측) → TabArena 의 실제 전처리와 같다고는 못 함. 어느 쪽이 몫이 큰지는 나눠 보지 않음
+- `kumo_cat_agp_refit` 은 진단용으로 남김 (기본 아님). 기본으로 하면 FM 이 바뀌어 51개·MLE-bench 를 다시 돌려야 하고, 우리 FM 은 전처리를 맞추지 않기로 함 (결정 4)
+
+범주 고침이 바꾼 것 (범주 열이 있는 34개, `kumo_c8k_refit` → `kumo_cat_refit`, 537 split)
+
+| | 표준편차 안 | 승패 같음 (비김 뺌) | 우리 − TabArena (중앙값 · 평균, 표준편차 단위) | TabArena 에 더 가까워진 데이터셋 | 범주로 넘긴 쪽이 나은 데이터셋 |
+|---|---|---|---|---|---|
+| 범주를 수치로 (`kumo_c8k_refit`) | 31 / 34 | 22 / 23 | +0.02 · +0.17 | | |
+| 범주를 범주로 (`kumo_cat_refit`) | 33 / 34 | 22 / 23 | +0.01 · +0.09 | 25 / 34 | 18 / 34 |
+
+- 크게 가까워진 것: in_vehicle +1.34 → +0.15, Amazon +1.19 → +0.20, MIC +0.40 → −0.08, splice +0.32 → −0.01, kddcup09 +2.27 → +1.67
+- 멀어진 것: Marketing_Campaign +0.11 → +0.79 (아직 안) 하나가 큼. 나머지 8개는 0.07 안 (hiva_agnostic·customer_satisfaction 등)
+- 범주 열이 없는 17개는 범주 처리가 상관없어 (`cats` 는 범주 열에만) `kumo_c8k_refit` 값이 그대로 고친 Kumo 의 값
+
+2026-11-14 의 판정 (기록: Kumo 는 범주를 수치로, tabpfn_v2 는 5-fold)
+
 
 범위: 51개 데이터셋의 모든 split (816개). 우리 FM 은 refit (`tabicl_kv_refit`·`kumo_c8k_refit`, "빠르게 돌리기"): CV 없이 train 전체로 한 번 fit → test 예측.
 TabArena TFM 의 `refit_folds=True` 와 같은 꼴 (결정 10). 2만 행 넘는 12개 (houses·superconductivity·credit_card·bank-marketing·Food_Delivery·kddcup09·diamonds·Diabetes130US·APSFailure·SDSS17·customer_satisfaction·GiveMeSomeCredit, 108 split) 는 #16 (2026-11-14),
@@ -608,6 +684,10 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
   Amazon kumo 0.1300 ± 0.0071 X · tabicl 0.1501 ± 0.0055 O, physiochemical kumo 2.7730 ± 0.0346 O · tabicl 2.9405 ± 0.0333 O. Amazon 의 tabicl (+0.53 → +0.73) 말고는 모두 5-fold 보다 TabArena 에 가까움 (Kumo 의 Amazon·in_vehicle 은 그래도 밖)
 - Amazon 은 TabArena 처럼 기본 CatBoost 가 모든 FM 보다 나음 (우리 CatBoost 0.1132 가 TabArena 의 0.1182 보다도 나음)
 - GBDT 는 참고선 (결정 7): 우리 GBDT 는 고정 반복 (lgbm 800 × lr 0.02, catboost 1500 × lr 0.03, 조기 종료 없음) 이라 큰 회귀 (physiochemical, train 3만) 에서 TabArena 보다 13% 나쁨
+- 2026-11-15 refit (결정 11, 평균 ± 표준편차, 표준편차 안): kumo (범주 고침, `kumo_cat_refit`) in_vehicle 0.1451 ± 0.0038 O · Amazon 0.1236 ± 0.0060 O (둘 다 처음으로 안),
+  tabpfn_v2 (`tabpfn_v2_refit`) hazelnut 0.0105 ± 0.0027 O · in_vehicle 0.2002 ± 0.0080 X (우리가 나은 쪽으로 밖, −1.55).
+  GBDT (`lgbm_refit` / `catboost_refit`): hazelnut 0.0214 / 0.0242, in_vehicle 0.1679 / 0.1687, Amazon 0.1521 / 0.1149, physiochemical 3.9464 / 3.9523.
+  5-fold 와 비교하면 hazelnut·in_vehicle 은 조금 나음 (오차 −0.5~−9%), Amazon 은 조금 나쁨 (+1.5~+1.7%), physiochemical 은 같음 (TabArena 보다 13% 나쁜 것도 그대로)
 
 ### kumo_e16
 
@@ -635,6 +715,11 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 | #16 refit (12개, 108 split × 2) | 8×H100 작업 하나 (+ 시험 작업 하나) | 10분 43초 | "빠르게 돌리기" 의 "#16 에 쓴 것" |
 | 39개 refit (708 split × 2) | 8×H100 작업 하나 | 37분 38초 (KST 11-14 23:38 ~ 11-15 00:16, 노드 3분 안) | 모델 시간 3.2시간 (tabicl 1.4 · kumo 1.8). 약 5 H100시간. 원격 채점 24.6분 (같은 정리 작업에서 Agent 4개 대기도 처리) |
 | Agent 10회 | A10 × 10 | 실행당 1시간 + 준비 | Sonnet 줄·GPT 줄 하나씩 동시에, 벽시계 약 4시간 30분 (09:00~13:30) |
+| kddcup09 원인 (9 split × `kumo_e16_refit`·`kumo_c2k_refit`·`kumo_c8k`, 2026-11-15) | 8×H100 작업 하나 | 8.1분 | 모델 시간 0.5시간 (5-fold `kumo_c8k` split 하나 96초, refit 34~83초) |
+| `tabpfn_v2_refit` (33개, 654 split, 2026-11-15) | 8×H100 작업 하나 | 17.8분 | 모델 시간 1.2시간 (split 하나 중앙값 6초). 5-fold 는 2.2시간 |
+| `kumo_cat_refit` (34개, 537 split, 2026-11-15) | 8×H100 작업 하나 | 18.8분 | 모델 시간 1.6시간 (split 하나 중앙값 8초) |
+| GBDT refit (파일럿 4개 × 57 split × `lgbm_refit`·`catboost_refit`, 2026-11-15) | serverless CPU 하나 | 20.0분 | 모델 시간 0.3시간 |
+| kddcup09 AutoGluon 흉내 (9 split × `kumo_cat_agp_refit`, 2026-11-15) | 8×H100 작업 하나 | 3.0분 | 노드가 바로 뜸 |
 
 - FM 모델 시간 합 (`results.csv` 의 seconds): kumo 3.3시간 (709 split-실행). 51개 전부의 어림 (H100 12~26시간) 은 큰 12개가 대부분
 
@@ -653,6 +738,10 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 | A10 | kumo_e16 | 위 39개 모두 (14:35~16:39) | 39 |
 | 8×H100 (작업 하나) | tabicl_kv_refit · kumo_c8k_refit | 2만 행 넘는 12개 (#16, 2026-11-14) | 12 |
 | 8×H100 (작업 하나) | tabicl_kv_refit · kumo_c8k_refit | 위 39개 모두 (KST 2026-11-14 23:38 ~ 11-15 00:16) | 39 |
+| 8×H100 (작업 하나씩) | kumo_e16_refit · kumo_c2k_refit · kumo_c8k, 그다음 kumo_cat_agp_refit | kddcup09_appetency (2026-11-15) | 1 |
+| 8×H100 (작업 하나) | tabpfn_v2_refit | TabPFNv2 범위 33개 (2026-11-15) | 33 |
+| 8×H100 (작업 하나) | kumo_cat_refit | 범주 열이 있는 34개 (2026-11-15) | 34 |
+| serverless CPU (작업 하나) | lgbm_refit · catboost_refit | 파일럿 4개 (2026-11-15) | 4 |
 
 - 51개 맞춤 표 (refit) 는 모두 H100. 5-fold (비교용) 는 위처럼 H100·A10 이 섞임
 - 점수는 GPU 와 무관하다고 보고 같은 표에 섞음 (같은 데이터셋을 두 GPU 로 돌려 비교해 보지는 않음). 시간 (`results.csv` 의 `seconds`) 은 GPU 에 따라 다르므로 데이터셋끼리 시간을 비교할 때는 이 표를 봄
@@ -663,13 +752,13 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 | 항목 | 이슈 | 상태 |
 |---|---|---|
 | 2만 행 넘는 12개 데이터셋 (FM 맞춤 확인용, tabicl·kumo) | [#16](https://github.com/Aiden-Jeon/fm-agent-bench/issues/16) | 끝 (refit, 8×H100 작업 하나 11분. 위 "FM 이 TabArena 와 맞는지") |
-| Kumo 가 refit 51개에서 기준을 못 넘음 (kddcup09 하나). 8 의 "못 넘으면 `kumo_e16`" 은 아직 안 함: `kumo_e16` 은 5-fold 39개에만 있고 kddcup09 · refit 에는 없음. 가릴 것: kddcup09 × 9 split 에 `kumo_e16_refit` (앙상블) · `kumo_refit` (청크 2048) · `kumo` (5-fold) → 앙상블·청크·refit 중 무엇 탓인지, 셋 다 같으면 범주 처리 | – | **안 함 (P4 완료 기준이 Kumo 에서 아직 안 맞음)**. 8×H100 작업 하나로 10~20분 + 노드 어림 (비슷한 크기의 APSFailure 시간으로) |
+| Kumo 가 refit 51개에서 기준을 못 넘음 (kddcup09 하나). 가릴 것: 앙상블·청크·refit, 셋 다 아니면 범주 처리 | – | 끝 (2026-11-15): 앙상블·청크·refit 은 아님. 범주 처리를 고쳐 (`kumo_cat_refit`, 범주 열이 있는 34개 다시) 표준편차 안 98.0%. kddcup09 의 나머지는 TabArena 의 AutoGluon 전처리 (흉내로 0.1434 = TabArena). 우리 FM 은 전처리를 맞추지 않음 (결정 4) → 적어 두고 P4 완료 (사용자). "FM 이 TabArena 와 맞는지" 의 "kddcup09" |
 | Agent 2회째 (결정 2: 같은 r0f0 에서, 10회) | [#17](https://github.com/Aiden-Jeon/fm-agent-bench/issues/17) | 끝 (2026-11-15, 위 "2회째 (#17)") |
 | 사후 검사가 `pip install --target` 을 못 잡음 → `pip_target` 열 (9 의 "사후 검사") | [#18](https://github.com/Aiden-Jeon/fm-agent-bench/issues/18) | 완료 (2026-11-14) |
 | `fab ta fm` 의 동시 GPU 작업 상한 → `--max-concurrent` (9 의 "명령") | [#19](https://github.com/Aiden-Jeon/fm-agent-bench/issues/19) | 완료 (2026-11-14) |
 | 원격 채점 속도 (정리 작업 한 번 약 1시간) → 채점 약 3배 빠름, 남은 몫은 FM 합치기 (9 의 "원격 채점 속도") | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | 완료 (2026-11-14) |
 | physiochemical 의 `tabpfn_v2` (TabArena 범위 밖이라 비교에는 필요 없음) | – | 안 함 |
-| tabpfn_v2 를 refit 으로 (33개, tabicl·kumo 와 같은 프로토콜로) | – | 안 함 (필요하면) |
+| tabpfn_v2 를 refit 으로 (33개, tabicl·kumo 와 같은 프로토콜로) | – | 끝 (2026-11-15): 통과 (표준편차 안 93.9%, 승패 9 / 9). "FM 이 TabArena 와 맞는지" |
 | Kumo·TabICL 이 TabArena 보다 조금 나쁜 쪽으로 기우는 까닭 (컨텍스트 80% 대 refit) | – | 끝 (2026-11-15): 39개도 refit 으로 돌려 tabicl·kumo 의 51개를 한 프로토콜로 (결정 10). 기울기 +0.08 · +0.14 → +0.01 · +0.01 ("FM 이 TabArena 와 맞는지" 의 "39개 refit") |
 
 ## 빠르게 돌리기 (2026-11-14)
@@ -829,25 +918,27 @@ minipfn 에서 가져올 것 없음 (Agent 실행은 1시간 고정, GPU 계산�
 
 - refit 을 쓰면 39개 (5-fold) 와 프로토콜이 다름 → (a) 12개만 refit 으로 하고 표에 적음, (b) 39개도 refit 으로 다시 (H100 약 1시간 어림, "컨텍스트 80% 대 refit" 도 가려짐), (c) 지금대로 5-fold (H100 5~7시간 어림).
   → **(b) 로 정함** (2026-11-14 밤, 사용자, 결정 10). 위 "39개에 쓴 것"
-- `tabicl` 의 KV 캐시를 기본으로 할지 (점수 같음, OOM 이면 캐시 없이). Kumo 청크 8192 를 기본으로 할지 (점수가 아주 조금 바뀜 → MLE-bench·C1·C2 와 같은 FM 이 아님, 결정 4)
+- `tabicl` 의 KV 캐시를 기본으로 할지 (점수 같음, OOM 이면 캐시 없이). Kumo 청크 8192 를 기본으로 할지 (점수가 아주 조금 바뀜 → MLE-bench·C1·C2 와 같은 FM 이 아님, 결정 4).
+  → **둘 다 기본으로** (2026-11-15, 사용자, 결정 11). MLE-bench·C1 의 FM 도 refit 으로 다시 돌려 같은 FM 이 됨 ("FM 프로토콜과 이름")
 - GPU: H100 (A10 은 3~5배 느림). 1×H100 여럿 대 8×H100 하나 (위 "8×H100")
 
 ## 결정 (2026-11-13)
 
-3·4·9 는 사용자가 정함. 나머지는 추천안을 그대로 받음 (바꾸려면 여기를 고침).
+3·4·9·11 은 사용자가 정함. 나머지는 추천안을 그대로 받음 (바꾸려면 여기를 고침).
 
 | # | 정할 것 | 정한 것 | 까닭 |
 |---|---|---|---|
 | 1 | v0.1 대 BeyondArena | **TabArena-v0.1 (51개)** | 우리 FM 셋의 split 별 결과가 모두 공개돼 있어 "TabArena 와 맞나" 를 바로 봄. BeyondArena 는 시간·그룹 분할이라 지금 `fab run` 의 KFold 로는 샘 (그쪽 TFM 결과 유무는 확인 안 함). 데이터 받는 부분은 따로 떼어 나중에 옮길 수 있게 |
 | 2 | Agent split | **r0f0 하나, 반복은 같은 split 에서 2회째** | MLE-bench P1 에서 Agent 는 실행끼리 흔들림이 split 보다 큼. FM 은 모든 split, Agent 와의 비교는 r0f0 점수끼리 |
 | 3 | 데이터셋 이름 공개 | **안 알림 — "모델링 실력" 비교** | 타깃이 공개라 이름·출처가 있으면 정답 찾기가 쉬움. 과제·열 뜻·지표만 줌. 인터넷은 열고 사후 검사 (5 의 "익명화") |
-| 4 | FM 설정 | **지금 설정 그대로, 차이만 기록. 기준은 8 의 "확인 방법"** | MLE-bench 결과·C1·C2 와 같은 FM 이어야 이어 읽음. 기준 (80%·표준편차 1배) 은 우선 이대로 진행. 결정 10 뒤에도 모델 설정은 그대로이고 test 예측 방식만 refit 으로 판정. 실험에 쓰는 5-fold FM 은 5-fold 표 (39개) 가 근거 |
+| 4 | FM 설정 | **지금 설정 그대로, 차이만 기록. 기준은 8 의 "확인 방법"** | MLE-bench 결과·C1·C2 와 같은 FM 이어야 이어 읽음. 기준 (80%·표준편차 1배) 은 우선 이대로 진행. 결정 10 뒤에도 모델 설정은 그대로이고 test 예측 방식만 refit 으로 판정. 실험에 쓰는 5-fold FM 은 5-fold 표 (39개) 가 근거. 2026-11-15 결정 11 로 tabicl 캐시·Kumo 청크·Kumo 범주 처리와 test 예측 방식 (refit) 을 바꿈 |
 | 5 | 대회 단위 | **A: (데이터셋, split) 마다 대회. 저장소에는 r0f0 만** | 지금 코드 경로를 그대로 씀 |
 | 6 | 의존성 | **옆 venv (`FAB_TABARENA`) 에 `openml`·`pyarrow`** | `uv.lock` 안 바뀜 (사내 프록시), mlebench driver 와 같은 방식 |
 | 7 | GBDT 기준선 | **우리 `lgbm`·`catboost` 를 돌림, TabArena 기본 GBDT 는 참고선** | Agent·C1 과 같은 조건의 대조군은 우리 것뿐. 비용 거의 없음 |
 | 8 | 파일럿 | **FM 은 4개 (위 표) + 맞춤 확인용 51개, Agent 는 hazelnut · in_vehicle_coupon 부터** | 7 의 "파일럿 추천" |
 | 9 | 맞춤 기준의 비김 (2026-11-14 추가) | **\|TabArena FM − 기본 GBDT\| ≤ TabArena split 표준편차인 데이터셋은 승패를 세지 않음** | 처음 기준에서 승패가 달랐던 7개가 모두 FM 과 GBDT 의 차이 3% 안. split 흔들림 안의 승패는 맞춤의 근거가 못 됨 |
-| 10 | FM 맞춤 확인의 test 예측 (2026-11-14 추가, 같은 날 밤 고침) | **tabicl·kumo 의 51개 모두 refit (CV 없이 train 전체로 한 번, `tabicl_kv_refit`·`kumo_c8k_refit`), `GPU_8xH100` 작업 하나.** 처음에는 #16 의 12개만 refit, 그 뒤 "정할 것" 의 (b) 로 39개도 refit | TabArena 의 TFM test 예측 (`refit_folds=True`) 과 같은 방식이고 계산이 약 1/5 ("빠르게 돌리기"). tabicl·kumo 의 51개가 한 프로토콜이 되고 5-fold 의 기울기 (컨텍스트 80%) 가 사라짐. 5-fold 결과는 실험에 쓰는 FM 의 판정으로 남김. tabpfn_v2 는 5-fold 만 (refit 안 돌림). minipfn 도 기본이 refit. MLE-bench·C1·C2 의 FM (`fab run` 기본 5-fold) 은 그대로 |
+| 10 | FM 맞춤 확인의 test 예측 (2026-11-14 추가, 같은 날 밤 고침) | **tabicl·kumo 의 51개 모두 refit (CV 없이 train 전체로 한 번, `tabicl_kv_refit`·`kumo_c8k_refit`), `GPU_8xH100` 작업 하나.** 처음에는 #16 의 12개만 refit, 그 뒤 "정할 것" 의 (b) 로 39개도 refit | TabArena 의 TFM test 예측 (`refit_folds=True`) 과 같은 방식이고 계산이 약 1/5 ("빠르게 돌리기"). tabicl·kumo 의 51개가 한 프로토콜이 되고 5-fold 의 기울기 (컨텍스트 80%) 가 사라짐. 5-fold 결과는 실험에 쓰는 FM 의 판정으로 남김. tabpfn_v2 는 5-fold 만 (refit 안 돌림). minipfn 도 기본이 refit. MLE-bench·C1·C2 의 FM (`fab run` 기본 5-fold) 은 그대로. 2026-11-15 결정 11 로 실험의 FM·GBDT 도 refit, tabpfn_v2 도 refit 33개 |
+| 11 | FM 기준 프로토콜·기본값 (2026-11-15, 사용자가 정함) | **Agent 와 비교하는 FM 은 모두 refit (CV 없이 train 전체로 한 번). GBDT 도 refit. `tabicl` 은 KV 캐시 켬 (OOM 이면 캐시 없이), `kumo` 는 질의 청크 8192 · 범주 열을 범주로. 공식 설정에서 Agent 가 스스로 TFM 을 깔아 쓴 실행도 Agent 결과로 셈 (`tfm_runtime`·`pip_target` 표시는 남김). 이름·`opts` 열로 옛 결과와 가름 ("FM 프로토콜과 이름")** | refit 은 TabArena TFM 의 test 예측과 같고 5-fold 의 기울기 (컨텍스트 80%) 가 사라지며 계산은 약 1/5. GBDT 는 CPU 만이라 비용이 작아 같은 프로토콜로 맞춤 (사용자). KV 캐시는 점수가 같고 청크 8192 는 6~32% 빠름. 범주를 수치로 넘기던 Kumo 는 kddcup09 에서 앙상블·청크·refit 과 상관없이 TabArena 보다 2.2σ 나빴고, 범주로 바꾸니 범주 열이 있는 34개 중 25개가 TabArena 에 가까워짐. 스스로 깐 TFM 도 Agent 가 고른 풀이 (hazelnut × Codex 1회째) |
 
 확인 못 한 것
 
