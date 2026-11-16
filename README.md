@@ -45,6 +45,18 @@ leaf 의 FM 향상 대부분은 test 99행 중 한 행이고 CV (5-fold) 로는 
 결과 표: `results/mlebench.csv` (FM·GBDT 채점), `results/mlebench_runs.csv` (Agent 실행), `results/results.csv` (CV) 는
 Volume 의 `tables/` 가 원본이고 `fab sync` 로 받은 사본. `results/mlebench_agents.csv` (공개 리더보드 에이전트) 는 로컬 `fab mleb agents` 로 만듦.
 
+### TabArena Elo
+
+TabArena 와 같은 식의 Elo (RandomForest 기본 = 1000, Bradley-Terry, 데이터셋 부트스트랩 200번 95% 구간), TabArena 공개 결과 (기본 설정) 와 한 풀.
+`uv run --frozen fab ta elo` → `results/tabarena_elo.csv`. 계산·전체 표는 [docs/tabarena.md 의 "Elo"](docs/tabarena.md#elo-2026-11-16).
+
+| 풀 | 순서 (Elo) |
+|---|---|
+| FM: 51개 × 모든 split | TabArena Kumo 1871 · **kumo (ours) 1829** · TabICLv2 1538 · **tabicl (ours) 1535** · CatBoost 1333 · **tabpfn_v2 (ours) 1269** · TabPFNv2 1223 · LightGBM 1175 · RF 1000 |
+| Agent: r0f0 2개 (구간 없음) | kumo (ours) = TabArena Kumo 2540 · **Codex × GPT 2372** · tabicl (ours) 2108 · **AIDE × Sonnet = AIDE × GPT = TabICLv2 1944** · **Claude Code +cont 1628** · CatBoost 1356 · **Claude Code = 우리 GBDT 1314** · RF 1000 |
+
+우리 FM 셋은 TabArena 의 같은 모델과 구간 안 (kumo +134 / −77 등). Agent 풀은 데이터셋이 2개뿐이라 순위를 다시 쓴 것에 가깝고, 숫자를 FM 풀과 나란히 놓지 않음.
+
 ## 구조
 
 ```
@@ -61,7 +73,7 @@ fab/
                                   #   C2 (--fm): fm_notes.txt (지시문의 TFM 안내), fm_warmup.py (사전 점검), fm_audit.py (TFM import 기록)
   remote/                         # 원격 상태(Volume 의 state/)·정리 작업 (reconcile.py: 결과 합치기·채점, `fab remote kick` 으로 실행)·fab sync
 docker/air/                       # Databricks 실행 이미지 (FM 패키지 미리 설치)
-results/                          # git 추적 결과 표 (성능 대시보드 아래 설명). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
+results/                          # git 추적 결과 표 (성능 대시보드 아래 설명, TabArena 는 tabarena*.csv). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
 docs/                             # mle-bench.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
 ```
 
