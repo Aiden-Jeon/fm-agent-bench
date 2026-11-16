@@ -1119,7 +1119,7 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
 ### FM 풀: 51개 × 모든 split (816)
 
 우리 FM 은 refit (결정 11). `kumo (ours)` = 범주 열이 있는 34개는 `kumo_cat_refit`, 없는 17개는 같은 설정인 `kumo_c8k_refit` ("FM 프로토콜과 이름").
-우리 GBDT (`lgbm_refit`·`catboost_refit`) 는 4개 데이터셋뿐이라 이 풀에 안 넣음 (넣으면 47개가 RandomForest 값).
+우리 GBDT (`lgbm_refit`·`catboost_refit`) 는 12개 데이터셋뿐이라 이 풀에 안 넣음 (넣으면 39개가 RandomForest 값).
 
 | 방법 | Elo | 95% 구간 | 평균 순위 | 승률 | 채운 비율 |
 |---|---|---|---|---|---|
@@ -1138,29 +1138,36 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
 - kumo (ours) 는 TabArena CatBoost 기본보다 +495 (기대 승률 95%), tabicl (ours) 보다 +294 (84%)
 - tabpfn_v2 의 18개는 TabArena TabPFNv2 와 같은 데이터셋을 RandomForest 로 채움 (TabArena 와 같은 처리) → 두 줄은 같은 조건. 돌 수 있는 33개만의 Elo 는 따로 안 냄
 
-### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (지금 2개)
+### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (12개, 2026-11-17 다시)
 
-hazelnut · in_vehicle 의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균 (데이터셋마다 2회, 결과표의 `runs`. TabArena 가 seed 를 평균하는 것과 같게). 지금은 실패한 회차 없음 (`imputed` 0).
+파일럿 2개 (hazelnut · in_vehicle) + #26 10개의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균
+(파일럿은 2회, #26 은 1회 → 결과표의 `runs` 평균 1.17. TabArena 가 seed 를 평균하는 것과 같게). 실패한 회차 없음 (`imputed` 0). tabpfn_v2 는 범위 밖 4개 (QSAR-TID-11 · APSFailure · Amazon · physiochemical) 를 RandomForest 로 채움.
 
-| 방법 | Elo |
-|---|---|
-| kumo (ours) · TabArena Kumo-Tabular | 2540 |
-| **Agent: Codex × GPT** | **2372** |
-| tabicl (ours) | 2108 |
-| TabArena TabICL (v1) | 1997 |
-| **Agent: AIDE × Sonnet** · **AIDE × GPT** · TabArena TabICLv2 | **1944** |
-| **Agent: Claude Code × Sonnet +cont** | **1628** |
-| tabpfn_v2 (ours) | 1441 |
-| TabArena CatBoost | 1356 |
-| **Agent: Claude Code × Sonnet** · catboost (ours) · lgbm (ours) | **1314** |
-| TabArena LightGBM · TabPFNv2 | 1272 |
-| TabArena RandomForest | 1000 |
+| 방법 | Elo | 95% 구간 | 평균 순위 | 승률 |
+|---|---|---|---|---|
+| TabArena Kumo-Tabular | 2016 | +2336 / −144 | 2.00 | 0.938 |
+| kumo (ours) | 1964 | +2204 / −140 | 2.33 | 0.917 |
+| **Agent: Codex × GPT** | **1680** | +275 / −335 | 5.08 | 0.745 |
+| tabicl (ours) | 1608 | +183 / −230 | 6.08 | 0.682 |
+| **Agent: AIDE × Sonnet** | **1569** | +127 / −342 | 6.67 | 0.646 |
+| TabArena TabICLv2 | 1564 | +155 / −241 | 6.75 | 0.641 |
+| **Agent: AIDE × GPT** | **1542** | +130 / −335 | 7.08 | 0.620 |
+| **Agent: Claude Code × Sonnet +cont** | **1481** | +92 / −319 | 8.08 | 0.557 |
+| TabArena CatBoost | 1346 | +110 / −253 | 10.42 | 0.411 |
+| tabpfn_v2 (ours) | 1341 | +167 / −247 | 10.50 | 0.406 |
+| TabArena TabICL (v1) | 1324 | +106 / −273 | 10.79 | 0.388 |
+| **Agent: Claude Code × Sonnet** | **1297** | +83 / −278 | 11.25 | 0.359 |
+| TabArena TabPFNv2 | 1267 | +98 / −247 | 11.75 | 0.328 |
+| catboost (ours) | 1241 | +120 / −318 | 12.17 | 0.302 |
+| TabArena LightGBM | 1187 | +72 / −273 | 13.00 | 0.250 |
+| lgbm (ours) | 1134 | +110 / −332 | 13.75 | 0.203 |
+| TabArena RandomForest | 1000 | +86 / −287 | 15.29 | 0.107 |
 
-- **데이터셋 2개라 이 Elo 는 순위를 다시 쓴 것에 가까움.** 같은 줄 = 두 데이터셋의 순위 합이 같음. 95% 구간은 비움
-  (데이터셋 2개를 복원 추출하면 묶음이 3가지뿐이라 폭이 수천~수만, `fab ta elo` 는 데이터셋 10개 미만이면 비움)
-- RandomForest 가 거의 다 져서 (승률 0.06) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 2540)
-- 읽을 수 있는 것: Codex 는 우리 FM 최고 (kumo) 와 tabicl 사이, AIDE 둘은 TabICLv2 와 같은 자리, Claude Code 공식 설정은 우리 GBDT 와 같은 자리
-- #26 (Agent 확장 10개) 가 들어오면 같은 명령으로 다시 계산. 데이터셋 10개부터 구간을 냄
+- 데이터셋 12개라 95% 구간을 냄 (10개부터). 단위가 (데이터셋, r0f0) 12개뿐이라 구간이 넓음. Kumo 둘의 위쪽 폭이 2,000을 넘는 것은 부트스트랩 묶음에서 Kumo 가 거의 다 이기면 최대우도가 위로 벌어지는 것으로 보임 (나눠 재지 않음, 점추정은 그대로 읽음)
+- 순서: kumo (ours) 1964 > **Codex 1680** > tabicl (ours) 1608 > AIDE × Sonnet 1569 ≈ TabICLv2 1564 > AIDE × GPT 1542 > Claude Code +cont 1481 > CatBoost 기본 1346 > Claude Code 공식 1297 > 우리 GBDT (1241·1134).
+  Agent 넷이 기본 GBDT 보다 위, Codex 는 우리 FM 최고 (kumo) 보다 284 아래 (기대 승률 16%) · tabicl 보다 위. 구간이 겹쳐 Agent 끼리·tabicl 과의 순서는 단단하지 않음
+- 파일럿 2개로 낸 값 (2026-11-16, kumo 2540 · Codex 2372 · AIDE 둘 1944 · Claude Code +cont 1628 · Claude Code 1314) 보다 Agent 가 FM 에 가까움: 12개 중 Agent 가 FM 을 이긴 데이터셋이 셋 ("Agent 확장 1회째" 의 요약)
+- RandomForest 가 거의 다 져서 (승률 0.11) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 1964)
 
 ## 빠르게 돌리기 (2026-11-14)
 
