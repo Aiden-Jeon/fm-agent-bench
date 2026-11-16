@@ -761,6 +761,67 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 | tabpfn_v2 를 refit 으로 (33개, tabicl·kumo 와 같은 프로토콜로) | – | 끝 (2026-11-15): 통과 (표준편차 안 93.9%, 승패 9 / 9). "FM 이 TabArena 와 맞는지" |
 | Kumo·TabICL 이 TabArena 보다 조금 나쁜 쪽으로 기우는 까닭 (컨텍스트 80% 대 refit) | – | 끝 (2026-11-15): 39개도 refit 으로 돌려 tabicl·kumo 의 51개를 한 프로토콜로 (결정 10). 기울기 +0.08 · +0.14 → +0.01 · +0.01 ("FM 이 TabArena 와 맞는지" 의 "39개 refit") |
 
+## Agent 확장 1회째 (#26, 2026-11-16)
+
+파일럿 둘은 모두 이진이라 "FM 한 번이 1시간 Agent 를 이기는 데이터는 어떤 종류인가" 를 말하기 어려웠음.
+회귀·다중을 넣고 FM 이 크게 이기는 곳·근소한 곳·GBDT 가 이기는 곳을 섞은 10개를 r0f0 에서 5설정 × 1회 돌림 ([#26](https://github.com/Aiden-Jeon/fm-agent-bench/issues/26)).
+C2 (+fm) 와 2회째 (결정 2) 는 이 결과를 보고 따로 정함.
+
+### 후보 (#26 의 표를 Kumo 범주 고침 뒤로 다시)
+
+#26 의 FM 값은 #27 전 Kumo (`kumo_c8k_refit`, 범주를 수치로). 범주 열이 있는 데이터셋은 `kumo_cat_refit` 으로 다시 계산함.
+`metric_error` 의 모든 split 평균, FM 최고 = refit 셋 (`kumo`·`tabicl_kv`·`tabpfn_v2`) 중 나은 쪽 (10개 모두 kumo), GBDT = TabArena 공개 기본 CatBoost·LightGBM 중 나은 쪽.
+σ = 그 FM 의 split 표준편차.
+
+| 데이터셋 | 과제 | train / test (r0f0) | 피처 (범주) | FM 최고 (#26 → 지금) | GBDT | FM − GBDT (#26 → 지금) | ÷ σ (#26 → 지금) | TabArena Kumo − GBDT (참고) | 묶음 |
+|---|---|---|---|---|---|---|---|---|---|
+| QSAR_fish_toxicity | 회귀 | 604 / 303 | 6 (0) | 0.851 (같음) | CatBoost 0.877 | −2.9% | 0.5 | −3.0% | 근소 |
+| MIC | 다중 8 | 1,132 / 567 | 111 (94) | 0.428 → **0.420** | CatBoost 0.455 | −5.9% → **−7.7%** | 1.3 → 1.9 | −7.4% | 중간 |
+| Is-this-a-good-customer | 이진 | 1,148 / 575 | 13 (8) | 0.245 → 0.244 | CatBoost 0.251 | −2.5% → −2.9% | 0.3 | −3.1% | 근소 |
+| splice | 다중 3 | 2,126 / 1,064 | 60 (60) | 0.092 → **0.087** | CatBoost 0.111 | −17.2% → **−21.3%** | 1.2 → 1.6 | −21.2% | 크게 |
+| students_dropout_and_academic_success | 다중 3 | 2,949 / 1,475 | 36 (17) | 0.507 (같음) | CatBoost 0.552 | −8.1% | 3.2 | −8.3% | 중간 |
+| polish_companies_bankruptcy | 이진 | 3,940 / 1,970 | 64 (0) | 0.00435 (같음) | CatBoost 0.0390 | −88.8% ¹ | 20.4 | −89.4% | 크게 |
+| QSAR-TID-11 | 회귀 | 3,828 / 1,914 | 1,024 (0) | 0.721 (같음) | LightGBM 0.772 | −6.6% | 1.1 | −7.2% | 중간 |
+| APSFailure | 이진 | 50,666 / 25,334 | 170 (0) | 0.00461 (같음) | CatBoost 0.00756 | −39.0% | 2.0 | −39.4% | 크게 |
+| physiochemical_protein | 회귀 | 30,486 / 15,244 | 9 (0) | 2.773 (같음) | LightGBM 3.477 | −20.2% | 19.2 | −20.3% | 크게 |
+| Amazon_employee_access (대조군) | 이진 | 21,846 / 10,923 | 9 (9) | 0.1300 → **0.1236** | CatBoost 0.1182 | **+9.9% → +4.5%** | 1.6 → **0.8** | +3.4% | GBDT 이김 |
+
+¹ 1 − AUC 라 값이 작아 % 가 큼 (절대 차 0.035)
+
+- 바뀐 것은 범주 열이 있는 넷 (MIC · Is-this-a-good-customer · splice · Amazon). 나머지 여섯은 범주 열이 없어 `kumo_c8k_refit` = `kumo_cat_refit` (같은 값). students_dropout 는 범주 열이 있지만 값이 거의 같음 (0.5068 → 0.5069)
+- 묶음 (크게 −15% 이하 · 근소 3% 안 · 중간 · GBDT 이김) 은 하나도 안 바뀜
+- **Amazon 대조군은 그대로 둠**: 기본 GBDT 가 FM 보다 나은 방향은 같지만 차이가 +9.9% → +4.5% (1σ 안) 로 줄었음. TabArena Kumo (+3.4%) 와 가까워짐 (#26 의 "선행 PR 의 범주 처리 결과와 같이 봄").
+  tabicl 은 +27% 로 GBDT 에 크게 짐. 대안 kddcup09_appetency 는 +1.7% (0.3σ) 로 더 약해서 바꿀 까닭이 없음. 다른 대안 (website_phishing −17.0%, hiva_agnostic −0.4%) 도 그대로 대안
+- train / test 는 r0f0 split 파일로 센 값 (#26 은 2/3 · 1/3 어림)
+
+### 대회 준비
+
+- 새 r0f0 대회 8개 (`competitions/ta-<데이터셋>/`, git 추적). 익명 id 는 배치 순서로 `tabarena-p05` (QSAR_fish) ~ `p12` (APSFailure). Amazon `p03`·physiochemical `p04` 는 파일럿 때 만들어 둔 것 그대로
+  - `config.yaml` 은 `default_config` (FM 이 돈 `tas-<데이터셋>-r0f0` 과 같은 설정: 범주 열·타깃·지표) 에 `anon_id` 만 더함 → 같은 r0f0 데이터·같은 피처 (행 id 는 데이터셋·split 의 고정 seed 라 `tas-…-r0f0` 과 바이트까지 같음)
+  - 지표: 이진 `auc` · 다중 `logloss` · 회귀 `rmse`, 분류는 `submit_proba`. 다중 제출은 클래스별 확률 열 (열 이름 = 클래스 이름, sample_submission 의 순서)
+  - r0f0 폴더가 생기면 그 split 의 대회 이름이 `tas-<데이터셋>-r0f0` → `ta-<데이터셋>` 으로 바뀜. FM 의 r0f0 행은 옛 이름 그대로 결과표에 있고 (다시 안 돌림), GBDT refit 은 새 이름. 비교는 (데이터셋, split) 로 함
+- `description.md` (영어): 과제·열 뜻·지표·제출 형식. 이름·출처·연도·수집 기관 없이, 열 뜻은 OpenML 설명·원래 출처를 보고 우리 말로.
+  이름이 그대로 걸리는 말은 피함: splice 는 "exon/intron boundary" 로만 (단어 `splice` 를 안 씀), QSAR_fish 는 "acute aquatic toxicity towards a small freshwater fish species", APSFailure 는 "air pressure system", students 는 "drops out, is still enrolled, or graduates".
+  MIC 는 열 이름이 약어라 무리별로 뜻을 적음 (병력·입원 때·입원 뒤 사흘). 클래스 이름 (`cardiogenic_shock` 등) 이 과제를 드러내므로 "heart attack (myocardial infarction)" 은 씀.
+  APSFailure 는 원래 열 뜻이 공개되지 않음 (익명 센서) → 히스토그램 무리 (`ag_000`–`ag_009` 등 7개) 만 적음
+- `fab ta prepare <10개> --splits all`: 대회 153개 (r0f0 10 + 생성 split 143). 정답은 `FAB_TABARENA/data/answers/`
+
+로컬 확인 (학습 없이, 저장소 밖 스크립트, 파일럿 때 "로컬 확인" 과 같은 검사 + 회귀·다중 채점)
+
+- 10개 × 모든 split (153개): 크기, train·test id 가 0..n−1 순열을 나눔, 열 순서, test 의 값·정답이 OpenML TEST 행과 같음, 같은 repeat 의 fold 3개 test 합 = 전체, 피처 (`features.py`) 의 범주 열이 설정과 같고 `1`·`1.0` 섞임 없음
+- 채점 (모든 split): 이진 = 상수 AUC 0.5 · 정답 AUC 1, 다중 = 균등 확률 logloss = ln K · 정답 원-핫 ≈ 0, 회귀 = 상수 (train 평균) RMSE = 식 · 정답 0.
+  r0f0 만 더: 이진 뒤집기 AUC 0 · 행 섞기 · 레이블 제출 무효, 다중 = 사전 확률 logloss = 직접 계산 · 행 합이 1 이 아니어도 (×7) 정규화 · 행 섞기 · 열 순서가 다르면 무효 · 행 빠지면 무효, 회귀 = 정답 +2 → RMSE 2 · 행 섞기 · 행 빠지면·열 이름 틀리면 무효
+- `leak_check` (`fab/agent`): 10개 모두 설명·데이터 파일 이름·익명 id·실행 이름·코드 묶음 (실행기·지시문 등 7개 파일) 에 이름·대회 이름·OpenML id 없음. 새 설명 8개에 다른 데이터셋 이름도 없음 (MIC 설명의 "diabetes" (당뇨 병력 열) 가 데이터셋 `diabetes` 이름에 걸리지만 MIC 를 알려 주는 말은 아님)
+- 합 5,670개 통과. 걸린 9개는 id–타깃 상관 |r| < 0.05 (작은 데이터 셋: QSAR_fish train 604, MIC 1,132, Is-this 1,148). id 는 데이터와 무관한 seed 순열이고 z (= r√n) 가 최대 2.1, split 사이 표준편차 0.8~1.0 이라 우연 범위로 봄
+
+### GBDT refit
+
+- 8개 (Amazon·physiochemical 은 파일럿 때 있음) × 모든 split (135) × `lgbm_refit`·`catboost_refit` 을 serverless CPU 작업 하나로 (`fab ta fm ... --one-job`, 2026-11-16 13:28 KST 제출)
+- 1.5시간에 33 split (QSAR_fish 30 + MIC 3) 만 끝남. **MIC 의 CatBoost 가 split 하나에 약 30분** (1,742~1,828초, lgbm 3초). TabArena 의 CatBoost 도 MIC 는 split 중앙값 2,070초 (splice 578초, 나머지 7~203초) → 범주 94열 × 8클래스 탓으로 봄.
+  차례로 돌면 MIC 만 약 15시간이라 작업 시간 제한 (12시간) 에 걸려 뒤 데이터셋은 못 돎
+- → 15:05 에 취소 (끝난 33 split 은 Volume 에 남음) 하고 남은 것을 CPU 작업 9개로 동시에 냄 (사용자가 정함): 데이터셋마다 하나 (Is-this · splice · students · polish · QSAR-TID-11 · APSFailure, 모든 split) + MIC 남은 27 split 을 9개씩 3개 (`--splits r1f0,...`).
+  처음 작업의 채점 요청은 끝난 33 split 만 채점하고 나머지는 "예측 없음" 으로 끝남 (새 작업마다 채점 요청을 다시 냄)
+
 ## 빠르게 돌리기 (2026-11-14)
 
 #16 (2만 행 넘는 12개 × 9 split × tabicl·kumo) 과 #17 (Agent 2회째) 을 빨리 돌릴 방법을 찾음.
