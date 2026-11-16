@@ -1,0 +1,16 @@
+# TabArena-v0.1 (OpenML task 363694) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 이진 · 5,910 행 · 피처 64 (모두 수치) · split 9. #26 후보: FM 크게 이김 (refit kumo −88.8%, 1−AUC 라 값이 작음)
+name: ta-polish-companies-bankruptcy
+tabarena:
+  dataset: polish_companies_bankruptcy
+  task_id: 363694
+  split: r0f0
+  anon_id: tabarena-p10
+  categorical: []
+task: binary
+target: company_bankrupt
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}

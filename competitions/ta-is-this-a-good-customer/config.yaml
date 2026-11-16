@@ -1,0 +1,16 @@
+# TabArena-v0.1 (OpenML task 363682) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 이진 · 1,723 행 · 피처 13 (범주 8) · split 30. #26 후보: FM 근소 (refit kumo −2.9%)
+name: ta-is-this-a-good-customer
+tabarena:
+  dataset: Is-this-a-good-customer
+  task_id: 363682
+  split: r0f0
+  anon_id: tabarena-p07
+  categorical: [sex, education, product_type, having_children_flg, region, family_status, phone_operator, is_client]
+task: binary
+target: bad_client_target
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}

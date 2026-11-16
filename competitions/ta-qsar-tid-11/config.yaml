@@ -1,0 +1,15 @@
+# TabArena-v0.1 (OpenML task 363697) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 회귀 · 5,742 행 · 피처 1,024 (모두 수치) · split 9. #26 후보: 넓음 (피처 1,024), FM 중간 (refit kumo −6.6%)
+name: ta-qsar-tid-11
+tabarena:
+  dataset: QSAR-TID-11
+  task_id: 363697
+  split: r0f0
+  anon_id: tabarena-p11
+  categorical: []
+task: regression
+target: MEDIAN_PXC50
+id_col: id
+metric: rmse
+cv: {n_splits: 5, seed: 42, stratify: false}
