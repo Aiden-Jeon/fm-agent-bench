@@ -34,8 +34,11 @@ databricks.local.yaml 의 mleb_agent 블록 (git 제외):
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
+import posixpath
 import re
 import shlex
 import shutil
@@ -316,6 +319,38 @@ def tfm_imports(code: str) -> list[str]:
     return sorted({WATCH[m.split(".")[0]] for m in mods if m.split(".")[0] in WATCH})
 
 
+DIST_RECORD = re.compile(r"^(?:(.*)/)?[^/]+\.dist-info/RECORD$")
+
+
+def record_files(record_name: str, text: str) -> set[str]:
+    """`*.dist-info/RECORD` (pip 가 깐 파일 목록, 줄마다 `경로,해시,크기`) → 작업 디렉터리 묶음 안의 파일 이름.
+    경로는 dist-info 가 있는 폴더 (--target 폴더) 기준. 그 폴더 밖 (`../bin/...` 같은 스크립트) 은 묶음 이름으로 못 옮겨 뺌."""
+    m = DIST_RECORD.match(record_name)
+    if not m:
+        return set()
+    base, out = m[1] or "", set()
+    for row in csv.reader(io.StringIO(text)):
+        if not row or not row[0] or row[0].startswith("/"):
+            continue
+        path = posixpath.normpath(posixpath.join(base, row[0]))
+        if path != ".." and not path.startswith("../") and (not base or path.startswith(base + "/")):
+            out.add(path)
+    return out
+
+
+def installed_files(tar: tarfile.TarFile) -> set[str]:
+    """작업 디렉터리 안에 pip 가 깐 패키지의 파일 (모든 *.dist-info/RECORD 에 적힌 것). 사후 검사에서 뺌.
+    2026-11-16 polish × Codex: `pip install --target` 으로 깐 sklearn 의 datasets 코드 (fetch_openml·openml.org 주소) 가
+    data_source_urls 에 271번 걸림 (에이전트가 쓴 코드에는 없음). 폴더 깊이로 짐작하지 않고 RECORD 의 목록만 뺌 →
+    `--target .` 으로 작업 디렉터리에 깔아도 에이전트 코드 (하위 폴더 포함) 는 남고, 맨 위에 깔린 모듈 (`six.py` 등) 은 빠짐.
+    `*.egg-info` (`pip install -e .` 의 에이전트 자기 패키지) 는 보지 않음."""
+    out = set()
+    for m in tar.getmembers():
+        if m.isfile() and DIST_RECORD.match(m.name):
+            out |= record_files(m.name, tar.extractfile(m).read().decode("utf-8", "replace"))
+    return out
+
+
 def code_text(name: str, raw: bytes) -> str:
     """작업 디렉터리 파일 → 코드 글. .ipynb 는 코드 셀 source 만 이어 붙임 (JSON 그대로면 줄이 따옴표로 시작해
     import 문 검사에 안 걸림). 깨진 노트북은 원문 그대로."""
@@ -475,8 +510,9 @@ def posthoc(d: Path) -> dict:
     code, cmds = [], []
     if (d / "workspace.tgz").exists():
         with tarfile.open(d / "workspace.tgz") as tar:
+            skip = installed_files(tar)
             for m in tar.getmembers():
-                if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")):
+                if m.isfile() and m.name.endswith((".py", ".ipynb", ".sh")) and posixpath.normpath(m.name) not in skip:
                     code.append(code_text(m.name, tar.extractfile(m).read()))
     logs = [p.read_text(errors="replace") for p in d.glob("*.jsonl")
             if p.name not in ("proxy.jsonl", "otel.jsonl", "fm_audit.jsonl")]

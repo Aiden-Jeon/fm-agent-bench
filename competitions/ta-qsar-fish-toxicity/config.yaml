@@ -1,0 +1,15 @@
+# TabArena-v0.1 (OpenML task 363698) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 회귀 · 907 행 · 피처 6 (모두 수치) · split 30. #26 후보: FM 근소 (refit kumo −2.9% 대 기본 GBDT)
+name: ta-qsar-fish-toxicity
+tabarena:
+  dataset: QSAR_fish_toxicity
+  task_id: 363698
+  split: r0f0
+  anon_id: tabarena-p05
+  categorical: []
+task: regression
+target: LC50
+id_col: id
+metric: rmse
+cv: {n_splits: 5, seed: 42, stratify: false}

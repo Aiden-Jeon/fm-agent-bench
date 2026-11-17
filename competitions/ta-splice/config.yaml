@@ -1,0 +1,22 @@
+# TabArena-v0.1 (OpenML task 363702) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 다중 · 3,190 행 · 피처 60 (모두 범주) · split 9. #26 후보: FM 크게 이김 (refit kumo −21.3%), 교과서급 (오염 위험 높음)
+name: ta-splice
+tabarena:
+  dataset: splice
+  task_id: 363702
+  split: r0f0
+  anon_id: tabarena-p08
+  categorical: [position_-30, position_-29, position_-28, position_-27, position_-26, position_-25, position_-24, position_-23,
+    position_-22, position_-21, position_-20, position_-19, position_-18, position_-17, position_-16, position_-15, position_-14,
+    position_-13, position_-12, position_-11, position_-10, position_-9, position_-8, position_-7, position_-6, position_-5,
+    position_-4, position_-3, position_-2, position_-1, position_1, position_2, position_3, position_4, position_5, position_6,
+    position_7, position_8, position_9, position_10, position_11, position_12, position_13, position_14, position_15, position_16,
+    position_17, position_18, position_19, position_20, position_21, position_22, position_23, position_24, position_25, position_26,
+    position_27, position_28, position_29, position_30]
+task: multiclass
+target: SiteType
+id_col: id
+metric: logloss
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}

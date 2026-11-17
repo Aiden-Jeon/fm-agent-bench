@@ -1,6 +1,6 @@
 # TabArena (P4): 조사 · 연동 · 파일럿
 
-TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 전 조사 (2026-11-13), 9 는 연동 구현, "파일럿 결과" 는 2026-11-14 실행 (Agent 2회째는 2026-11-14~15).
+TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 전 조사 (2026-11-13), 9 는 연동 구현, "파일럿 결과" 는 2026-11-14 실행 (Agent 2회째는 2026-11-14~15), "Agent 확장 1회째" 는 2026-11-16~17 (#26).
 
 - 조사일 2026-11-13. TabArena 저장소는 `autogluon/tabarena` 의 `c9f57b2` (2026-11-11 커밋) 기준
 - 확인 못 한 것은 "확인 못 함" 으로 적음. 추측으로 채우지 않음
@@ -21,6 +21,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [9. 연동 (2026-11-14 구현)](#9-연동-2026-11-14-구현)
 - [FM 프로토콜과 이름 (2026-11-15)](#fm-프로토콜과-이름-2026-11-15)
 - [파일럿 결과 (2026-11-14~15)](#파일럿-결과-2026-11-1415)
+- [Agent 확장 1회째 (#26, 2026-11-16)](#agent-확장-1회째-26-2026-11-16)
 - [Elo (2026-11-16)](#elo-2026-11-16)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
@@ -381,6 +382,12 @@ uv run --frozen fab ta compare --detail
 - `pip install --target <폴더>` 로 깐 패키지는 `pip_added` (pip freeze 전·후 비교) 에 안 나옴 → `pip_target` 열을 더함 (2026-11-14, #18).
   실행한 명령의 `pip install` 중 `--target`·`-t`·`--prefix`·`--root` 또는 실행 중 만든 가상환경의 pip 로 깐 패키지 이름. 규칙은 [mle-bench.md](mle-bench.md) 의 "구현" 사후 검사.
   hazelnut × Codex 1회째는 `recheck` 로 tabpfn·tabicl·transformers·tokenizers·safetensors·scikit-learn·einops·huggingface-hub 이 잡힘. TFM 은 실행 중 import 기록 (`tfm_runtime`) 도 잡음
+- 작업 디렉터리 코드를 볼 때 에이전트가 `pip install --target` 으로 작업 디렉터리 안에 깐 패키지의 코드는 뺌 (2026-11-16, #26).
+  polish × Codex 가 `deps_ignore/`·`tabpfn_pkg/` 에 sklearn 을 깔아 그 `datasets` 코드 (`fetch_openml`·`openml.org`·`archive.ics.uci.edu` 주소) 가 `data_source_urls` 에 271번 걸렸음 (에이전트가 쓴 코드·하네스 기록·LLM 요청에는 0).
+  규칙: 작업 디렉터리 안의 `*.dist-info/RECORD` (pip 가 깐 파일 목록) 에 적힌 파일만 안 봄 (`fab/agent` 의 `installed_files`). 폴더 깊이로 짐작하지 않음 →
+  `--target .` 으로 작업 디렉터리 맨 위에 깔아도 에이전트 코드 (하위 폴더 포함) 는 보고, `--target` 폴더 맨 위에 깔린 단일 모듈 (`six.py` 등) 은 뺌. `*.egg-info` (`pip install -e .` 로 깐 에이전트 자기 패키지) 는 빼지 않음.
+  처음 규칙 (`*.dist-info`·`*.egg-info` 가 있는 폴더의 하위 폴더 안 파일은 안 봄) 은 `--target .` 이면 하위 폴더의 에이전트 코드까지 빠져 PR #29 리뷰에서 바꿈 (2026-11-17). 아래 `recheck` 값은 처음 규칙으로 잰 것 → 바뀐 규칙으로 `recheck` 를 다시 해야 함
+  `recheck` 뒤 바뀐 것은 그 실행 하나 (`data_source_urls` 271 → 0, `tfm_in_code` 의 autogluon (깐 패키지 안의 이름) 빠짐). TabArena·MLE-bench 의 다른 실행은 값이 같음
 
 원격 채점 속도 (2026-11-14, #20)
 
@@ -755,12 +762,342 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 | 2만 행 넘는 12개 데이터셋 (FM 맞춤 확인용, tabicl·kumo) | [#16](https://github.com/Aiden-Jeon/fm-agent-bench/issues/16) | 끝 (refit, 8×H100 작업 하나 11분. 위 "FM 이 TabArena 와 맞는지") |
 | Kumo 가 refit 51개에서 기준을 못 넘음 (kddcup09 하나). 가릴 것: 앙상블·청크·refit, 셋 다 아니면 범주 처리 | – | 끝 (2026-11-15): 앙상블·청크·refit 은 아님. 범주 처리를 고쳐 (`kumo_cat_refit`, 범주 열이 있는 34개 다시) 표준편차 안 98.0%. kddcup09 의 나머지는 TabArena 의 AutoGluon 전처리 (흉내로 0.1434 = TabArena). 우리 FM 은 전처리를 맞추지 않음 (결정 4) → 적어 두고 P4 완료 (사용자). "FM 이 TabArena 와 맞는지" 의 "kddcup09" |
 | Agent 2회째 (결정 2: 같은 r0f0 에서, 10회) | [#17](https://github.com/Aiden-Jeon/fm-agent-bench/issues/17) | 끝 (2026-11-15, 위 "2회째 (#17)") |
+| Agent 확장: 회귀·다중을 넣은 후보 10개 × 5설정 (r0f0, 1회째) | [#26](https://github.com/Aiden-Jeon/fm-agent-bench/issues/26) | 끝 (2026-11-17, 아래 "Agent 확장 1회째 (#26)"). C2 (+fm)·2회째는 따로 정함 |
 | 사후 검사가 `pip install --target` 을 못 잡음 → `pip_target` 열 (9 의 "사후 검사") | [#18](https://github.com/Aiden-Jeon/fm-agent-bench/issues/18) | 완료 (2026-11-14) |
 | `fab ta fm` 의 동시 GPU 작업 상한 → `--max-concurrent` (9 의 "명령") | [#19](https://github.com/Aiden-Jeon/fm-agent-bench/issues/19) | 완료 (2026-11-14) |
 | 원격 채점 속도 (정리 작업 한 번 약 1시간) → 채점 약 3배 빠름, 남은 몫은 FM 합치기 (9 의 "원격 채점 속도") | [#20](https://github.com/Aiden-Jeon/fm-agent-bench/issues/20) | 완료 (2026-11-14) |
 | physiochemical 의 `tabpfn_v2` (TabArena 범위 밖이라 비교에는 필요 없음) | – | 안 함 |
 | tabpfn_v2 를 refit 으로 (33개, tabicl·kumo 와 같은 프로토콜로) | – | 끝 (2026-11-15): 통과 (표준편차 안 93.9%, 승패 9 / 9). "FM 이 TabArena 와 맞는지" |
 | Kumo·TabICL 이 TabArena 보다 조금 나쁜 쪽으로 기우는 까닭 (컨텍스트 80% 대 refit) | – | 끝 (2026-11-15): 39개도 refit 으로 돌려 tabicl·kumo 의 51개를 한 프로토콜로 (결정 10). 기울기 +0.08 · +0.14 → +0.01 · +0.01 ("FM 이 TabArena 와 맞는지" 의 "39개 refit") |
+
+## Agent 확장 1회째 (#26, 2026-11-16)
+
+파일럿 둘은 모두 이진이라 "FM 한 번이 1시간 Agent 를 이기는 데이터는 어떤 종류인가" 를 말하기 어려웠음.
+회귀·다중을 넣고 FM 이 크게 이기는 곳·근소한 곳·GBDT 가 이기는 곳을 섞은 10개를 r0f0 에서 5설정 × 1회 돌림 ([#26](https://github.com/Aiden-Jeon/fm-agent-bench/issues/26)).
+C2 (+fm) 와 2회째 (결정 2) 는 이 결과를 보고 따로 정함.
+
+### 후보 (#26 의 표를 Kumo 범주 고침 뒤로 다시)
+
+#26 의 FM 값은 #27 전 Kumo (`kumo_c8k_refit`, 범주를 수치로). 범주 열이 있는 데이터셋은 `kumo_cat_refit` 으로 다시 계산함.
+`metric_error` 의 모든 split 평균, FM 최고 = refit 셋 (`kumo`·`tabicl_kv`·`tabpfn_v2`) 중 나은 쪽 (10개 모두 kumo), GBDT = TabArena 공개 기본 CatBoost·LightGBM 중 나은 쪽.
+σ = 그 FM 의 split 표준편차.
+
+| 데이터셋 | 과제 | train / test (r0f0) | 피처 (범주) | FM 최고 (#26 → 지금) | GBDT | FM − GBDT (#26 → 지금) | ÷ σ (#26 → 지금) | TabArena Kumo − GBDT (참고) | 묶음 |
+|---|---|---|---|---|---|---|---|---|---|
+| QSAR_fish_toxicity | 회귀 | 604 / 303 | 6 (0) | 0.851 (같음) | CatBoost 0.877 | −2.9% | 0.5 | −3.0% | 근소 |
+| MIC | 다중 8 | 1,132 / 567 | 111 (94) | 0.428 → **0.420** | CatBoost 0.455 | −5.9% → **−7.7%** | 1.3 → 1.9 | −7.4% | 중간 |
+| Is-this-a-good-customer | 이진 | 1,148 / 575 | 13 (8) | 0.245 → 0.244 | CatBoost 0.251 | −2.5% → −2.9% | 0.3 | −3.1% | 근소 |
+| splice | 다중 3 | 2,126 / 1,064 | 60 (60) | 0.092 → **0.087** | CatBoost 0.111 | −17.2% → **−21.3%** | 1.2 → 1.6 | −21.2% | 크게 |
+| students_dropout_and_academic_success | 다중 3 | 2,949 / 1,475 | 36 (17) | 0.507 (같음) | CatBoost 0.552 | −8.1% | 3.2 | −8.3% | 중간 |
+| polish_companies_bankruptcy | 이진 | 3,940 / 1,970 | 64 (0) | 0.00435 (같음) | CatBoost 0.0390 | −88.8% ¹ | 20.4 | −89.4% | 크게 |
+| QSAR-TID-11 | 회귀 | 3,828 / 1,914 | 1,024 (0) | 0.721 (같음) | LightGBM 0.772 | −6.6% | 1.1 | −7.2% | 중간 |
+| APSFailure | 이진 | 50,666 / 25,334 | 170 (0) | 0.00461 (같음) | CatBoost 0.00756 | −39.0% | 2.0 | −39.4% | 크게 |
+| physiochemical_protein | 회귀 | 30,486 / 15,244 | 9 (0) | 2.773 (같음) | LightGBM 3.477 | −20.2% | 19.2 | −20.3% | 크게 |
+| Amazon_employee_access (대조군) | 이진 | 21,846 / 10,923 | 9 (9) | 0.1300 → **0.1236** | CatBoost 0.1182 | **+9.9% → +4.5%** | 1.6 → **0.8** | +3.4% | GBDT 이김 |
+
+¹ 1 − AUC 라 값이 작아 % 가 큼 (절대 차 0.035)
+
+- 바뀐 것은 범주 열이 있는 넷 (MIC · Is-this-a-good-customer · splice · Amazon). 나머지 여섯 중 다섯은 범주 열이 없어 `kumo_c8k_refit` = `kumo_cat_refit` (같은 값). students_dropout 는 범주 열 (17개) 이 있지만 값이 거의 같음 (0.5068 → 0.5069)
+- 묶음 (크게 −15% 이하 · 근소 3% 안 · 중간 · GBDT 이김) 은 하나도 안 바뀜
+- **Amazon 대조군은 그대로 둠**: 기본 GBDT 가 FM 보다 나은 방향은 같지만 차이가 +9.9% → +4.5% (1σ 안) 로 줄었음. TabArena Kumo (+3.4%) 와 가까워짐 (#26 의 "선행 PR 의 범주 처리 결과와 같이 봄").
+  tabicl 은 +27% 로 GBDT 에 크게 짐. 대안 kddcup09_appetency 는 +1.7% (0.3σ) 로 더 약해서 바꿀 까닭이 없음. 다른 대안 (website_phishing −17.0%, hiva_agnostic −0.4%) 도 그대로 대안
+- train / test 는 r0f0 split 파일로 센 값 (#26 은 2/3 · 1/3 어림)
+
+### 대회 준비
+
+- 새 r0f0 대회 8개 (`competitions/ta-<데이터셋>/`, git 추적). 익명 id 는 배치 순서로 `tabarena-p05` (QSAR_fish) ~ `p12` (APSFailure). Amazon `p03`·physiochemical `p04` 는 파일럿 때 만들어 둔 것 그대로
+  - `config.yaml` 은 `default_config` (FM 이 돈 `tas-<데이터셋>-r0f0` 과 같은 설정: 범주 열·타깃·지표) 에 `anon_id` 만 더함 → 같은 r0f0 데이터·같은 피처 (행 id 는 데이터셋·split 의 고정 seed 라 `tas-…-r0f0` 과 바이트까지 같음)
+  - 지표: 이진 `auc` · 다중 `logloss` · 회귀 `rmse`, 분류는 `submit_proba`. 다중 제출은 클래스별 확률 열 (열 이름 = 클래스 이름, sample_submission 의 순서)
+  - r0f0 폴더가 생기면 그 split 의 대회 이름이 `tas-<데이터셋>-r0f0` → `ta-<데이터셋>` 으로 바뀜. FM 의 r0f0 행은 옛 이름 그대로 결과표에 있고 (다시 안 돌림), GBDT refit 은 새 이름. 비교는 (데이터셋, split) 로 함
+- `description.md` (영어): 과제·열 뜻·지표·제출 형식. 이름·출처·연도·수집 기관 없이, 열 뜻은 OpenML 설명·원래 출처를 보고 우리 말로.
+  이름이 그대로 걸리는 말은 피함: splice 는 "exon/intron boundary" 로만 (단어 `splice` 를 안 씀), QSAR_fish 는 "acute aquatic toxicity towards a small freshwater fish species", APSFailure 는 "air pressure system", students 는 "drops out, is still enrolled, or graduates".
+  MIC 는 열 이름이 약어라 무리별로 뜻을 적음 (병력·입원 때·입원 뒤 사흘). 클래스 이름 (`cardiogenic_shock` 등) 이 과제를 드러내므로 "heart attack (myocardial infarction)" 은 씀.
+  APSFailure 는 원래 열 뜻이 공개되지 않음 (익명 센서) → 히스토그램 무리 (`ag_000`–`ag_009` 등 7개) 만 적음
+- `fab ta prepare <10개> --splits all`: 대회 153개 (r0f0 10 + 생성 split 143). 정답은 `FAB_TABARENA/data/answers/`
+
+로컬 확인 (학습 없이, 저장소 밖 스크립트, 파일럿 때 "로컬 확인" 과 같은 검사 + 회귀·다중 채점)
+
+- 10개 × 모든 split (153개): 크기, train·test id 가 0..n−1 순열을 나눔, 열 순서, test 의 값·정답이 OpenML TEST 행과 같음, 같은 repeat 의 fold 3개 test 합 = 전체, 피처 (`features.py`) 의 범주 열이 설정과 같고 `1`·`1.0` 섞임 없음
+- 채점 (모든 split): 이진 = 상수 AUC 0.5 · 정답 AUC 1, 다중 = 균등 확률 logloss = ln K · 정답 원-핫 ≈ 0, 회귀 = 상수 (train 평균) RMSE = 식 · 정답 0.
+  r0f0 만 더: 이진 뒤집기 AUC 0 · 행 섞기 · 레이블 제출 무효, 다중 = 사전 확률 logloss = 직접 계산 · 행 합이 1 이 아니어도 (×7) 정규화 · 행 섞기 · 열 순서가 다르면 무효 · 행 빠지면 무효, 회귀 = 정답 +2 → RMSE 2 · 행 섞기 · 행 빠지면·열 이름 틀리면 무효
+- `leak_check` (`fab/agent`): 10개 모두 설명·데이터 파일 이름·익명 id·실행 이름·코드 묶음 (실행기·지시문 등 7개 파일) 에 이름·대회 이름·OpenML id 없음. 새 설명 8개에 다른 데이터셋 이름도 없음 (MIC 설명의 "diabetes" (당뇨 병력 열) 가 데이터셋 `diabetes` 이름에 걸리지만 MIC 를 알려 주는 말은 아님)
+- 합 5,670개 통과. 걸린 9개는 id–타깃 상관 |r| < 0.05 (작은 데이터 셋: QSAR_fish train 604, MIC 1,132, Is-this 1,148). id 는 데이터와 무관한 seed 순열이고 z (= r√n) 가 최대 2.1, split 사이 표준편차 0.8~1.0 이라 우연 범위로 봄
+
+### GBDT refit
+
+- 8개 (Amazon·physiochemical 은 파일럿 때 있음) × 모든 split (135) × `lgbm_refit`·`catboost_refit` 을 serverless CPU 작업 하나로 (`fab ta fm ... --one-job`, 2026-11-16 13:28 KST 제출)
+- 1.5시간에 33 split (QSAR_fish 30 + MIC 3) 만 끝남. **MIC 의 CatBoost 가 split 하나에 약 30분** (1,742~1,828초, lgbm 3초). TabArena 의 CatBoost 도 MIC 는 split 중앙값 2,070초 (splice 578초, 나머지 7~203초) → 범주 94열 × 8클래스 탓으로 봄.
+  차례로 돌면 MIC 만 약 15시간이라 작업 시간 제한 (12시간) 에 걸려 뒤 데이터셋은 못 돎
+- → 15:05 에 취소 (끝난 33 split 은 Volume 에 남음) 하고 남은 것을 CPU 작업 9개로 동시에 냄 (사용자가 정함): 데이터셋마다 하나 (Is-this · splice · students · polish · QSAR-TID-11 · APSFailure, 모든 split) + MIC 남은 27 split 을 9개씩 3개 (`--splits r1f0,...`).
+  새 작업마다 채점 요청을 다시 냄. 처음 작업의 채점 요청 (135 대회) 은 MIC 의 새 작업과 같은 (대회, 모델) 을 기다려서 MIC 가 끝날 때까지 남음 →
+  QSAR_fish 30 split · MIC r0f0~r0f2 는 채점 요청을 따로 냄 (`fab ta grade ... --splits`). 그 결과 이번 GBDT 270행 (8개 × 모든 split × 2모델) 이 모두 두 번 채점돼 `results/tabarena.csv` 에 두 줄씩 있음 (값은 같음). `compare`·`elo` 는 `latest_grades` 로 마지막 행만 씀 → 표를 직접 셀 때는 (대회, 모델) 로 중복을 뺄 것
+- 걸린 시간: CPU 작업 6개는 4~21분 (splice 21분), MIC 3개는 각 4시간 30분쯤 (15:13 → 19:45 무렵). 모델 시간 합 15.8시간 중 MIC 의 CatBoost 가 14.9시간 (split 중앙값 1,791초).
+  다음 중앙값: splice CatBoost 131초, APSFailure 54초, QSAR-TID-11 31초, students 26초, 나머지 15초 아래. lgbm 은 모두 18초 아래
+- 결과: 10개 모두 모든 split 에 `lgbm_refit`·`catboost_refit` (빠짐 없음)
+- TabArena 기본 GBDT 와 견주면 (`fab ta compare`, 파일럿 4개 포함 12개): split 평균이 TabArena split 표준편차 안인 데이터셋 CatBoost 9 / 12, LightGBM 7 / 12.
+  우리 GBDT 는 기본 설정 한 번 fit (TabArena 는 8-fold bagging) 이라 맞춤 기준은 두지 않음 (결정 7: TabArena GBDT 는 참고선). 요약 표에는 두 GBDT 값을 같이 적음
+
+### 실행 (2026-11-16 13:31 ~ 11-17 01:27 KST)
+
+| 배치 | 데이터셋 (익명 id) | 제출 (KST) | 목적 |
+|---|---|---|---|
+| 0 | QSAR_fish (`p05`) → MIC (`p06`) | 13:31 · 14:56 | 회귀 값·다중 확률 제출이 채점되는지 먼저 확인 |
+| 1 | Is-this-a-good-customer (`p07`) → splice (`p08`) → students_dropout (`p09`) → polish (`p10`) | 16:11 · 17:20 · 18:29 · 19:36 | 중간 크기, 다중·근소 차 |
+| 2 | QSAR-TID-11 (`p11`) → Amazon (`p03`) → physiochemical (`p04`) → APSFailure (`p12`) | 20:48 · 21:59 · 23:08 · 00:20 | 넓이, 큰 데이터, GBDT 이김 |
+
+- 데이터셋마다 5설정 (`codex-gpt`·`aide-sonnet`·`claude-code-sonnet`·`aide-gpt`·`claude-code-sonnet --continue`) 을 한 번에 내고, 다 끝나면 `fab remote kick` → `fab sync` → 검사 (제출 유효·중단 없음·429·원본 URL) → 다음 데이터셋 (저장소 밖 스크립트). 배치마다 내기 전에 사용자 확인
+- 같은 설정은 한 번에 하나 (데이터셋을 차례로). 데이터셋 하나에 약 70분 (AIDE 60분 + 설치·회수·채점), 50회 약 12시간
+- **조건이 파일럿과 다른 점**: 파일럿 (#17) 은 Sonnet 줄·GPT 줄을 하나씩 돌렸고, 이번에는 "빠르게 돌리기" 의 #17 안대로 Codex × GPT 와 AIDE × GPT 가 GPT 엔드포인트를 같이 씀 (AIDE 둘·Claude Code 둘도 동시에).
+  429 재시도 (아래 표) 는 Codex 0~97번 (파일럿 4~100번), AIDE × GPT 0~11번 (파일럿 0번) → 늘었지만 대기 합이 몇 분 안이라 줄마다 하나씩으로 돌아가지 않음 (기준: Codex 200번·AIDE × GPT 50번을 넘으면 멈춤)
+- 50회 모두 정상 종료·채점 (`valid_submission` 모두 참, `run_crashed` 없음, 다시 돌린 것·뺀 것 없음). 회귀 (QSAR_fish RMSE) 와 다중 (MIC logloss) 채점은 배치 0 의 첫 실행에서 확인 (sample 과 같은 클래스 열, 로컬 확인과 같은 계산)
+- 큰 데이터 (APSFailure train 5만 · physiochemical 3만) 도 1시간 안에 모두 제출 (AIDE 는 늘 그렇듯 시간 종료, Codex 는 56·58분에 스스로 끝냄)
+
+| 429 재시도 | QSAR_fish | MIC | Is-this | splice | students | polish | QSAR-TID | Amazon | physio | APS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Codex × GPT | 37 | 2 | 10 | 0 | 52 | 97 | 14 | 0 | 21 | 0 |
+| AIDE × GPT | 9 | 0 | 1 | 0 | 6 | 11 | 4 | 0 | 1 | 0 |
+
+- Sonnet 설정은 모두 0. 입력 토큰: Codex 2,670만~4,963만, AIDE × Sonnet 13만~806만 (Is-this 가 가장 많음), AIDE × GPT 12만~60만, Claude Code 6만~13만, +cont 31만~216만
+- 걸린 시간: Claude Code 공식 설정 10~52초 (스스로 끝냄), +cont 1~44분 (이어 가기 5~11번, 모두 "도구 0개 구간 연속 3번" 으로 멈춤), Codex 36~59분, AIDE 60분 (시간 종료)
+
+### 데이터셋별 Agent vs FM vs GBDT (r0f0, 1회째)
+
+숫자는 `metric_error` (이진 1 − AUC, 다중 logloss, 회귀 RMSE, 낮을수록 좋음). FM·GBDT 는 refit 한 번 (결정 11), Agent 는 1회째 하나. 줄 순서는 점수 순, **굵게** = 그 데이터셋 최고.
+TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 열이 있으면 `kumo_cat_refit`, 없으면 `kumo_c8k_refit` (같은 설정). `tabpfn_v2` 는 TabArena 범위 밖 (QSAR-TID-11·APSFailure·Amazon·physiochemical) 은 없음.
+비고의 `tfm_runtime`·`pip_target` = 공식 설정에서 Agent 가 스스로 TFM 을 깔아 씀 (Agent 결과로 셈, 결정 11). 시간은 Agent 는 하네스 시간, FM·GBDT 는 모델 시간.
+
+#### QSAR_fish_toxicity (`tabarena-p05`): 회귀 · 피처 6 · 오염 낮음
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **0.8855** | 8초 | | |
+| TabArena Kumo-Tabular (참고) | 0.8852 | | | |
+| FM: tabicl | 0.8938 | 5초 | | |
+| Agent: Codex × GPT | 0.9003 | 59분 | 스스로 끝냄 | `tfm_runtime` tabicl tabpfn · 429 37번 |
+| FM: tabpfn_v2 | 0.9080 | 6초 | | |
+| Agent: AIDE × GPT | 0.9084 | 60분 | 시간 종료 | 429 9번 |
+| Agent: Claude Code × Sonnet | 0.9121 | 20초 | 스스로 끝냄 |  |
+| GBDT: catboost | 0.9123 | 2초 | | |
+| Agent: AIDE × Sonnet | 0.9136 | 60분 | 시간 종료 |  |
+| Agent: Claude Code × Sonnet +cont | 0.9218 | 63초 | 스스로 끝냄 (이어 가기 5번) |  |
+| GBDT: lgbm | 0.9308 | 0초 | | |
+
+#### MIC (`tabarena-p06`): 다중 · 피처 111 · 오염 낮음
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **0.4412** | 9초 | | |
+| TabArena Kumo-Tabular (참고) | 0.4418 | | | |
+| Agent: AIDE × GPT | 0.4445 | 60분 | 시간 종료 |  |
+| Agent: Codex × GPT | 0.4554 | 55분 | 스스로 끝냄 | 429 2번 |
+| FM: tabicl | 0.4587 | 7초 | | |
+| Agent: AIDE × Sonnet | 0.4591 | 60분 | 시간 종료 |  |
+| Agent: Claude Code × Sonnet +cont | 0.4598 | 3분 | 스스로 끝냄 (이어 가기 9번) |  |
+| GBDT: catboost | 0.4712 | 1742초 | | |
+| Agent: Claude Code × Sonnet | 0.4767 | 20초 | 스스로 끝냄 |  |
+| FM: tabpfn_v2 | 0.4838 | 8초 | | |
+| GBDT: lgbm | 1.1010 | 3초 | | |
+
+#### Is-this-a-good-customer (`tabarena-p07`): 이진 · 피처 13 · 오염 중간
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **0.2565** | 8초 | | |
+| TabArena Kumo-Tabular (참고) | 0.2571 | | | |
+| FM: tabpfn_v2 | 0.2577 | 5초 | | |
+| FM: tabicl | 0.2600 | 5초 | | |
+| Agent: Claude Code × Sonnet +cont | 0.2617 | 86초 | 스스로 끝냄 (이어 가기 5번) |  |
+| Agent: Claude Code × Sonnet | 0.2660 | 23초 | 스스로 끝냄 |  |
+| Agent: AIDE × GPT | 0.2717 | 60분 | 시간 종료 | 429 1번 |
+| Agent: AIDE × Sonnet | 0.2752 | 60분 | 시간 종료 |  |
+| Agent: Codex × GPT | 0.2792 | 36분 | 스스로 끝냄 | `tfm_runtime` tabicl tabpfn · `pip_target` einops huggingface-hub interpret-core posthog pydantic-settings python-dotenv safetensors scikit-learn skrub tabicl tabpfn · 429 10번 |
+| GBDT: catboost | 0.3197 | 7초 | | |
+| GBDT: lgbm | 0.3363 | 1초 | | |
+
+#### splice (`tabarena-p08`): 다중 · 피처 60 · 오염 높음 (교과서급)
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **Agent: Codex × GPT** | **0.06179** | 59분 | 스스로 끝냄 |  |
+| FM: kumo | 0.06693 | 9초 | | |
+| TabArena Kumo-Tabular (참고) | 0.06792 | | | |
+| Agent: AIDE × GPT | 0.06987 | 60분 | 시간 종료 |  |
+| FM: tabicl | 0.07219 | 7초 | | |
+| Agent: AIDE × Sonnet | 0.07781 | 60분 | 시간 종료 |  |
+| FM: tabpfn_v2 | 0.08207 | 8초 | | |
+| Agent: Claude Code × Sonnet +cont | 0.08445 | 8분 | 스스로 끝냄 (이어 가기 9번) |  |
+| GBDT: lgbm | 0.09400 | 1초 | | |
+| GBDT: catboost | 0.09583 | 135초 | | |
+| Agent: Claude Code × Sonnet | 0.1388 | 13초 | 스스로 끝냄 |  |
+
+#### students_dropout_and_academic_success (`tabarena-p09`): 다중 · 피처 36 · 오염 낮음
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **0.5251** | 9초 | | |
+| TabArena Kumo-Tabular (참고) | 0.5238 | | | |
+| FM: tabpfn_v2 | 0.5480 | 8초 | | |
+| FM: tabicl | 0.5515 | 6초 | | |
+| Agent: AIDE × Sonnet | 0.5515 | 60분 | 시간 종료 |  |
+| Agent: AIDE × GPT | 0.5533 | 60분 | 시간 종료 | 429 6번 |
+| Agent: Codex × GPT | 0.5536 | 55분 | 스스로 끝냄 | 429 52번 |
+| Agent: Claude Code × Sonnet +cont | 0.5608 | 3분 | 스스로 끝냄 (이어 가기 8번) |  |
+| Agent: Claude Code × Sonnet | 0.5630 | 25초 | 스스로 끝냄 |  |
+| GBDT: catboost | 0.5702 | 27초 | | |
+| GBDT: lgbm | 0.6419 | 2초 | | |
+
+#### polish_companies_bankruptcy (`tabarena-p10`): 이진 · 피처 64 · 오염 낮음~중간
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **0.00342** | 10초 | | |
+| TabArena Kumo-Tabular (참고) | 0.00330 | | | |
+| Agent: Codex × GPT | 0.00436 | 58분 | 스스로 끝냄 | `tfm_runtime` tabpfn · `pip_target` einops eval-type-backport huggingface-hub pydantic-settings scikit-learn tabpfn tabpfn-common-utils · 429 97번 |
+| FM: tabicl | 0.01594 | 6초 | | |
+| Agent: AIDE × GPT | 0.03090 | 60분 | 시간 종료 | 429 11번 |
+| Agent: AIDE × Sonnet | 0.03166 | 60분 | 시간 종료 |  |
+| Agent: Claude Code × Sonnet +cont | 0.03289 | 3분 | 스스로 끝냄 (이어 가기 8번) |  |
+| GBDT: catboost | 0.03437 | 14초 | | |
+| FM: tabpfn_v2 | 0.03541 | 8초 | | |
+| GBDT: lgbm | 0.03743 | 4초 | | |
+| Agent: Claude Code × Sonnet | 0.03816 | 10초 | 스스로 끝냄 |  |
+
+#### QSAR-TID-11 (`tabarena-p11`): 회귀 · 피처 1,024 · 오염 낮음
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **0.7867** | 15초 | | |
+| TabArena Kumo-Tabular (참고) | 0.7840 | | | |
+| Agent: Codex × GPT | 0.7976 | 57분 | 스스로 끝냄 | 429 14번 |
+| Agent: AIDE × Sonnet | 0.8145 | 60분 | 시간 종료 |  |
+| Agent: AIDE × GPT | 0.8221 | 60분 | 시간 종료 | 429 4번 |
+| Agent: Claude Code × Sonnet +cont | 0.8251 | 29분 | 스스로 끝냄 (이어 가기 11번) |  |
+| Agent: Claude Code × Sonnet | 0.8302 | 36초 | 스스로 끝냄 |  |
+| GBDT: lgbm | 0.8459 | 2초 | | |
+| FM: tabicl | 0.8643 | 29초 | | |
+| GBDT: catboost | 0.8729 | 32초 | | |
+| FM: tabpfn_v2 | – |  | | |
+
+#### APSFailure (`tabarena-p12`): 이진 · 피처 170 · 오염 중간
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **0.00265** | 38초 | | |
+| TabArena Kumo-Tabular (참고) | 0.00250 | | | |
+| FM: tabicl | 0.00454 | 29초 | | |
+| Agent: AIDE × Sonnet | 0.00478 | 60분 | 시간 종료 |  |
+| Agent: Claude Code × Sonnet +cont | 0.00487 | 4분 | 스스로 끝냄 (이어 가기 9번) |  |
+| GBDT: lgbm | 0.00488 | 19초 | | |
+| GBDT: catboost | 0.00496 | 57초 | | |
+| Agent: Claude Code × Sonnet | 0.00521 | 19초 | 스스로 끝냄 |  |
+| Agent: Codex × GPT | 0.00525 | 56분 | 스스로 끝냄 |  |
+| Agent: AIDE × GPT | 0.00572 | 60분 | 시간 종료 |  |
+| FM: tabpfn_v2 | – |  | | |
+
+#### Amazon_employee_access (`tabarena-p03`): 이진 · 피처 9 · 오염 높음 (대회)
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **Agent: AIDE × Sonnet** | **0.1068** | 60분 | 시간 종료 |  |
+| Agent: Claude Code × Sonnet +cont | 0.1093 | 14분 | 스스로 끝냄 (이어 가기 11번) |  |
+| Agent: Codex × GPT | 0.1102 | 55분 | 스스로 끝냄 |  |
+| Agent: AIDE × GPT | 0.1106 | 60분 | 시간 종료 |  |
+| GBDT: catboost | 0.1192 | 42초 | | |
+| Agent: Claude Code × Sonnet | 0.1201 | 52초 | 스스로 끝냄 |  |
+| FM: kumo | 0.1277 | 12초 | | |
+| TabArena Kumo-Tabular (참고) | 0.1247 | | | |
+| FM: tabicl | 0.1511 | 8초 | | |
+| GBDT: lgbm | 0.1576 | 3초 | | |
+| FM: tabpfn_v2 | – |  | | |
+
+#### physiochemical_protein (`tabarena-p04`): 회귀 · 피처 9 · 오염 중간
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료·이어 가기 | 비고 |
+|---|---|---|---|---|
+| **FM: kumo** | **2.8520** | 13초 | | |
+| TabArena Kumo-Tabular (참고) | 2.8485 | | | |
+| Agent: Codex × GPT | 2.9772 | 58분 | 스스로 끝냄 | 429 21번 |
+| FM: tabicl | 3.0168 | 6초 | | |
+| Agent: AIDE × Sonnet | 3.2058 | 60분 | 시간 종료 |  |
+| Agent: AIDE × GPT | 3.2756 | 60분 | 시간 종료 | 429 1번 |
+| Agent: Claude Code × Sonnet +cont | 3.2828 | 44분 | 스스로 끝냄 (이어 가기 10번) |  |
+| Agent: Claude Code × Sonnet | 3.6471 | 27초 | 스스로 끝냄 |  |
+| GBDT: lgbm | 3.9614 | 2초 | | |
+| GBDT: catboost | 3.9767 | 5초 | | |
+| FM: tabpfn_v2 | – |  | | |
+
+데이터셋별 메모
+
+- QSAR_fish: FM 근소 (FM − GBDT −2.9%) 인 곳에서도 Agent 는 FM 을 못 넘음. Codex 는 TabICL·TabPFN 을 보통 `pip install` 로 깔아 씀 (`pip_added`, `tfm_runtime`) → 0.9003 (kumo 0.8855, tabicl 0.8938 보다 나쁨)
+- MIC: AIDE × GPT 0.4445 가 kumo 0.4412 바로 아래 (0.2σ). 우리 lgbm 1.10 은 기본 설정이 8클래스·작은 데이터에서 과적합 (TabArena LightGBM 도 기본 GBDT 중 나쁜 쪽)
+- Is-this-a-good-customer: Agent 다섯이 모두 FM 셋보다 나쁨. 최고는 23초·86초에 끝낸 Claude Code (0.2660·0.2617). Codex 는 TabICL·TabPFN 을 `--target` 으로 깔아 썼지만 0.2792 로 Agent 중 꼴찌
+- splice: **Codex 만 FM 보다 나음** (0.0618 대 kumo 0.0669, −7.7%, 0.3σ = split 흔들림 안). 풀이는 코돈·k-mer 단어 피처 + 로지스틱·CatBoost·SVM·신경망 섞기 + train 의 거의 같은 서열 찾기 (60자리 중 일치 수) + 경계 바로 옆 AG/GT 두 염기.
+  하네스 기록에서 과제를 "splice junction dataset" 으로 부름 (설명의 exon/intron boundary 에서 나온 말로 봄). 원본 URL 접근 없음
+- students_dropout: FM 이 뚜렷이 나음 (Agent 최고 AIDE × Sonnet 0.5515, kumo +5.0%, 1.9σ)
+- polish: kumo 0.00342 에 Codex 0.00436 이 가까움, 나머지 Agent 는 0.031~0.038 (GBDT 0.034 근처, FM 의 약 10배 오차). Codex 는 비율 열 사이의 산술 관계 (예: `sales_to_total_assets` = `total_sales_to_total_assets` 인 행 무리) 를 찾아 피처로 만들고,
+  train 의 같은·거의 같은 행 찾기 + 스스로 깐 TabPFN (`--target`) 을 섞음. FM 이 GBDT 보다 크게 나은 까닭 (열 사이 구조) 을 Agent 중 Codex 만 찾은 것으로 봄
+- QSAR-TID-11 (피처 1,024, 모두 0/1 지문): Codex 0.7976 이 kumo 0.7867 다음 (0.2σ). Codex 는 지문에 맞는 Tanimoto 유사도로 SVR·가우스 과정·kNN + 잡음 제거 자동 부호기·PCA·torch MLP·GBDT 섞기. 다른 Agent 는 0.81~0.83 (우리 GBDT 0.85·0.87 보다는 나음)
+- APSFailure (train 5만): kumo 0.00265 가 가장 좋고, Agent 최고 AIDE × Sonnet 0.00478 은 우리 lgbm 0.00488 과 비슷 (FM 의 1.8배 오차). Codex 0.00525 는 GBDT 보다 나쁨
+- **Amazon (대조군)**: Agent 다섯이 모두 FM (kumo 0.1277) 보다 낫고, 넷이 우리 CatBoost (0.1192) 보다도 나음 (최고 AIDE × Sonnet 0.1068, CatBoost 대비 −10%). 이 데이터의 알려진 풀이 그대로 (AIDE × Sonnet: 열 두 개씩 묶은 범주 + 빈도 + 원-핫 로지스틱 + CatBoost·LightGBM 섞기).
+  Codex 는 하네스 기록에서 "the original Amazon dataset", "top models with one-hot encoding might achieve around .89" 처럼 데이터셋을 알아봄 (이름은 알리지 않았음, 결정 3). 원본·Kaggle URL 접근은 0. AIDE × Sonnet·Claude Code 기록에는 데이터셋 이름이 없음
+- physiochemical (train 3만): kumo 2.852, Codex 2.977 (+4.4%, 3.4σ), 나머지 Agent 3.21~3.65 (GBDT 3.96 보다는 나음)
+
+### 요약: 어떤 데이터에서 FM 이 이기나 (#26 10개 + 파일럿 2개, r0f0 1회째)
+
+| 데이터셋 | 과제 | 행 | 피처 (범주) | FM − GBDT (TabArena 기본, split 평균, ÷σ) | FM − 우리 GBDT refit (split 평균) | 오염 (판단) | r0f0 FM 최고 (kumo) | Agent 최고 (설정) | Agent − FM (÷σ) | FM 보다 나은 Agent | 승자 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| QSAR_fish_toxicity | 회귀 | 907 | 6 (0) | -2.9% (-0.5) | -3.9% | 낮음 | 0.8855 | 0.9003 (Codex × GPT) | +1.7% (+0.3) | 0 / 5 | FM |
+| MIC | 다중 | 1,699 | 111 (94) | -7.7% (-1.9) | -9.0% | 낮음 | 0.4412 | 0.4445 (AIDE × GPT) | +0.7% (+0.2) | 0 / 5 | FM |
+| Is-this-a-good-customer | 이진 | 1,723 | 13 (8) | -2.9% (-0.3) | -12.8% | 중간 | 0.2565 | 0.2617 (Claude Code × Sonnet +cont) | +2.0% (+0.3) | 0 / 5 | FM |
+| splice | 다중 | 3,190 | 60 (60) | -21.3% (-1.6) | -22.3% | 높음 (교과서급) | 0.06693 | 0.06179 (Codex × GPT) | -7.7% (-0.3) | 1 / 5 | **Agent** |
+| students_dropout_and_academic_success | 다중 | 4,424 | 36 (17) | -8.1% (-3.2) | -8.3% | 낮음 | 0.5251 | 0.5515 (AIDE × Sonnet) | +5.0% (+1.9) | 0 / 5 | FM |
+| polish_companies_bankruptcy | 이진 | 5,910 | 64 (0) | -88.8% (-20.4) | -89.4% | 낮음~중간 | 0.00342 | 0.00436 (Codex × GPT) | +27.6% (+0.6) | 0 / 5 | FM |
+| QSAR-TID-11 | 회귀 | 5,742 | 1,024 (0) | -6.6% (-1.1) | -8.1% | 낮음 | 0.7867 | 0.7976 (Codex × GPT) | +1.4% (+0.2) | 0 / 5 | FM |
+| APSFailure | 이진 | 76,000 | 170 (0) | -39.0% (-2.0) | -40.4% | 중간 | 0.00265 | 0.00478 (AIDE × Sonnet) | +80.4% (+1.5) | 0 / 5 | FM |
+| Amazon_employee_access | 이진 | 32,769 | 9 (9) | +4.5% (+0.8) | +7.5% | 높음 (대회) | 0.1277 | 0.1068 (AIDE × Sonnet) | -16.4% (-3.3) | 5 / 5 | **Agent** |
+| physiochemical_protein | 회귀 | 45,730 | 9 (0) | -20.2% (-19.2) | -29.7% | 중간 | 2.8520 | 2.9772 (Codex × GPT) | +4.4% (+3.4) | 0 / 5 | FM |
+| hazelnut-spread-contaminant-detection | 이진 | 2,400 | 30 (0) | -89.7% (-27.5) | -87.6% | 낮음 | 0.00390 | 0.00640 (Codex × GPT) | +64.1% (+3.0) | 0 / 5 | FM |
+| in_vehicle_coupon_recommendation | 이진 | 12,684 | 24 (22) | -9.9% (-3.9) | -13.6% | 중간 | 0.1371 | 0.1315 (Codex × GPT) | -4.1% (-1.4) | 1 / 5 | **Agent** |
+
+- σ = FM (kumo) 의 split 표준편차 (모든 split). "Agent − FM" 은 r0f0 한 split 끼리의 차이를 그 σ 로 나눈 것 (1σ 안 = split 흔들림 정도)
+- 승자 = r0f0 에서 FM·GBDT·Agent 다섯 중 최고. 12개 중 **FM 9 · Agent 3 (in_vehicle · splice · Amazon) · GBDT 0**. Amazon 에서 우리 CatBoost 는 FM 보다 낫지만 Agent 넷보다 나쁨
+
+경향 (12개, Agent 1회째. 데이터셋이 적어 판단은 약함)
+
+- **FM 이 지는 셋은 모두 범주 열이 대부분인 데이터**: splice (범주 100%), Amazon (100%, 고카디널리티 id), in_vehicle (92%). 나머지 9개 (범주 열 없음 6 · 범주 47~85% 3) 는 모두 FM 이 이김 (MIC 는 범주 85% 이지만 0/1 표시·순서 있는 단계 위주, FM 0.2σ 차로 이김)
+- **같은 셋이 오염 위험도 큼**: splice (교과서급), Amazon (Kaggle 대회, Codex 가 알아봄), in_vehicle (Codex 가 응답자 id 를 train+test 로 다시 만드는 "inductive" 밖 풀이, 파일럿). 오염 "낮음"·"낮음~중간" 6개 (hazelnut · QSAR_fish · MIC · students · polish · QSAR-TID) 는 모두 FM 이 이김.
+  → "범주 많은 데이터에서 Agent 가 강함" 과 "알려진 데이터에서 Agent 가 강함" 이 이 12개에서는 갈리지 않음 (둘이 겹침)
+- **크기**: 작음 (< 2.5k) 4개·중간 4개·큼 4개 모두에서 FM 이 대부분 이김. 크기만으로 갈리는 경향은 없음. 큰 데이터 (APSFailure·physiochemical) 도 Agent 가 1시간 안에 끝냄
+- **FM − GBDT 차이가 큰 곳** (polish · hazelnut · APS · physio · splice, −20% 이하): Agent 대부분은 GBDT 근처에 머묾. 따라오는 것은 Codex 뿐 (polish 0.6σ, physio 3.4σ, hazelnut 3.0σ 뒤, splice 는 넘음)
+- **근소한 곳** (QSAR_fish · Is-this, 3% 안): Agent 10회 중 FM 을 넘은 것 없음. 데이터셋마다 최고 Agent 만 0.3σ 안 뒤이고, 나머지는 더 뒤 (가장 먼 것: Is-this 의 Codex 1.1σ, QSAR_fish 의 +cont 0.7σ)
+- **Agent − FM 이 split 흔들림 (1σ) 밖**인 것은 6개: FM 이 나음 4 (physio 3.4σ · hazelnut 3.0σ · students 1.9σ · APS 1.5σ), Agent 가 나음 2 (Amazon 3.3σ · in_vehicle 1.4σ). 나머지 6개 (QSAR_fish · MIC · Is-this · splice · polish · QSAR-TID) 는 1회째 한 번으로는 승패를 말하기 어려움 → 2회째 (결정 2) 가 필요한 곳
+- 설정별: 데이터셋 최고 Agent 는 12개 중 Codex × GPT 7, AIDE × Sonnet 3 (students · APS · Amazon), AIDE × GPT 1 (MIC), Claude Code × Sonnet +cont 1 (Is-this). Codex 가 공식 설정에서 TFM 을 스스로 깐 것은 #26 10개 중 3 (QSAR_fish · Is-this · polish) 이고 셋 모두 FM 을 못 넘음
+
+### 사후 검사 (#26 50회)
+
+- `data_source_urls` 0 · `kaggle_urls` 0 (50회 모두). polish × Codex 는 처음에 271 로 나왔지만 Agent 가 작업 디렉터리에 깐 sklearn 패키지 코드 탓이라 검사를 고침 (9 의 "사후 검사", `recheck` 뒤 0)
+- 원본 데이터 접근 흔적은 없음. 다만 Amazon 은 Codex 가 기록에서 데이터셋을 알아봄 (위). 이름을 알리지 않아도 피처 이름 (`MGR_ID`·`ROLE_ROLLUP_1` 등) 으로 알아볼 수 있는 대회 데이터 (5 의 "익명화" 가 적은 남는 위험)
+- TFM 을 스스로 깐 실행 (`tfm_runtime`): Codex × QSAR_fish (tabicl·tabpfn, 보통 `pip install`), Codex × Is-this (tabicl·tabpfn, `--target`), Codex × polish (tabpfn, `--target`). Agent 결과로 셈 (결정 11)
+- "inductive" 규칙 (5): splice·polish 의 Codex 는 test 행마다 train 의 같은·가까운 행을 찾음 (train 레이블만 씀, test 끼리 안 봄 → 규칙 안). train+test 로 전처리를 fit 했는지는 50회 모두는 보지 않음 (확인 못 함)
+
+### 실행 메모
+
+| 일 | 내용 | 처리 |
+|---|---|---|
+| GBDT refit 느림 | MIC 의 CatBoost 가 split 하나에 약 30분 → 작업 하나로는 12시간 제한에 걸림 (위 "GBDT refit") | 취소하고 9개 작업으로 나눠 동시에 (사용자). 끝난 33 split 은 그대로 씀 |
+| 로그인 만료 (14:28) | 로컬 Databricks CLI 의 토큰 갱신이 실패해 상태 조회가 안 됨. 원격 작업은 계속 돎 | 사용자가 다시 로그인 (약 25분 멈춤). 그동안 끝난 QSAR_fish 4회는 다음 kick 에 채점 |
+| 진행 스크립트 버그 | 마지막 데이터셋 (polish) 을 내고 기다리지 않고 끝남 | 고쳐서 배치 2 를 polish 대기부터 다시 시작 |
+| 로컬 앱 재시작 (22시쯤) | 배치 2 진행 스크립트 (로컬) 가 같이 죽음. 이미 낸 Amazon 5회는 원격에서 계속 돎 | Amazon 대기부터 다시 시작 (새 세션으로 띄움). 빠진 실행 없음 |
+| 사후 검사 오탐 | polish × Codex 의 `data_source_urls` 271 (깐 패키지 코드) | 깐 패키지 코드를 빼고 `recheck` (9 의 "사후 검사"). 빼는 규칙은 리뷰 뒤 `*.dist-info/RECORD` 목록으로 바꿈 → `recheck` 다시 필요 |
+| 같은 값 두 번 채점 | 처음 GBDT 작업의 채점 요청 (135 대회) 과 새 작업마다 낸 채점 요청이 둘 다 처리돼 이번 GBDT 270행이 모두 두 번 | 값이 같아 그대로 둠 (`compare`·`elo` 는 마지막 행만 씀) |
+
+비용: Agent A10 약 35~40시간 (하네스 시간 합 31.0시간 + 실행마다 설치·회수 5~10분, 작업별 시간은 재지 않음), GBDT serverless CPU 모델 시간 15.8시간 (취소한 작업 1.6시간 포함). 어림 (50 A10 시간) 안
+
+### 다음에 정할 것
+
+- **C2 (+fm)**: 할지, 한다면 어디서. FM 이 이긴 9개에서는 "FM 을 손에 쥔 Agent 가 FM 보다 나아지는가", Agent 가 이긴 3개 (범주 많음·오염 높음) 에서는 "FM 을 섞어 더 나아지는가" 를 봄. 같은 10개면 약 50 A10 시간
+- **2회째 (결정 2)**: Agent − FM 이 1σ 안인 6개 (QSAR_fish · MIC · Is-this · splice · polish · QSAR-TID) 는 1회째로 승패를 말하기 어려움. 10개 모두 (약 50 A10 시간) 또는 1σ 안인 6개만 (약 30)
+- 범주 많음 대 오염을 가르려면 **범주가 많고 덜 알려진 데이터** 가 필요 (예: 대안의 hiva_agnostic 은 수치, website_phishing 은 범주 9열 · UCI). 후보를 더 찾을지
 
 ## Elo (2026-11-16)
 
@@ -784,7 +1121,7 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 ### FM 풀: 51개 × 모든 split (816)
 
 우리 FM 은 refit (결정 11). `kumo (ours)` = 범주 열이 있는 34개는 `kumo_cat_refit`, 없는 17개는 같은 설정인 `kumo_c8k_refit` ("FM 프로토콜과 이름").
-우리 GBDT (`lgbm_refit`·`catboost_refit`) 는 4개 데이터셋뿐이라 이 풀에 안 넣음 (넣으면 47개가 RandomForest 값).
+우리 GBDT (`lgbm_refit`·`catboost_refit`) 는 12개 데이터셋뿐이라 이 풀에 안 넣음 (넣으면 39개가 RandomForest 값).
 
 | 방법 | Elo | 95% 구간 | 평균 순위 | 승률 | 채운 비율 |
 |---|---|---|---|---|---|
@@ -803,29 +1140,36 @@ tabpfn_v2 의 판정은 이 5-fold 표뿐이라 refit 인 tabicl·kumo 판정과
 - kumo (ours) 는 TabArena CatBoost 기본보다 +495 (기대 승률 95%), tabicl (ours) 보다 +294 (84%)
 - tabpfn_v2 의 18개는 TabArena TabPFNv2 와 같은 데이터셋을 RandomForest 로 채움 (TabArena 와 같은 처리) → 두 줄은 같은 조건. 돌 수 있는 33개만의 Elo 는 따로 안 냄
 
-### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (지금 2개)
+### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (12개, 2026-11-17 다시)
 
-hazelnut · in_vehicle 의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균 (데이터셋마다 2회, 결과표의 `runs`. TabArena 가 seed 를 평균하는 것과 같게). 지금은 실패한 회차 없음 (`imputed` 0).
+파일럿 2개 (hazelnut · in_vehicle) + #26 10개의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균
+(파일럿은 2회, #26 은 1회 → 결과표의 `runs` 평균 1.17. TabArena 가 seed 를 평균하는 것과 같게). 실패한 회차 없음 (`imputed` 0). tabpfn_v2 는 범위 밖 4개 (QSAR-TID-11 · APSFailure · Amazon · physiochemical) 를 RandomForest 로 채움.
 
-| 방법 | Elo |
-|---|---|
-| kumo (ours) · TabArena Kumo-Tabular | 2540 |
-| **Agent: Codex × GPT** | **2372** |
-| tabicl (ours) | 2108 |
-| TabArena TabICL (v1) | 1997 |
-| **Agent: AIDE × Sonnet** · **AIDE × GPT** · TabArena TabICLv2 | **1944** |
-| **Agent: Claude Code × Sonnet +cont** | **1628** |
-| tabpfn_v2 (ours) | 1441 |
-| TabArena CatBoost | 1356 |
-| **Agent: Claude Code × Sonnet** · catboost (ours) · lgbm (ours) | **1314** |
-| TabArena LightGBM · TabPFNv2 | 1272 |
-| TabArena RandomForest | 1000 |
+| 방법 | Elo | 95% 구간 | 평균 순위 | 승률 |
+|---|---|---|---|---|
+| TabArena Kumo-Tabular | 2016 | +2336 / −144 | 2.00 | 0.938 |
+| kumo (ours) | 1964 | +2204 / −140 | 2.33 | 0.917 |
+| **Agent: Codex × GPT** | **1680** | +275 / −335 | 5.08 | 0.745 |
+| tabicl (ours) | 1608 | +183 / −230 | 6.08 | 0.682 |
+| **Agent: AIDE × Sonnet** | **1569** | +127 / −342 | 6.67 | 0.646 |
+| TabArena TabICLv2 | 1564 | +155 / −241 | 6.75 | 0.641 |
+| **Agent: AIDE × GPT** | **1542** | +130 / −335 | 7.08 | 0.620 |
+| **Agent: Claude Code × Sonnet +cont** | **1481** | +92 / −319 | 8.08 | 0.557 |
+| TabArena CatBoost | 1346 | +110 / −253 | 10.42 | 0.411 |
+| tabpfn_v2 (ours) | 1341 | +167 / −247 | 10.50 | 0.406 |
+| TabArena TabICL (v1) | 1324 | +106 / −273 | 10.79 | 0.388 |
+| **Agent: Claude Code × Sonnet** | **1297** | +83 / −278 | 11.25 | 0.359 |
+| TabArena TabPFNv2 | 1267 | +98 / −247 | 11.75 | 0.328 |
+| catboost (ours) | 1241 | +120 / −318 | 12.17 | 0.302 |
+| TabArena LightGBM | 1187 | +72 / −273 | 13.00 | 0.250 |
+| lgbm (ours) | 1134 | +110 / −332 | 13.75 | 0.203 |
+| TabArena RandomForest | 1000 | +86 / −287 | 15.29 | 0.107 |
 
-- **데이터셋 2개라 이 Elo 는 순위를 다시 쓴 것에 가까움.** 같은 줄 = 두 데이터셋의 순위 합이 같음. 95% 구간은 비움
-  (데이터셋 2개를 복원 추출하면 묶음이 3가지뿐이라 폭이 수천~수만, `fab ta elo` 는 데이터셋 10개 미만이면 비움)
-- RandomForest 가 거의 다 져서 (승률 0.06) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 2540)
-- 읽을 수 있는 것: Codex 는 우리 FM 최고 (kumo) 와 tabicl 사이, AIDE 둘은 TabICLv2 와 같은 자리, Claude Code 공식 설정은 우리 GBDT 와 같은 자리
-- #26 (Agent 확장 10개) 가 들어오면 같은 명령으로 다시 계산. 데이터셋 10개부터 구간을 냄
+- 데이터셋 12개라 95% 구간을 냄 (10개부터). 단위가 (데이터셋, r0f0) 12개뿐이라 구간이 넓음. Kumo 둘의 위쪽 폭이 2,000을 넘는 것은 부트스트랩 묶음에서 Kumo 가 거의 다 이기면 최대우도가 위로 벌어지는 것으로 보임 (나눠 재지 않음, 점추정은 그대로 읽음)
+- 순서: kumo (ours) 1964 > **Codex 1680** > tabicl (ours) 1608 > AIDE × Sonnet 1569 ≈ TabICLv2 1564 > AIDE × GPT 1542 > Claude Code +cont 1481 > CatBoost 기본 1346 > Claude Code 공식 1297 > 우리 GBDT (1241·1134).
+  Agent 넷이 기본 GBDT 보다 위, Codex 는 우리 FM 최고 (kumo) 보다 284 아래 (기대 승률 16%) · tabicl 보다 위. 구간이 겹쳐 Agent 끼리·tabicl 과의 순서는 단단하지 않음
+- 파일럿 2개로 낸 값 (2026-11-16, kumo 2540 · Codex 2372 · AIDE 둘 1944 · Claude Code +cont 1628 · Claude Code 1314) 보다 Agent 가 FM 에 가까움: 12개 중 Agent 가 FM 을 이긴 데이터셋이 셋 ("Agent 확장 1회째" 의 요약)
+- RandomForest 가 거의 다 져서 (승률 0.11) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 1964)
 
 ## 빠르게 돌리기 (2026-11-14)
 
