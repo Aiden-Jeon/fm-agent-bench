@@ -1,0 +1,21 @@
+# ta-amazon-employee-access (OpenML task 363613) 의 r0f0 를 알아볼 수 없게 바꾼 대회 (docs/tabarena.md 의 "범주 대 오염",
+# fab/bench/tabarena/obfuscate.py). 같은 split·같은 행. 열 이름 f0..f8 (원래 순서), 범주 값 (id 9열) 은 열마다 무작위 토큰,
+# 타깃 target · 클래스 c0 (원래 No) / c1 (원래 Yes = 양성, 원래와 같음). 결과표의 dataset 키는 Amazon_employee_access~obf.
+# 대응표는 FAB_TABARENA/data/obfuscate/ 에만. hide = 설명·열 머리에 있으면 제출을 멈출 말
+name: ta-amazon-employee-access-obf
+tabarena:
+  dataset: Amazon_employee_access
+  task_id: 363613
+  split: r0f0
+  anon_id: tabarena-p14
+  obfuscate:
+    seed: 20261117
+    hide: [Amazon, employee, employees, access, resource, resources, role, roles, manager, approve, approved, approval,
+      department, title, family, rollup, Kaggle, UCI, OpenML]
+  categorical: [f0, f1, f2, f3, f4, f5, f6, f7, f8]
+task: binary
+target: target
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}

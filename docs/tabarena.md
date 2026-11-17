@@ -23,6 +23,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [파일럿 결과 (2026-11-14~15)](#파일럿-결과-2026-11-1415)
 - [Agent 확장 1회째 (#26, 2026-11-16)](#agent-확장-1회째-26-2026-11-16)
 - [범주 비율과 FM − GBDT (51개, 2026-11-17)](#범주-비율과-fm--gbdt-51개-2026-11-17)
+- [범주 대 오염: 알아볼 수 없게 바꾼 3개 (2026-11-17)](#범주-대-오염-알아볼-수-없게-바꾼-3개-2026-11-17)
 - [Elo (2026-11-16)](#elo-2026-11-16)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
@@ -1255,6 +1256,181 @@ FM − GBDT 는 LLM 이 끼지 않는 비교라 오염과는 무관함. 그래�
 - **고카디널리티 쪽이 더 가까운 단서**: 고유값 > 100 열이 있는 7개는 중앙값 −2.4% (−0.8σ), 상관 +0.30 (p 0.03, TabICLv2 도 +0.31). 다만 7개뿐이고, 크기 (5개가 2만 행 넘음) · 출처 (5개가 Kaggle) 와 겹쳐 가르지 못함. p 는 여러 지표를 본 것을 보정하지 않은 값. TabArena Kumo-Tabular 로는 약함 (+0.20, p 0.16, 중앙값 −3.5%): kddcup09 · Marketing 에서 TabArena 쪽이 더 이김 → 고카디널리티 신호의 일부는 전처리 (드문 값 처리 등) 에 달려 있을 수 있음 (나눠 재지 않음)
 - Agent 가 이긴 셋과 견주면: Amazon 은 이 단서와 맞음 (범주 100% · 고카디널리티 8열 · FM 이 GBDT 에 짐). splice (−21.3%, 고유값 최대 6) 와 in_vehicle (−9.9%, −3.9σ, 최대 25) 은 FM 이 GBDT 보다 꽤 나은 데이터 → 이 둘에서 Agent 가 이긴 것은 "범주라서 FM 이 GBDT 만큼 약해짐" 으로는 설명되지 않음 (Agent 가 FM 보다 나은 까닭은 이 절로는 확인 못 함)
 - 데이터셋 51개 (범주 있는 34, 고카디널리티 7) 로는 묶음마다 개수가 적음. 범주 열 기준은 OpenML 표시를 따름 (숫자 id 를 범주로 둔 것 · 0/1 을 범주로 둔 것이 섞임)
+
+## 범주 대 오염: 알아볼 수 없게 바꾼 3개 (2026-11-17)
+
+"Agent 확장 1회째" 의 요약에서 Agent 가 FM 을 이긴 셋 (splice · Amazon_employee_access · in_vehicle_coupon_recommendation) 은 범주 열이 대부분이고 오염 위험도 큼 → 둘이 겹쳐 가르지 못했음.
+새 데이터셋을 찾지 않고 **같은 3개를 알아볼 수 없게 바꾼 대회** 로 FM·GBDT·Agent 5설정을 r0f0 에서 다시 돌림. 바꾼 데이터에서도 Agent 가 이기면 범주 열 덕, 지면 알아본 덕으로 읽기로 함 (설계는 사용자가 정함).
+51개로 범주 비율을 본 것은 바로 위 "범주 비율과 FM − GBDT".
+
+### 바꾼 방법 (`fab/bench/tabarena/obfuscate.py`)
+
+| 항목 | 한 것 |
+|---|---|
+| 대회 | `competitions/ta-<데이터셋>-obf/` (r0f0). 익명 id `tabarena-p13` (splice) · `p14` (Amazon) · `p15` (in_vehicle). 설정의 `tabarena.obfuscate` (`seed` 20261117, 설명에 있으면 멈출 말 `hide`) |
+| 행 | 원래와 같은 OpenML split · 같은 행. 행 id 는 원래처럼 데이터셋·split 의 고정 seed 순열이지만 seed 에 `obfuscate.seed` 를 더함 → 원래 대회와 다른 id (r0f0 에서 같은 id 인 행은 우연뿐) |
+| 열 이름 | 피처 `f0, f1, …` (원래 순서 그대로, splice 의 이웃 위치 관계는 데이터로 찾을 수 있게 둠), 타깃 `target` |
+| 범주 값 | 열마다 따로 무작위 토큰 (영소문자로 시작하는 5글자 영소문자·숫자). 대응은 (task id, seed, 열 위치) 의 rng 로 원래 값 → 토큰을 무작위로 배정 (원래 값의 순서와 무관). 데이터 전체 값으로 만들어 train·test·모든 split 에서 같은 대응. 결측은 결측 (in_vehicle 의 글 `nan` 도 결측, 원래 public 을 pandas 로 읽은 것과 같은 자리). splice 의 A/C/G/T·드문 기호, Amazon 의 id 9열, in_vehicle 의 0/1 표시 열도 범주라 토큰 |
+| 수치 열 | 이름만 바꿈 (in_vehicle 의 `f3` = temperature, `f4` = time) |
+| 클래스 | `c0, c1, …` = 원래 클래스 이름의 정렬 순서 (splice EI/IE/N → c0/c1/c2, Amazon·in_vehicle No/Yes → c0/c1) → 이진의 양성 클래스 (c1 = 원래 Yes) · 다중의 열 순서가 원래와 같음 |
+| 대응표 | `FAB_TABARENA/data/obfuscate/<대회>.json` 에만 (정답과 같은 자리, 에이전트에게 안 보임). seed 와 코드로 다시 만들 수 있음 (저장소를 알면) |
+| 설명 | 과제 종류, "열 이름·범주 값이 코드로 바뀌어 무엇을 뜻하는지 정보 없음", 범주 열 (splice 60·Amazon 9 모두, in_vehicle 은 `f3`·`f4` 빼고 22), 토큰은 열마다 따로라 다른 열의 같은 토큰은 무관, 지표·제출 형식 (원래 설명의 문단 틀). 도메인·원래 이름·클래스 비율은 안 적음. 그 밖의 데이터 성질은 in_vehicle 의 "범주 결측은 빈칸" 하나만 |
+| 결과 행 | 결과표의 `dataset` 키는 `<데이터셋>~obf` (예: `splice~obf`), 대회 이름 `ta-…-obf`, note `obf r0f0`. `latest_grades` 가 기본으로 `~obf` 행을 빼서 `compare` · `elo` (FM 풀) · `cats` 에 안 들어감. Agent 풀은 `committed()` 가 바꾼 대회를 빼서 (대회 → 데이터셋 대응에 없음) 안 들어감 |
+| 비교 | `uv run --frozen fab ta obf` → `results/tabarena_obf.csv` (원래 대 바꾼 것, FM·GBDT·Agent 설정별, σ = 원래 kumo 의 모든 split 표준편차, ddof 1) |
+| 제출 전 검사 | `fab ta agent run` 이 바꾼 대회면 `obf_leaks` 도 봄: 설명·파일 열 머리에 원래 열 이름 (3글자 이상)·타깃·클래스 이름·`hide` 말, 범주 열 값이 모두 대응표의 토큰인지 |
+
+로컬 확인 (학습 없이, 저장소 밖 스크립트, 1,278개 통과)
+
+- 원래 public 과 1:1: OpenML 행 위치로 두 id 를 맞춰 train·test 의 행 집합, 범주 값 (원래 값 → 대응 = 바꾼 값), 결측 자리, 수치 값, train 타깃·정답이 모두 같음. 열 머리 `id, f0…, target`, 원래 열 순서
+- 열마다 대응이 단사 (토큰 수 = 원래 값 수), public 에서 본 짝도 양쪽 모두 1:1. 토큰이 그 데이터셋의 어느 원래 값과도 같지 않음. 피처 (`features.py`) 의 범주 열·열마다 범주 수가 원래와 같음
+- 이름 누출: 설명·열 머리·모든 셀에 원래 열 이름·클래스 이름·원래 범주 값 없음, 설명에 도메인 말 (position · nucleotide · DNA · exon · coupon · employee · resource 등) 없음, `leak_check` · `obf_leaks` 통과
+- 채점: 원래 대회의 기존 Agent 제출 10개 (in_vehicle 5 · Amazon 3 · splice 1 + 무작위) 를 id 와 클래스 열 이름만 바꿔 (행도 섞어) 채점 → 점수가 원래와 같음 (차 < 1e-12). 이진 뒤집기 = 1 − AUC, 정답 제출 AUC 1, 원래 클래스 열 이름으로 낸 제출은 무효
+- 풀 격리: 가짜 `~obf` 행 (오차 1e-6, 가장 새 시각) 을 결과표에 넣어도 `compare` · `elo` 두 풀의 값이 넣기 전과 같음
+
+### FM·GBDT 원래 대 바꾼 것 (r0f0)
+
+`fab ta fm ta-splice-obf ta-in-vehicle-coupon-recommendation-obf --models tabpfn_v2_refit tabicl_kv_refit kumo_cat_refit lgbm_refit catboost_refit --splits r0f0 --one-job --accelerator GPU_1xA10` 과
+`fab ta fm ta-amazon-employee-access-obf --models tabicl_kv_refit kumo_cat_refit lgbm_refit catboost_refit --splits r0f0 --one-job --accelerator GPU_1xH100` (train 2.2만 행, tabpfn 은 범위 밖). `metric_error`, 차 ÷σ = (바꾼 것 − 원래) ÷ 원래 kumo 의 split 표준편차.
+
+| 모델 | splice 원래 | 바꾼 것 | ÷σ | Amazon 원래 | 바꾼 것 | ÷σ | in_vehicle 원래 | 바꾼 것 | ÷σ |
+|---|---|---|---|---|---|---|---|---|---|
+| kumo (`kumo_cat_refit`) | 0.06693 | 0.06924 | +0.15 | 0.12772 | 0.12752 | −0.03 | 0.13707 | 0.13650 | −0.14 |
+| tabicl (`tabicl_kv_refit`) | 0.07219 | 0.07337 | +0.08 | 0.15110 | 0.15320 | +0.33 | 0.14891 | 0.14865 | −0.06 |
+| tabpfn_v2 | 0.08207 | 0.08335 | +0.09 | – | – | | 0.18466 | 0.18068 | −0.99 |
+| lgbm | 0.09400 | 0.09275 | −0.08 | 0.15757 | 0.15753 | −0.01 | 0.16221 | 0.16220 | −0.00 |
+| catboost | 0.09583 | 0.09685 | +0.07 | 0.11920 | 0.12198 | +0.43 | 0.15899 | 0.15824 | −0.19 |
+| σ (원래 kumo) | 0.0150 | | | 0.0064 | | | 0.0040 | | |
+
+- 14개 모두 차가 1σ 안 (가장 큰 것: in_vehicle tabpfn_v2 −0.99σ (−2.2%), Amazon catboost +0.4σ (+2.3%), splice kumo +0.15σ (+3.4%)). 이름·값 표기에 거의 영향을 안 받음 → Agent 비교의 FM 기준이 바꾼 뒤에도 같음
+- 조금 다른 까닭은 나눠 재지 않음 (확인 못 함). 범주 값의 글자·정렬 순서가 바뀌면 ordinal 부호 (CatBoost·LightGBM 의 범주 번호, TabPFN·TabICL 의 전처리) 가 달라짐. Kumo 가 글자를 쓰는지도 확인 못 함
+- FM 이 GBDT 보다 나은지 (FM − GBDT) 는 세 데이터셋 모두 그대로 (splice·in_vehicle 은 FM, Amazon 은 CatBoost 가 kumo 보다 나음)
+- 모든 split 으로 넓히면 (splice 9 · Amazon 9 · in_vehicle 9 = 27 split × 5모델): 모델 시간은 r0f0 의 약 9배 (GPU 수 분, CatBoost splice 약 20분) 라 비용은 작음. r0f0 차가 모두 1σ 안이라 이번에는 안 함 (제안만)
+
+### Agent 원래 대 바꾼 것 (r0f0, 1회)
+
+같은 설정 (5설정 · 공식 지시문 · 1시간 · A10). 같은 엔드포인트는 한 번에 하나 (Sonnet 줄: AIDE → Claude Code → +cont, GPT 줄: AIDE → Codex, 데이터셋 splice → Amazon → in_vehicle).
+15회 모두 정상 종료·유효 제출 (`run_crashed` 없음). 원래 값은 #26 1회째 (splice · Amazon), 파일럿 1회째 / 2회째 (in_vehicle, ÷σ 는 두 회차 평균과).
+"− kumo" = 같은 대회의 kumo 와의 차 ÷σ (음수 = Agent 가 FM 보다 나음). **굵게** = 그 대회의 최고. "알아봄" = 하네스 기록·작업 디렉터리에서 데이터셋 이름을 댄 실행 (아래 "알아본 흔적").
+
+splice (`tabarena-p13`), σ 0.0150, kumo 0.06693 → 0.06924
+
+| 설정 | 원래 | 바꾼 것 | 차 ÷σ | 원래 − kumo | 바꾼 것 − kumo | 알아봄 (바꾼 것) |
+|---|---|---|---|---|---|---|
+| Codex × GPT | **0.06179** | **0.06012** | −0.11 | −0.34 | **−0.61** | 예 ("the UCI splice dataset", 429 단계 중 9번째, 시작 몇 분 안) |
+| AIDE × Sonnet | 0.07781 | 0.07801 | +0.01 | +0.73 | +0.58 | 예 (첫 답: "This looks like the Splice dataset") |
+| AIDE × GPT | 0.06987 | 0.08136 | +0.77 | +0.20 | +0.81 | 아니오 |
+| Claude Code × Sonnet +cont | 0.08445 | 0.09917 | +0.98 | +1.17 | +2.00 | 예 ("looks like the splice dataset") |
+| Claude Code × Sonnet | 0.1388 | 0.1148 | −1.60 | +4.79 | +3.04 | 아니오 |
+
+Amazon (`tabarena-p14`), σ 0.0064, kumo 0.12772 → 0.12752, CatBoost 0.11920 → 0.12198
+
+| 설정 | 원래 | 바꾼 것 | 차 ÷σ | 원래 − kumo | 바꾼 것 − kumo | 알아봄 (바꾼 것) |
+|---|---|---|---|---|---|---|
+| AIDE × Sonnet | **0.1068** | **0.1093** | +0.38 | −3.27 | **−2.86** | 예 (첫 답: "This looks like the Amazon Employee Access data") |
+| Codex × GPT | 0.1102 | 0.1094 | −0.12 | −2.75 | −2.83 | 예 (늦게: 461 단계 중 385번째 "Amazon employee access") |
+| Claude Code × Sonnet +cont | 0.1093 | 0.1193 | +1.56 | −2.88 | −1.29 | 아니오 |
+| Claude Code × Sonnet | 0.1201 | 0.1202 | +0.01 | −1.19 | −1.14 | 아니오 |
+| AIDE × GPT | 0.1106 | 0.1209 | +1.61 | −2.67 | −1.03 | 아니오 |
+
+in_vehicle (`tabarena-p15`), σ 0.0040, kumo 0.13707 → 0.13650
+
+| 설정 | 원래 (1회째 / 2회째) | 바꾼 것 | 차 ÷σ | 원래 − kumo | 바꾼 것 − kumo | 알아봄 (바꾼 것) |
+|---|---|---|---|---|---|---|
+| Codex × GPT | **0.13150** / 0.13295 | 0.13709 | +1.20 | −1.20 | +0.14 | 아니오 |
+| AIDE × Sonnet | 0.13813 / 0.13904 | 0.14986 | +2.79 | +0.37 | +3.30 | 아니오 |
+| Claude Code × Sonnet +cont | 0.14911 / 0.14919 | 0.15128 | +0.53 | +2.99 | +3.65 | 아니오 |
+| AIDE × GPT | 0.13882 / 0.14057 | 0.15313 | +3.32 | +0.65 | +4.11 | 아니오 |
+| Claude Code × Sonnet | 0.16192 / 0.16192 | 0.16627 | +1.08 | +6.14 | +7.36 | 아니오 |
+
+바꾼 대회의 최고는 in_vehicle 이 **FM: kumo 0.13650** (Codex 0.13709 가 +0.14σ 로 다음).
+
+요약
+
+| 데이터셋 | FM 보다 나은 Agent (원래 → 바꾼 것) | 최고 Agent − kumo ÷σ (원래 → 바꾼 것) | 승자 (원래 → 바꾼 것) | 알아본 실행 (바꾼 것) |
+|---|---|---|---|---|
+| splice | 1 / 5 → 1 / 5 (Codex) | −0.34 → −0.61 | Agent → Agent (둘 다 1σ 안) | 3 / 5 |
+| Amazon | 5 / 5 → 5 / 5 | −3.27 → −2.86 | Agent → Agent | 2 / 5 |
+| in_vehicle | 1 / 5 → 0 / 5 | −1.20 (1회째 −1.38) → +0.14 | Agent → **FM** | 0 / 5 |
+
+- 바꾼 뒤 1σ 넘게 나빠진 것 15회 중 6회: in_vehicle 4회 (AIDE × GPT +3.3σ · AIDE × Sonnet +2.8σ · Codex +1.2σ · Claude Code +1.1σ), Amazon 2회 (AIDE × GPT · +cont +1.6σ). 거의 그대로인 것: splice·Amazon 의 Codex 와 AIDE × Sonnet (−0.1~+0.4σ). 나아진 것은 splice × Claude Code 공식 (−1.6σ, 원래도 Agent 꼴찌)
+- 원래 쪽 회차 흔들림 (in_vehicle 1회째 ↔ 2회째) 은 0.43σ 안 (AIDE × GPT 가 가장 큼) → in_vehicle 의 +2.8~+3.3σ (AIDE 둘) 는 그보다 큼. 바꾼 쪽은 1회뿐이라 splice·Amazon 의 ±1σ 안 차는 실행 흔들림과 가르지 못함
+
+### 알아본 흔적
+
+세는 것 (저장소 밖 스크립트): 하네스 기록 (`codex.jsonl`·`aide.jsonl`·`claude-code.jsonl`·`harness_stderr.txt`) 과 작업 디렉터리의 글 파일 (`.py`·`.md`·`.txt`·`.log`·`.json`·`.ipynb`·`.sh` 등, pip 가 깐 파일 (`*.dist-info/RECORD`) 과 `site-packages` 는 뺌) 에서
+splice · splicing · DNA · RNA · nucleotide · exon · intron · codon · donor/acceptor · gene/genome · `ACGT` · Amazon · employee · "access request" · `MGR_ID`·`ROLE_*` · coupon · vehicle/driver · UCI · Kaggle · OpenML · "famous/well-known/classic dataset" 의 수. 걸린 것은 앞뒤 글을 모두 읽음.
+`Kaggle`·`driver` 는 모든 실행에서 지시문 ("MLE-bench, an offline version of Kaggle competitions" · "appropriate drivers installed") · AIDE 의 시스템 글 ("You are a Kaggle grandmaster") · `nvidia-smi` 출력에서만 나옴 → 아래 표에서 뺌.
+
+| 실행 (바꾼 것) | 하네스 기록 | 작업 디렉터리 | 무엇을 알아봤나 |
+|---|---|---|---|
+| splice × Codex | splice 6 · DNA 6 · nucleotide 5 · exon 2 · intron 1 · donor/acceptor 4 · gene 7 · UCI 3 | 0 | 생각 글에서 "UCI splice dataset", "splice junctions involving a 60 base pair DNA sequence … 3190 instances", "UCI Splice … known bases c0 GT, c1 AG". 9번째 단계 (시작 몇 분 안) 부터 |
+| splice × AIDE × Sonnet | – | splice 86 · DNA 64 · nucleotide 4 | 첫 답 (설계 글) "This looks like the Splice dataset (60 categorical DNA positions, 3 classes, ~3190 rows)" 가 AIDE 기록 (`logs/`) 의 매 단계 메모에 되풀이 |
+| splice × Claude Code +cont | splice 1 | 0 | "Small data (looks like the splice dataset)" |
+| Amazon × AIDE × Sonnet | – | Amazon 16 · employee 16 | 첫 답 "This looks like the Amazon Employee Access data (9 categorical features, with f5 and f8 having the same cardinality)" |
+| Amazon × Codex | Amazon 1 · employee 2 · UCI 1 | 0 | 처음엔 "likely anonymized UCI dataset" (3번째), 끝 무렵 "the dataset related to Amazon employee access" (385번째) |
+| 나머지 10회 | 0 | 0 | splice × AIDE × GPT · Claude Code, Amazon × AIDE × GPT · Claude Code 둘, in_vehicle 5회 모두 |
+
+- 모두 **데이터 모양** 으로 알아봄 (이름·출처·URL 은 안 줌, 원본 접근 0): splice 는 열 60개 × 값 4~8개 · 3,190행 · 3클래스, Amazon 은 범주 9열 · 두 열의 카디널리티가 같음 (원래 `ROLE_TITLE` · `ROLE_CODE`, 343개씩 1:1)
+- in_vehicle 은 5회 모두 알아본 흔적 없음 (Codex 는 처음에 "2018 Indonesia law" 같은 엉뚱한 짐작을 한 번 함)
+- 견줌 (원래 대회, 로컬에 받아 둔 9회만): 원래 splice × Codex 도 splice·DNA·codon 450번 등, 원래 Amazon × Codex 는 "the original Amazon dataset", in_vehicle 은 설명에 쿠폰이 있어 쿠폰 말이 많음 (원래 대회는 과제 설명이 도메인을 주므로 이 수는 뜻이 다름)
+
+### 풀이 읽기
+
+splice × Codex (원래 풀이: 코돈 · k-mer · 경계 옆 AG/GT · 거의 같은 서열 찾기)
+
+- **열마다 다른 토큰을 한 알파벳으로 다시 맞춤** (`align.py`): 열마다 빈도 상위 4개 토큰 → 0~3, 이웃 열 쌍 (59쌍) 의 4×4 빈도를 한 공통 전이 행렬로 설명하는 위치별 4기호 순열을 찾음 (24 × 24 동적 계획 + 재시작 100번. `align.py` 의 시험은 c2 (원래 N) 클래스 train 행으로). 바꾼 데이터의 "열마다 따로" 를 데이터 구조로 되돌림 (원래 A/C/G/T 이름은 모름: 공통 알파벳의 이름 없는 4기호)
+- 그 위에서 k-mer 스펙트럼 · 위치별 n-gram · 클래스별 Markov 혼합 · GMM + 로지스틱 · GBDT · 선형 SVM 섞기, 마지막에 **train 의 거의 같은 서열** (Hamming ≤ 22/60) 이 한 클래스뿐이면 그 클래스를 0.95 로 덮음 (`compose_submission.py`)
+- 남은 것: k-mer · 거의 같은 서열 찾기. 사라진 것: 코돈 (코드 0) · 글자 그대로의 AG/GT (코드 0, 생각 글에서 "c0 GT, c1 AG" 라고 한 번 말함). torch 신경망도 안 씀 (원래는 씀)
+- 원래 0.06179 → 0.06012 (−0.11σ). 알아본 뒤에도 쓸 수 있는 기억은 "DNA 서열이다 (이웃 위치가 Markov 처럼 이어짐)" 정도이고, 토큰 → 염기 대응은 기억으로 알 수 없음 (무작위)
+
+in_vehicle × Codex (원래: 인구통계 열로 응답자 id 를 다시 만듦, train+test 를 합쳐)
+
+- **응답자 id 풀이가 남음**: `person = f7..f19` (= 원래 gender·age·maritalStatus·has_children·education·occupation·income·car·Bar·CoffeeHouse·CarryAway·RestaurantLessThan20·Restaurant20To50, 응답자 열 13개 그대로) 와 `item = f0..f6 + f20..f22` (상황·쿠폰 열) 로 나눔. 생각 글에 "user ID" · "individual"
+- 최종 섞기 (`build_submission.py`) 에 들어간 것: `person` 키 (13열을 이어 붙인 글) 를 범주 피처로 쓴 LightGBM·CatBoost (`lgb_grp63` · `cat_group6` · `cat_groupall8`) + 다른 GBDT · 열마다 무게를 준 일치 커널 SVM (`cv_svc`) · 범주 값 PCA 중심 피처 · 두 탑 신경망 섞기.
+  `person` 이 같은 행끼리의 커널 SVM (`cv3_svc_profile.py`) 도 만들었지만 최종 섞기에는 없음. 키·PCA 는 **train+test 를 합친 표** (`pd.concat([tr, te])`) 에서 만듦 → 원래와 같은 "inductive 밖" 꼴 (5). 응답자별 타깃 집계 피처 (원래 2회째) 는 최종 섞기에서 못 찾음
+- 그래도 0.13150 / 0.13295 → 0.13709 (kumo 0.13650 보다 +0.14σ 나쁨). → **응답자 id 풀이만으로는 FM 을 못 넘음**. 원래 "Codex > FM" 은 응답자 id 풀이 + 값의 뜻 (쿠폰 종류 × 상황 교차, 순서 있는 구간) 을 같이 쓴 몫으로 읽음 (둘을 나눠 재지 않음)
+
+Amazon (알아본 둘 · 못 알아본 셋)
+
+- 고카디널리티 범주의 흔한 풀이 그대로: 열 두 개씩 묶은 범주 · 빈도 피처 · 원-핫 로지스틱 · CatBoost (AIDE 둘·+cont·Codex, Claude Code 공식은 CatBoost 하나). 원래 대회의 AIDE × Sonnet · Codex · +cont 풀이와 같은 꼴 (짝 묶음·빈도 코드가 양쪽 모두에 있음)
+- 못 알아본 셋 (AIDE × GPT · Claude Code 둘) 도 모두 FM 보다 나음 (−1.0~−1.3σ). 다섯 모두 우리 CatBoost (바꾼 것 0.1220) 보다도 나음
+
+### 해석 (r0f0 1회, 판단은 약함)
+
+| 데이터셋 | 읽기 |
+|---|---|
+| Amazon | **범주 열 덕** 으로 읽음. 바꾼 뒤에도 5 / 5 가 FM 보다 나음 (최고 −2.9σ), 알아보지 못한 3회도 FM 보다 나음. 고카디널리티 범주의 흔한 풀이 (짝 묶음·빈도·원-핫) 가 Kumo 보다 나은 데이터 (위 "범주 비율과 FM − GBDT" 의 고카디널리티 단서와 맞음: 이 데이터는 CatBoost 도 Kumo 보다 나음). 알아본 둘 (AIDE × Sonnet · Codex) 이 최고 둘이고 못 알아본 것 중 최고 (+cont 0.1193) 보다 약 1.6σ 나음 → 알아본 몫이 조금 있을 수 있음 (1회라 가르지 못함) |
+| splice | **가르지 못함**. 바꾼 뒤에도 Codex 만 FM 보다 나음 (−0.61σ, 원래 −0.34σ, 둘 다 1σ 안) 이지만, 바꾼 데이터를 Codex · AIDE × Sonnet · +cont 가 모양으로 splice 라고 알아봄 → "알아볼 수 없게" 가 안 됨. 다만 알아봐도 토큰 → 염기 대응은 알 수 없고, Codex 의 풀이는 데이터 구조 (이웃 열 쌍으로 알파벳 맞추기 · k-mer · 거의 같은 서열) 위주로 바뀜. 알아보지 못한 AIDE × GPT 는 원래 +0.20σ → +0.81σ 로 FM 과 멀어짐 |
+| in_vehicle | **알아본 (뜻을 안) 덕** 으로 읽음. 바꾼 뒤 0 / 5, 최고 Codex 가 kumo 보다 +0.14σ, AIDE 둘은 +2.8~+3.3σ 나빠짐 (회차 흔들림 0.4σ 의 7배 넘음). 알아본 흔적은 없음. 응답자 id 풀이 (데이터 구조) 는 남았지만 그것만으로는 FM 을 못 넘음. 바꾸기는 이름만이 아니라 **값의 뜻** (나이·소득·방문 빈도의 순서, 쿠폰 종류, 0/1 표시) 도 지움 → "알려진 데이터라서" 와 "값에 순서·뜻이 있어서" 를 이 실험으로는 나누지 못함 |
+
+- 셋을 합치면: "범주 열이 많으면 Agent 가 FM 을 이긴다" 는 Amazon (고카디널리티 id) 에서만 바꾼 뒤에도 남음. splice 는 1σ 안이고 오염 통제가 실패함 (모양으로 알아봄), in_vehicle 은 뜻을 지우면 FM 이 이김
+- 모양으로 알아보는 것은 이 방법의 한계: 유명하고 모양이 독특한 데이터 (splice 의 60 × ACGT, Amazon 의 9열·같은 카디널리티 쌍) 는 이름·값을 지워도 LLM 이 알아봄. 더 지우려면 행 수·열 수를 바꾸거나 (부분 추출·가짜 열) 열 순서를 섞어야 하는데, 그러면 같은 데이터의 비교가 아니게 됨 (안 함)
+- 1회뿐 (결정 2 의 2회째 없음). splice·Amazon 의 ±1σ 안 차는 실행 흔들림과 가르지 못함
+
+### 사후 검사 (15회)
+
+- `data_source_urls` 0 · `kaggle_urls` 0 (15회 모두). 원본 데이터 접근 흔적 없음 (알아본 5회도 원본을 받으려 하지 않음)
+- `tfm_runtime` · `tfm_in_code` · `pip_target` · `pip_added` 모두 빈칸 (공식 설정에서 TFM 을 스스로 깐 실행 없음)
+- 429 재시도: Codex splice 16번 · Amazon 13번 · in_vehicle 0번, 나머지 0. 같은 엔드포인트를 한 번에 하나만 써서 #26 (Codex 0~97번) 보다 적음
+- 걸린 시간: AIDE 60분 (모두 시간 종료), Codex 56~57분 (스스로 끝냄), Claude Code 공식 29~60초, +cont 5~11분 (이어 가기 6·8·12번). 입력 토큰: Codex 3,316만~3,502만, 나머지 8.5만~78만
+- "inductive" (5): in_vehicle × Codex 는 train+test 를 합친 표에서 응답자 키·PCA 를 만듦 (위). splice × Codex 의 토큰 순위 부호는 train+test 를 합친 빈도로 만듦 (`align.py`, 타깃은 안 씀). 다른 실행은 보지 않음 (확인 못 함)
+
+### 비용
+
+| 항목 | 시간 |
+|---|---|
+| FM (GPU) | A10 작업 하나 4.6분 (splice·in_vehicle, 모델 시간 2.1분) + H100 작업 하나 2.2분 (Amazon, 1.0분) |
+| GBDT (serverless CPU) | 작업 두 개 4.0분 · 1.9분 (모델 시간 합 3.6분, splice CatBoost 138초) |
+| Agent (A10) | 15회 작업 시간 (설치·회수 포함) 합 **10.1 A10 시간** (하네스 시간 합 9.3시간). 어림 (15) 안 |
+| 걸린 벽시계 | 12:12 → 20:16 (8시간). GPT 줄 6회가 길고, 로컬 대기 스크립트가 16:24~18:08 에 멈춰 (아래) 약 1.7시간 늦어짐 |
+
+### 실행 메모
+
+| 일 | 내용 | 처리 |
+|---|---|---|
+| 클래스 이름 안 바뀜 | 처음 `prepare` 에서 타깃 클래스가 원래 이름 그대로 (`EI`·`Yes`). pandas 3 은 문자열 열이 `object` 가 아니라서 `dtype == object` 판정이 거짓 | 과제 종류 (`is_classification`) 로 판정하게 고치고 다시 `prepare`. 원격에 올리기 전이라 영향 없음 |
+| 로컬 대기 멈춤 | 줄 스크립트 (저장소 밖, Databricks CLI 로 2분마다 상태 조회) 가 16:24~18:08 에 다음 실행을 안 냄. Amazon × Codex 는 16:24 에 끝났고 in_vehicle +cont 도 그 사이 끝남 (작업 시간은 59분 · 13분) | 18:08 에 이어서 냄. 점수·조건에는 영향 없음 (같은 엔드포인트를 둘 쓰지는 않음). 맥 잠자기 또는 CLI 조회가 멈춘 것으로 봄 (확인 못 함) |
+| 도구의 대기 상한 | 로컬 줄을 처음에 도구의 백그라운드 명령으로 띄웠는데 4시간 상한이 있어 첫 제출 직후 `nohup` 으로 다시 띄움 (첫 실행은 run_id 를 기다리는 것으로 이어 받음) | 빠진·두 번 낸 실행 없음 |
 
 ## Elo (2026-11-16)
 

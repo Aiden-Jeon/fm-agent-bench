@@ -1,0 +1,23 @@
+# ta-splice (OpenML task 363702) 의 r0f0 를 알아볼 수 없게 바꾼 대회 (docs/tabarena.md 의 "범주 대 오염", fab/bench/tabarena/obfuscate.py).
+# 같은 split·같은 행. 열 이름 f0..f59 (원래 순서), 범주 값은 열마다 무작위 토큰, 타깃 target · 클래스 c0..c2 (원래 이름의 정렬 순서).
+# 결과표의 dataset 키는 splice~obf (compare·elo 의 풀에 안 들어감). 대응표는 FAB_TABARENA/data/obfuscate/ 에만
+# hide = 설명·열 머리에 있으면 제출을 멈출 말 (원래 열·클래스 이름은 대응표에서 자동으로 더함)
+name: ta-splice-obf
+tabarena:
+  dataset: splice
+  task_id: 363702
+  split: r0f0
+  anon_id: tabarena-p13
+  obfuscate:
+    seed: 20261117
+    hide: [splice, splicing, DNA, RNA, nucleotide, nucleotides, base, bases, exon, exons, intron, introns, gene, genes,
+      genome, codon, sequence, sequences, acceptor, donor, primate, UCI, OpenML]
+  categorical: [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23,
+    f24, f25, f26, f27, f28, f29, f30, f31, f32, f33, f34, f35, f36, f37, f38, f39, f40, f41, f42, f43, f44, f45, f46, f47, f48,
+    f49, f50, f51, f52, f53, f54, f55, f56, f57, f58, f59]
+task: multiclass
+target: target
+id_col: id
+metric: logloss
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}
