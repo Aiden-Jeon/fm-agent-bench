@@ -386,8 +386,10 @@ uv run --frozen fab ta compare --detail
   polish × Codex 가 `deps_ignore/`·`tabpfn_pkg/` 에 sklearn 을 깔아 그 `datasets` 코드 (`fetch_openml`·`openml.org`·`archive.ics.uci.edu` 주소) 가 `data_source_urls` 에 271번 걸렸음 (에이전트가 쓴 코드·하네스 기록·LLM 요청에는 0).
   규칙: 작업 디렉터리 안의 `*.dist-info/RECORD` (pip 가 깐 파일 목록) 에 적힌 파일만 안 봄 (`fab/agent` 의 `installed_files`). 폴더 깊이로 짐작하지 않음 →
   `--target .` 으로 작업 디렉터리 맨 위에 깔아도 에이전트 코드 (하위 폴더 포함) 는 보고, `--target` 폴더 맨 위에 깔린 단일 모듈 (`six.py` 등) 은 뺌. `*.egg-info` (`pip install -e .` 로 깐 에이전트 자기 패키지) 는 빼지 않음.
-  처음 규칙 (`*.dist-info`·`*.egg-info` 가 있는 폴더의 하위 폴더 안 파일은 안 봄) 은 `--target .` 이면 하위 폴더의 에이전트 코드까지 빠져 PR #29 리뷰에서 바꿈 (2026-11-17). 아래 `recheck` 값은 처음 규칙으로 잰 것 → 바뀐 규칙으로 `recheck` 를 다시 해야 함
-  `recheck` 뒤 바뀐 것은 그 실행 하나 (`data_source_urls` 271 → 0, `tfm_in_code` 의 autogluon (깐 패키지 안의 이름) 빠짐). TabArena·MLE-bench 의 다른 실행은 값이 같음
+  처음 규칙 (`*.dist-info`·`*.egg-info` 가 있는 폴더의 하위 폴더 안 파일은 안 봄) 은 `--target .` 이면 하위 폴더의 에이전트 코드까지 빠져 PR #29 리뷰에서 바꿈 (2026-11-17)
+  `recheck` (처음 규칙, 2026-11-16) 뒤 바뀐 것은 그 실행 하나 (`data_source_urls` 271 → 0, `tfm_in_code` 의 autogluon (깐 패키지 안의 이름) 빠짐). TabArena·MLE-bench 의 다른 실행은 값이 같음.
+  바뀐 규칙으로 `recheck` 를 다시 함 (2026-11-17, main `ccffa44`): `tabarena_runs.csv` 70행 · `mlebench_runs.csv` 53행 모두 처음 규칙의 값과 같음 (polish × Codex 의 `data_source_urls` 0 그대로).
+  → 지금까지 작업 디렉터리 맨 위에 패키지를 깐 실행 (`--target .`) 은 없어서 처음 규칙에서도 빠진 에이전트 코드는 없었음. 바뀐 규칙은 앞으로를 위한 것
 
 원격 채점 속도 (2026-11-14, #20)
 
@@ -1088,7 +1090,7 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
 | 로그인 만료 (14:28) | 로컬 Databricks CLI 의 토큰 갱신이 실패해 상태 조회가 안 됨. 원격 작업은 계속 돎 | 사용자가 다시 로그인 (약 25분 멈춤). 그동안 끝난 QSAR_fish 4회는 다음 kick 에 채점 |
 | 진행 스크립트 버그 | 마지막 데이터셋 (polish) 을 내고 기다리지 않고 끝남 | 고쳐서 배치 2 를 polish 대기부터 다시 시작 |
 | 로컬 앱 재시작 (22시쯤) | 배치 2 진행 스크립트 (로컬) 가 같이 죽음. 이미 낸 Amazon 5회는 원격에서 계속 돎 | Amazon 대기부터 다시 시작 (새 세션으로 띄움). 빠진 실행 없음 |
-| 사후 검사 오탐 | polish × Codex 의 `data_source_urls` 271 (깐 패키지 코드) | 깐 패키지 코드를 빼고 `recheck` (9 의 "사후 검사"). 빼는 규칙은 리뷰 뒤 `*.dist-info/RECORD` 목록으로 바꿈 → `recheck` 다시 필요 |
+| 사후 검사 오탐 | polish × Codex 의 `data_source_urls` 271 (깐 패키지 코드) | 깐 패키지 코드를 빼고 `recheck` (9 의 "사후 검사"). 빼는 규칙은 리뷰 뒤 `*.dist-info/RECORD` 목록으로 바꾸고 `recheck` 를 다시 함 (값 같음, 2026-11-17) |
 | 같은 값 두 번 채점 | 처음 GBDT 작업의 채점 요청 (135 대회) 과 새 작업마다 낸 채점 요청이 둘 다 처리돼 이번 GBDT 270행이 모두 두 번 | 값이 같아 그대로 둠 (`compare`·`elo` 는 마지막 행만 씀) |
 
 비용: Agent A10 약 35~40시간 (하네스 시간 합 31.0시간 + 실행마다 설치·회수 5~10분, 작업별 시간은 재지 않음), GBDT serverless CPU 모델 시간 15.8시간 (취소한 작업 1.6시간 포함). 어림 (50 A10 시간) 안
