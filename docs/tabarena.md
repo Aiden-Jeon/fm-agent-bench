@@ -384,7 +384,9 @@ uv run --frozen fab ta compare --detail
   hazelnut × Codex 1회째는 `recheck` 로 tabpfn·tabicl·transformers·tokenizers·safetensors·scikit-learn·einops·huggingface-hub 이 잡힘. TFM 은 실행 중 import 기록 (`tfm_runtime`) 도 잡음
 - 작업 디렉터리 코드를 볼 때 에이전트가 `pip install --target` 으로 작업 디렉터리 안에 깐 패키지의 코드는 뺌 (2026-11-16, #26).
   polish × Codex 가 `deps_ignore/`·`tabpfn_pkg/` 에 sklearn 을 깔아 그 `datasets` 코드 (`fetch_openml`·`openml.org`·`archive.ics.uci.edu` 주소) 가 `data_source_urls` 에 271번 걸렸음 (에이전트가 쓴 코드·하네스 기록·LLM 요청에는 0).
-  규칙: `*.dist-info`·`*.egg-info` 가 있는 폴더 (`fab/agent` 의 `install_roots`) 의 하위 폴더 안 파일은 안 봄. 그 폴더 바로 아래 파일은 봄 (`--target .` 으로 작업 디렉터리에 깔아도 에이전트 스크립트는 남게).
+  규칙: 작업 디렉터리 안의 `*.dist-info/RECORD` (pip 가 깐 파일 목록) 에 적힌 파일만 안 봄 (`fab/agent` 의 `installed_files`). 폴더 깊이로 짐작하지 않음 →
+  `--target .` 으로 작업 디렉터리 맨 위에 깔아도 에이전트 코드 (하위 폴더 포함) 는 보고, `--target` 폴더 맨 위에 깔린 단일 모듈 (`six.py` 등) 은 뺌. `*.egg-info` (`pip install -e .` 로 깐 에이전트 자기 패키지) 는 빼지 않음.
+  처음 규칙 (`*.dist-info`·`*.egg-info` 가 있는 폴더의 하위 폴더 안 파일은 안 봄) 은 `--target .` 이면 하위 폴더의 에이전트 코드까지 빠져 PR #29 리뷰에서 바꿈 (2026-11-17). 아래 `recheck` 값은 처음 규칙으로 잰 것 → 바뀐 규칙으로 `recheck` 를 다시 해야 함
   `recheck` 뒤 바뀐 것은 그 실행 하나 (`data_source_urls` 271 → 0, `tfm_in_code` 의 autogluon (깐 패키지 안의 이름) 빠짐). TabArena·MLE-bench 의 다른 실행은 값이 같음
 
 원격 채점 속도 (2026-11-14, #20)
@@ -795,7 +797,7 @@ C2 (+fm) 와 2회째 (결정 2) 는 이 결과를 보고 따로 정함.
 
 ¹ 1 − AUC 라 값이 작아 % 가 큼 (절대 차 0.035)
 
-- 바뀐 것은 범주 열이 있는 넷 (MIC · Is-this-a-good-customer · splice · Amazon). 나머지 여섯은 범주 열이 없어 `kumo_c8k_refit` = `kumo_cat_refit` (같은 값). students_dropout 는 범주 열이 있지만 값이 거의 같음 (0.5068 → 0.5069)
+- 바뀐 것은 범주 열이 있는 넷 (MIC · Is-this-a-good-customer · splice · Amazon). 나머지 여섯 중 다섯은 범주 열이 없어 `kumo_c8k_refit` = `kumo_cat_refit` (같은 값). students_dropout 는 범주 열 (17개) 이 있지만 값이 거의 같음 (0.5068 → 0.5069)
 - 묶음 (크게 −15% 이하 · 근소 3% 안 · 중간 · GBDT 이김) 은 하나도 안 바뀜
 - **Amazon 대조군은 그대로 둠**: 기본 GBDT 가 FM 보다 나은 방향은 같지만 차이가 +9.9% → +4.5% (1σ 안) 로 줄었음. TabArena Kumo (+3.4%) 와 가까워짐 (#26 의 "선행 PR 의 범주 처리 결과와 같이 봄").
   tabicl 은 +27% 로 GBDT 에 크게 짐. 대안 kddcup09_appetency 는 +1.7% (0.3σ) 로 더 약해서 바꿀 까닭이 없음. 다른 대안 (website_phishing −17.0%, hiva_agnostic −0.4%) 도 그대로 대안
@@ -828,7 +830,7 @@ C2 (+fm) 와 2회째 (결정 2) 는 이 결과를 보고 따로 정함.
   차례로 돌면 MIC 만 약 15시간이라 작업 시간 제한 (12시간) 에 걸려 뒤 데이터셋은 못 돎
 - → 15:05 에 취소 (끝난 33 split 은 Volume 에 남음) 하고 남은 것을 CPU 작업 9개로 동시에 냄 (사용자가 정함): 데이터셋마다 하나 (Is-this · splice · students · polish · QSAR-TID-11 · APSFailure, 모든 split) + MIC 남은 27 split 을 9개씩 3개 (`--splits r1f0,...`).
   새 작업마다 채점 요청을 다시 냄. 처음 작업의 채점 요청 (135 대회) 은 MIC 의 새 작업과 같은 (대회, 모델) 을 기다려서 MIC 가 끝날 때까지 남음 →
-  QSAR_fish 30 split · MIC r0f0~r0f2 는 채점 요청을 따로 냄 (`fab ta grade ... --splits`). 같은 값을 두 번 채점한 행 (QSAR_fish·MIC 60행씩) 은 마지막 행만 씀 (`compare` 와 같음)
+  QSAR_fish 30 split · MIC r0f0~r0f2 는 채점 요청을 따로 냄 (`fab ta grade ... --splits`). 그 결과 이번 GBDT 270행 (8개 × 모든 split × 2모델) 이 모두 두 번 채점돼 `results/tabarena.csv` 에 두 줄씩 있음 (값은 같음). `compare`·`elo` 는 `latest_grades` 로 마지막 행만 씀 → 표를 직접 셀 때는 (대회, 모델) 로 중복을 뺄 것
 - 걸린 시간: CPU 작업 6개는 4~21분 (splice 21분), MIC 3개는 각 4시간 30분쯤 (15:13 → 19:45 무렵). 모델 시간 합 15.8시간 중 MIC 의 CatBoost 가 14.9시간 (split 중앙값 1,791초).
   다음 중앙값: splice CatBoost 131초, APSFailure 54초, QSAR-TID-11 31초, students 26초, 나머지 15초 아래. lgbm 은 모두 18초 아래
 - 결과: 10개 모두 모든 split 에 `lgbm_refit`·`catboost_refit` (빠짐 없음)
@@ -1067,7 +1069,7 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
   → "범주 많은 데이터에서 Agent 가 강함" 과 "알려진 데이터에서 Agent 가 강함" 이 이 12개에서는 갈리지 않음 (둘이 겹침)
 - **크기**: 작음 (< 2.5k) 4개·중간 4개·큼 4개 모두에서 FM 이 대부분 이김. 크기만으로 갈리는 경향은 없음. 큰 데이터 (APSFailure·physiochemical) 도 Agent 가 1시간 안에 끝냄
 - **FM − GBDT 차이가 큰 곳** (polish · hazelnut · APS · physio · splice, −20% 이하): Agent 대부분은 GBDT 근처에 머묾. 따라오는 것은 Codex 뿐 (polish 0.6σ, physio 3.4σ, hazelnut 3.0σ 뒤, splice 는 넘음)
-- **근소한 곳** (QSAR_fish · Is-this, 3% 안): Agent 10회 중 FM 을 넘은 것 없음 (모두 0.3σ 안 뒤)
+- **근소한 곳** (QSAR_fish · Is-this, 3% 안): Agent 10회 중 FM 을 넘은 것 없음. 데이터셋마다 최고 Agent 만 0.3σ 안 뒤이고, 나머지는 더 뒤 (가장 먼 것: Is-this 의 Codex 1.1σ, QSAR_fish 의 +cont 0.7σ)
 - **Agent − FM 이 split 흔들림 (1σ) 밖**인 것은 6개: FM 이 나음 4 (physio 3.4σ · hazelnut 3.0σ · students 1.9σ · APS 1.5σ), Agent 가 나음 2 (Amazon 3.3σ · in_vehicle 1.4σ). 나머지 6개 (QSAR_fish · MIC · Is-this · splice · polish · QSAR-TID) 는 1회째 한 번으로는 승패를 말하기 어려움 → 2회째 (결정 2) 가 필요한 곳
 - 설정별: 데이터셋 최고 Agent 는 12개 중 Codex × GPT 7, AIDE × Sonnet 3 (students · APS · Amazon), AIDE × GPT 1 (MIC), Claude Code × Sonnet +cont 1 (Is-this). Codex 가 공식 설정에서 TFM 을 스스로 깐 것은 #26 10개 중 3 (QSAR_fish · Is-this · polish) 이고 셋 모두 FM 을 못 넘음
 
@@ -1086,8 +1088,8 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
 | 로그인 만료 (14:28) | 로컬 Databricks CLI 의 토큰 갱신이 실패해 상태 조회가 안 됨. 원격 작업은 계속 돎 | 사용자가 다시 로그인 (약 25분 멈춤). 그동안 끝난 QSAR_fish 4회는 다음 kick 에 채점 |
 | 진행 스크립트 버그 | 마지막 데이터셋 (polish) 을 내고 기다리지 않고 끝남 | 고쳐서 배치 2 를 polish 대기부터 다시 시작 |
 | 로컬 앱 재시작 (22시쯤) | 배치 2 진행 스크립트 (로컬) 가 같이 죽음. 이미 낸 Amazon 5회는 원격에서 계속 돎 | Amazon 대기부터 다시 시작 (새 세션으로 띄움). 빠진 실행 없음 |
-| 사후 검사 오탐 | polish × Codex 의 `data_source_urls` 271 (깐 패키지 코드) | `install_roots` 로 고치고 `recheck` (9 의 "사후 검사") |
-| 같은 값 두 번 채점 | QSAR_fish·MIC r0f0~r0f2 의 GBDT 를 따로 채점 요청한 뒤 처음 요청도 처리돼 행이 두 번 | 값이 같아 그대로 둠 (마지막 행만 씀) |
+| 사후 검사 오탐 | polish × Codex 의 `data_source_urls` 271 (깐 패키지 코드) | 깐 패키지 코드를 빼고 `recheck` (9 의 "사후 검사"). 빼는 규칙은 리뷰 뒤 `*.dist-info/RECORD` 목록으로 바꿈 → `recheck` 다시 필요 |
+| 같은 값 두 번 채점 | 처음 GBDT 작업의 채점 요청 (135 대회) 과 새 작업마다 낸 채점 요청이 둘 다 처리돼 이번 GBDT 270행이 모두 두 번 | 값이 같아 그대로 둠 (`compare`·`elo` 는 마지막 행만 씀) |
 
 비용: Agent A10 약 35~40시간 (하네스 시간 합 31.0시간 + 실행마다 설치·회수 5~10분, 작업별 시간은 재지 않음), GBDT serverless CPU 모델 시간 15.8시간 (취소한 작업 1.6시간 포함). 어림 (50 A10 시간) 안
 
