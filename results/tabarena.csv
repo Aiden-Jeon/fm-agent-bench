@@ -6879,3 +6879,17 @@ timestamp,comp,dataset,task_id,split,fold,model,metric,score,metric_error,run,no
 2026-11-16T11:46:28,tas-mic-r9f1,MIC,363711,r9f1,28,catboost_refit,logloss,0.44081377507170333,0.44081377507170333,2026-11-16T10:18:14,#26 GBDT refit,default
 2026-11-16T11:46:28,tas-mic-r9f2,MIC,363711,r9f2,29,lgbm_refit,logloss,1.0552325301619487,1.0552325301619487,2026-11-16T10:18:22,#26 GBDT refit,default
 2026-11-16T11:46:28,tas-mic-r9f2,MIC,363711,r9f2,29,catboost_refit,logloss,0.45813630400018585,0.45813630400018585,2026-11-16T10:48:06,#26 GBDT refit,default
+2026-11-17T03:05:54,ta-splice-obf,splice~obf,363702,r0f0,0,tabpfn_v2_refit,logloss,0.08334569494812519,0.08334569494812519,2026-11-17T02:00:13,obf r0f0,default
+2026-11-17T03:05:54,ta-splice-obf,splice~obf,363702,r0f0,0,tabicl_kv_refit,logloss,0.07337375564282153,0.07337375564282153,2026-11-17T02:00:25,obf r0f0,kv_cache=True
+2026-11-17T03:05:54,ta-splice-obf,splice~obf,363702,r0f0,0,kumo_cat_refit,logloss,0.06923907017101484,0.06923907017101484,2026-11-17T02:01:01,obf r0f0,cats=categorical chunk=8192 n_estimators=8
+2026-11-17T03:05:54,ta-splice-obf,splice~obf,363702,r0f0,0,lgbm_refit,logloss,0.09274924236898495,0.09274924236898495,2026-11-17T01:59:30,obf r0f0,default
+2026-11-17T03:05:54,ta-splice-obf,splice~obf,363702,r0f0,0,catboost_refit,logloss,0.09685293847664972,0.09685293847664972,2026-11-17T02:01:48,obf r0f0,default
+2026-11-17T03:05:55,ta-in-vehicle-coupon-recommendation-obf,in_vehicle_coupon_recommendation~obf,363681,r0f0,0,tabpfn_v2_refit,auc,0.8193231948944741,0.18067680510552586,2026-11-17T02:01:24,obf r0f0,default
+2026-11-17T03:05:55,ta-in-vehicle-coupon-recommendation-obf,in_vehicle_coupon_recommendation~obf,363681,r0f0,0,tabicl_kv_refit,auc,0.8513490399772311,0.1486509600227689,2026-11-17T02:01:32,obf r0f0,kv_cache=True
+2026-11-17T03:05:55,ta-in-vehicle-coupon-recommendation-obf,in_vehicle_coupon_recommendation~obf,363681,r0f0,0,kumo_cat_refit,auc,0.8634983589120471,0.13650164108795293,2026-11-17T02:01:47,obf r0f0,cats=categorical chunk=8192 n_estimators=8
+2026-11-17T03:05:55,ta-in-vehicle-coupon-recommendation-obf,in_vehicle_coupon_recommendation~obf,363681,r0f0,0,lgbm_refit,auc,0.8377988896429927,0.16220111035700735,2026-11-17T02:01:53,obf r0f0,default
+2026-11-17T03:05:55,ta-in-vehicle-coupon-recommendation-obf,in_vehicle_coupon_recommendation~obf,363681,r0f0,0,catboost_refit,auc,0.8417581625653151,0.1582418374346849,2026-11-17T02:02:21,obf r0f0,default
+2026-11-17T03:05:58,ta-amazon-employee-access-obf,Amazon_employee_access~obf,363613,r0f0,0,tabicl_kv_refit,auc,0.8468001258319608,0.15319987416803915,2026-11-17T02:00:02,obf r0f0,kv_cache=True
+2026-11-17T03:05:58,ta-amazon-employee-access-obf,Amazon_employee_access~obf,363613,r0f0,0,kumo_cat_refit,auc,0.8724812082328296,0.1275187917671704,2026-11-17T02:00:35,obf r0f0,cats=categorical chunk=8192 n_estimators=8
+2026-11-17T03:05:58,ta-amazon-employee-access-obf,Amazon_employee_access~obf,363613,r0f0,0,lgbm_refit,auc,0.8424658113455409,0.15753418865445912,2026-11-17T02:00:32,obf r0f0,default
+2026-11-17T03:05:59,ta-amazon-employee-access-obf,Amazon_employee_access~obf,363613,r0f0,0,catboost_refit,auc,0.8780175685033869,0.12198243149661314,2026-11-17T02:01:17,obf r0f0,default
