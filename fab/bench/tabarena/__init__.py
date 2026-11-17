@@ -23,6 +23,10 @@ FAB_TABARENA (기본 ../tabarena) 아래: .venv/, data/cache/<task_id>/ (driver 
 대회 data/ 에는 public 만 (train.csv·test.csv·sample_submission.csv·description.md). 행 id 는 split 마다 새로 매기고
 (무작위 순열, OpenML 행 번호를 주지 않음) 행 순서도 섞음. 정답은 로컬 캐시와 채점용 내 Volume 의 tabarena/answers/ 에만
 (에이전트 SP 의 scratch Volume 에는 public 만, remote.py).
+
+알아볼 수 없게 바꾼 대회 (설정에 tabarena.obfuscate, obfuscate.py): competitions/ta-<데이터셋>-obf/ (r0f0). 같은 데이터·split·행에서
+열 이름·범주 값·클래스 이름만 바꿈. CLI·결과표의 데이터셋 키는 <데이터셋>~obf (다른 split 은 tas-<데이터셋>-obf-r<r>f<f>).
+committed()·compare·elo 의 풀에는 안 들어감 (원래 데이터셋과 안 섞이게). 원래 대 바꾼 것 비교는 fab ta obf.
 """
 
 from __future__ import annotations
@@ -43,6 +47,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from fab.bench.tabarena import obfuscate as obf
 from fab.core.competition import COMP_DIR, ROOT, Competition, load_competition
 from fab.core.results import RESULTS, append_rows
 
@@ -51,11 +56,13 @@ DATASETS = Path(__file__).with_name("datasets.csv")  # TabArena 메타데이터 
 TA_DIR = Path(os.environ.get("FAB_TABARENA", ROOT.parent / "tabarena")).expanduser().resolve()
 CACHE = TA_DIR / "data" / "cache"
 ANSWERS = TA_DIR / "data" / "answers"
+OBF_MAPS = TA_DIR / "data" / "obfuscate"  # 바꾼 대회의 대응표 (정답처럼 에이전트에게 안 보이는 곳, obfuscate.py)
 DRIVER = Path(__file__).with_name("driver.py")
 GRADES = RESULTS / "tabarena.csv"  # 우리 split 채점 (git 추적, 원격 정리 작업이 씀)
 REFERENCE = RESULTS / "tabarena_reference.csv"  # TabArena 공개 결과의 기본 설정 행 (git 추적, fab ta reference)
 ELO = RESULTS / "tabarena_elo.csv"  # TabArena 식 Elo (git 추적, fab ta elo, elo.py)
 RUNS = RESULTS / "tabarena_runs.csv"  # 에이전트 실행별 채점 (git 추적, 원격 정리 작업이 씀. fab.agent.TA_TABLE)
+OBF_TABLE = RESULTS / "tabarena_obf.csv"  # 원래 대 바꾼 대회 (r0f0, git 추적, fab ta obf)
 SPLIT_PREFIX = "tas-"  # 생성 split 대회 (git 제외)
 ID_COL = "id"
 METRICS = {"binary": "auc", "multiclass": "logloss", "regression": "rmse"}
@@ -92,7 +99,8 @@ def datasets() -> pd.DataFrame:
 
 
 def dataset_row(name: str) -> pd.Series:
-    ds = datasets()
+    """이름 (바꾼 대회 키 <데이터셋>~obf 도) → 메타데이터 행 (바꾼 대회는 원래 데이터셋의 것)."""
+    name, ds = obf.base(name), datasets()
     if name not in ds.index:
         raise SystemExit(f"TabArena-v0.1 에 없는 데이터셋: {name} (fab/bench/tabarena/datasets.csv)")
     return ds.loc[name]
@@ -120,26 +128,48 @@ def fold_index(split: str) -> int:
     return 3 * r + f
 
 
-def committed() -> dict[str, Competition]:
-    """저장소의 r0f0 대회 (competitions/ta-*) {데이터셋: 대회}."""
+def _committed_all() -> dict[str, Competition]:
+    """저장소의 r0f0 대회 (competitions/ta-*) {결과 키 (데이터셋, 바꾼 대회는 <데이터셋>~obf): 대회}."""
     out = {}
     for p in sorted(COMP_DIR.glob("ta-*/config.yaml")):
         c = load_competition(p.parent.name)
         if c.tabarena:
-            out[c.tabarena["dataset"]] = c
+            key = obf.result_key(c.tabarena)
+            if key in out:
+                raise SystemExit(f"r0f0 대회가 둘: {out[key].name}, {c.name} ({key})")
+            out[key] = c
     return out
 
 
+def committed() -> dict[str, Competition]:
+    """저장소의 r0f0 대회 {데이터셋: 대회}. 바꾼 대회 (obfuscate) 는 빼고 (원래 데이터셋과 안 섞이게, obf_committed)."""
+    return {k: c for k, c in _committed_all().items() if not obf.is_obf(k)}
+
+
+def obf_committed() -> dict[str, Competition]:
+    """바꾼 r0f0 대회 {<데이터셋>~obf: 대회}."""
+    return {k: c for k, c in _committed_all().items() if obf.is_obf(k)}
+
+
 def comp_name(dataset: str, split: str) -> str:
+    """dataset 은 데이터셋 이름 또는 바꾼 대회 키 (<데이터셋>~obf)."""
+    if obf.is_obf(dataset):
+        if dataset not in obf_committed():
+            raise SystemExit(f"바꾼 대회 없음: {dataset} (competitions/ta-<데이터셋>-obf/ 의 설정에 tabarena.obfuscate)")
+        if split == "r0f0":
+            return obf_committed()[dataset].name
+        return f"{SPLIT_PREFIX}{slug(obf.base(dataset))}-obf-{split}"
     if split == "r0f0" and (c := committed().get(dataset)):
         return c.name
     return f"{SPLIT_PREFIX}{slug(dataset)}-{split}"
 
 
 def resolve(target: str) -> str:
-    """데이터셋 이름 또는 대회 이름 → 데이터셋 이름."""
+    """데이터셋 이름 · 대회 이름 · 바꾼 대회 키 → 데이터셋 이름 (바꾼 대회는 <데이터셋>~obf)."""
     if (COMP_DIR / target / "config.yaml").exists() and (ta := load_competition(target).tabarena):
-        return ta["dataset"]
+        return obf.result_key(ta)
+    if obf.is_obf(target):
+        comp_name(target, "r0f0")  # 바꾼 대회가 있는지
     dataset_row(target)
     return target
 
@@ -204,7 +234,7 @@ def split_comp(dataset: str, split: str) -> Competition:
     name = comp_name(dataset, split)
     if not name.startswith(SPLIT_PREFIX):
         return load_competition(name)
-    base = committed().get(dataset)
+    base = (obf_committed() if obf.is_obf(dataset) else committed()).get(dataset)
     if base:
         cfg = yaml.safe_load((base.dir / "config.yaml").read_text())
         cfg["tabarena"] = {k: v for k, v in cfg["tabarena"].items() if k != "anon_id"}
@@ -251,9 +281,20 @@ def prepare(comp: Competition):
     tr, te = split_rows(splits, len(df), ta["split"])
     if ID_COL in df.columns:
         raise SystemExit(f"{ta['dataset']}: 피처에 '{ID_COL}' 열이 있음 → id 열 이름을 바꿔야 함")
-    ids = np.random.default_rng([ta["task_id"], fold_index(ta["split"])]).permutation(len(df))
+    seed = [ta["task_id"], fold_index(ta["split"])]
     y = meta["target"]
     feats = [c for c in df.columns if c != y]
+    if ob := ta.get("obfuscate"):  # 알아볼 수 없게 바꾼 대회 (obfuscate.py): 같은 행, 열 이름·범주 값·클래스만 바꿈
+        m = obf.build_map(df, feats, y, categorical(meta), ta["task_id"], ob["seed"], comp.is_classification)
+        df, y, feats = obf.apply(df, m), obf.TARGET, [m["columns"][c] for c in feats]
+        seed = [*seed, ob["seed"]]  # 행 id 도 원래 대회와 다르게
+        if comp.target != y or sorted(ta["categorical"]) != sorted(m["values"]):
+            raise SystemExit(f"{comp.name}: 설정의 target·categorical 이 대응표와 다름 "
+                             f"(target {y}, categorical {sorted(m['values'])})")
+        OBF_MAPS.mkdir(parents=True, exist_ok=True)
+        (OBF_MAPS / f"{comp.name}.json").write_text(json.dumps(dict(m, dataset=ta["dataset"], seed=ob["seed"]),
+                                                               indent=1, ensure_ascii=False))
+    ids = np.random.default_rng(seed).permutation(len(df))
     train = df.iloc[tr].assign(**{ID_COL: ids[tr]}).sort_values(ID_COL)[[ID_COL, *feats, y]]
     test = df.iloc[te].assign(**{ID_COL: ids[te]}).sort_values(ID_COL)
     comp.data_dir.mkdir(parents=True, exist_ok=True)
@@ -282,9 +323,29 @@ def prepare(comp: Competition):
     test[[ID_COL, y]].to_csv(ANSWERS / f"{comp.name}.csv", index=False)
     info = dict(comp=comp.name, dataset=ta["dataset"], task_id=ta["task_id"], split=ta["split"], task=comp.task,
                 metric=comp.metric, target=y, classes=[str(c) for c in classes] if classes else None,
-                positive=str(classes[1]) if comp.task == "binary" else None, n_train=len(train), n_test=len(test))
+                positive=str(classes[1]) if comp.task == "binary" else None, n_train=len(train), n_test=len(test),
+                obfuscated=bool(ta.get("obfuscate")))
     (ANSWERS / f"{comp.name}.json").write_text(json.dumps(info, indent=1))
     print(f"{comp.name}: train {len(train)} · test {len(test)} → {comp.data_dir} (정답 {ANSWERS / comp.name}.csv)")
+
+
+def obf_leaks(comp: Competition) -> list[str]:
+    """바꾼 대회의 public (설명·파일 열 머리·범주 값) 에 원래 이름이 남았는지 (fab ta agent run 이 제출 전에 부름, fab/agent).
+    설명·열 머리: 원래 열 이름·타깃·클래스 이름·설정의 hide 말 (obfuscate.find_leaks). 범주 열의 값: 모두 토큰 꼴이고 대응표의
+    토큰인지. 대응표는 prepare 가 쓴 FAB_TABARENA/data/obfuscate/<대회>.json."""
+    m = json.loads((OBF_MAPS / f"{comp.name}.json").read_text())
+    d = comp.data_dir
+    texts = {"description.md": (d / "description.md").read_text()}
+    for f in ("train.csv", "test.csv", "sample_submission.csv"):
+        with open(d / f) as fh:
+            texts[f"{f} 열 머리"] = fh.readline()
+    found = obf.find_leaks(comp, m, texts)
+    for f in ("train.csv", "test.csv"):
+        df = pd.read_csv(d / f, dtype=str)
+        for c, mp in m["values"].items():
+            if bad := sorted(set(df[c].dropna()) - set(mp.values()))[:3]:
+                found.append(f"{f}: {c} 에 대응표 밖 값 {bad}")
+    return found
 
 
 def ensure_prepared(comp: Competition):
@@ -376,7 +437,7 @@ def grade_row(comp: Competition, model: str, report: dict, note: str = "", info:
     ta = comp.tabarena
     info = info or test_info(comp.name, model) or {}
     return dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"), comp=comp.name,
-                dataset=ta["dataset"], task_id=ta["task_id"], split=ta["split"], fold=fold_index(ta["split"]),
+                dataset=obf.result_key(ta), task_id=ta["task_id"], split=ta["split"], fold=fold_index(ta["split"]),
                 model=model, metric=comp.metric, score=report.get("score"), metric_error=report.get("metric_error"),
                 run=info.get("run"), note=note, opts=info.get("opts"))
 
@@ -654,8 +715,11 @@ def warn_mixed_opts(model: str, rows: pd.DataFrame):
         print(f"경고: {model} 의 행이 다른 설정으로 섞임 {counts} → 한 판정으로 읽지 말 것 (설정마다 다른 이름으로 돌림)")
 
 
-def latest_grades(grades: pd.DataFrame) -> pd.DataFrame:
-    """같은 (대회, 모델) 을 여러 번 채점했으면 마지막 행만 (compare · elo_tables 가 같이 씀)."""
+def latest_grades(grades: pd.DataFrame, obfuscated: bool = False) -> pd.DataFrame:
+    """같은 (대회, 모델) 을 여러 번 채점했으면 마지막 행만 (compare · elo_tables 가 같이 씀).
+    바꾼 대회 (dataset 이 <데이터셋>~obf) 의 행은 obfuscated=True 일 때만 남김 (compare·elo 의 풀에 안 섞이게)."""
+    if not obfuscated:
+        grades = grades[~grades.dataset.map(obf.is_obf)]
     return grades.sort_values("timestamp", kind="stable").drop_duplicates(["comp", "model"], keep="last")
 
 
@@ -719,7 +783,7 @@ def elo_tables(rounds: int) -> pd.DataFrame:
         have = set(grades[grades.model.isin(models) & grades.metric_error.notna()].dataset)
         if name in elo.FM_MODELS and (miss := sorted(all_ds - have)):
             print(f"경고: {name} 가 없는 데이터셋 {miss} → RandomForest 로 채움")
-    dataset_of = {c.name: ds for ds, c in committed().items()}
+    dataset_of = {c.name: ds for ds, c in committed().items()}  # 바꾼 대회의 Agent 실행은 여기에 없어 풀에서 빠짐
     out = []
     for pool, long in [("fm", elo.fm_pool(ref, grades)), ("agent", elo.agent_pool(ref, grades, runs, dataset_of))]:
         t = elo.elo(long, rounds=rounds)  # 데이터셋 MIN_CI_DATASETS 개 미만이면 elo() 가 부트스트랩을 건너뜀
@@ -741,6 +805,41 @@ def elo_tables(rounds: int) -> pd.DataFrame:
     res.round({"elo": 1, "elo+": 1, "elo-": 1, "rank": 3, "winrate": 4, "imputed": 4}).to_csv(ELO, index=False)
     print(f"\n{ELO}: {len(res)}행")
     return res
+
+
+OBF_MODELS = {"FM: kumo": "kumo_cat_refit", "FM: tabicl": "tabicl_kv_refit", "FM: tabpfn_v2": "tabpfn_v2_refit",
+              "GBDT: lgbm": "lgbm_refit", "GBDT: catboost": "catboost_refit"}
+
+
+def obf_table() -> pd.DataFrame:
+    """원래 대 바꾼 대회 (r0f0): FM·GBDT (results/tabarena.csv) 와 Agent 설정별 (results/tabarena_runs.csv, 회차 평균·1회째).
+    σ = 원래 데이터셋 kumo (kumo_cat_refit) 의 모든 split 표준편차 (ddof 1, docs/tabarena.md 의 요약 표와 같음).
+    vs_kumo = 같은 대회의 kumo 와의 차 ÷ σ (음수 = kumo 보다 나음), change = 바꾼 것 − 원래 ÷ σ → results/tabarena_obf.csv."""
+    grades, runs = latest_grades(pd.read_csv(GRADES), obfuscated=True), pd.read_csv(RUNS)
+    rows = []
+    for key, oc in obf_committed().items():
+        ds, orig = obf.base(key), committed().get(obf.base(key))
+        g = grades[grades.dataset == ds]
+        sigma = g[g.model == "kumo_cat_refit"].metric_error.std()
+        g0, g1 = g[g.split == "r0f0"], grades[(grades.dataset == key) & (grades.split == "r0f0")]
+        score = {}
+        for label, m in OBF_MODELS.items():
+            a, b = g0[g0.model == m].metric_error, g1[g1.model == m].metric_error
+            score[label] = (a.iloc[-1] if len(a) else np.nan, b.iloc[-1] if len(b) else np.nan, np.nan, 0, len(b))
+        for cfg in sorted(set(runs[runs.comp.isin([orig.name if orig else "", oc.name])].config)):
+            ra = runs[(runs.comp == (orig.name if orig else "")) & (runs.config == cfg)].sort_values("rep")
+            rb = runs[(runs.comp == oc.name) & (runs.config == cfg)].sort_values("rep")
+            score[f"Agent: {cfg}"] = (ra.metric_error.mean(), rb.metric_error.mean(),
+                                      ra.metric_error.iloc[0] if len(ra) else np.nan, len(ra), len(rb))
+        k0, k1 = score["FM: kumo"][:2]
+        for label, (a, b, a1, na, nb) in score.items():
+            rows.append(dict(dataset=ds, comp=oc.name, anon_id=oc.tabarena["anon_id"], method=label, orig=a, obf=b,
+                             orig_first=a1, orig_runs=na, obf_runs=nb, sigma=sigma, change=(b - a) / sigma,
+                             orig_vs_kumo=(a - k0) / sigma, obf_vs_kumo=(b - k1) / sigma))
+    out = pd.DataFrame(rows)
+    out.round(6).to_csv(OBF_TABLE, index=False)
+    print(f"{OBF_TABLE}: {len(out)}행")
+    return out
 
 
 # --- 명령 ------------------------------------------------------------------------------------------------------
@@ -790,6 +889,7 @@ def main(argv: list[str] | None = None):
     e = sub.add_parser("elo", help="TabArena 식 Elo (RandomForest = 1000): FM 풀 (51개) · Agent 풀 (r0f0) → results/tabarena_elo.csv")
     e.add_argument("--rounds", type=int, default=200, help="부트스트랩 횟수 (기본 200, TabArena 와 같음. 0 = 점추정만)")
     sub.add_parser("cats", help="범주 열 비율·카디널리티와 FM − 기본 GBDT (51개, 있는 결과만) → results/tabarena_cats.csv")
+    sub.add_parser("obf", help="원래 대 알아볼 수 없게 바꾼 대회 (r0f0): FM·GBDT·Agent → results/tabarena_obf.csv")
     sub.add_parser("agent", help="에이전트 실행 (fab ta agent -h, fab mleb agent 와 같은 명령)")
     args = ap.parse_args(argv)
 
@@ -842,3 +942,6 @@ def main(argv: list[str] | None = None):
         from fab.bench.tabarena import cats
 
         cats.main()
+    elif args.cmd == "obf":
+        with pd.option_context("display.width", 220, "display.max_rows", 200):
+            print(obf_table().drop(columns=["comp"]).round(5).to_string(index=False))

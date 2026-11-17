@@ -1,0 +1,21 @@
+# ta-in-vehicle-coupon-recommendation (OpenML task 363681) 의 r0f0 를 알아볼 수 없게 바꾼 대회 (docs/tabarena.md 의 "범주 대 오염",
+# fab/bench/tabarena/obfuscate.py). 같은 split·같은 행. 열 이름 f0..f23 (원래 순서), 범주 22열의 값은 열마다 무작위 토큰
+# (결측은 결측), 수치 2열 (f3 = temperature, f4 = time) 은 값 그대로. 타깃 target · 클래스 c0 (원래 No) / c1 (원래 Yes = 양성).
+# 결과표의 dataset 키는 in_vehicle_coupon_recommendation~obf. 대응표는 FAB_TABARENA/data/obfuscate/ 에만
+name: ta-in-vehicle-coupon-recommendation-obf
+tabarena:
+  dataset: in_vehicle_coupon_recommendation
+  task_id: 363681
+  split: r0f0
+  anon_id: tabarena-p15
+  obfuscate:
+    seed: 20261117
+    hide: [coupon, coupons, vehicle, vehicles, driver, driving, drive, car, cars, venue, restaurant, bar, coffee, weather,
+      passenger, survey, respondent, destination, temperature, income, occupation, gender, Kaggle, UCI, OpenML]
+  categorical: [f0, f1, f2, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23]
+task: binary
+target: target
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}

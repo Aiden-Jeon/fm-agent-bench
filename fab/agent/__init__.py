@@ -251,6 +251,11 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
     if comp is not None:  # 올리기 전에 데이터 파일 이름·설명 확인
         leak_check(comp, [comp.data_dir / "description.md"],
                    {"data files": " ".join(p.name for p in comp.data_dir.iterdir()), "cid": cid})
+        if comp.tabarena.get("obfuscate"):  # 알아볼 수 없게 바꾼 대회: 설명·열 머리·값에 원래 이름이 없는지 (docs/tabarena.md)
+            from fab.bench.tabarena import obf_leaks
+
+            if found := obf_leaks(comp):
+                raise SystemExit("바꾼 대회의 public 에 원래 이름이 남음 → 제출 안 함:\n  " + "\n  ".join(found))
     data = upload_data(cfg, cid, comp.data_dir if comp is not None else None)
     # 키는 Volume 경로·command_path 에 들어감 → '+' 불가 (jobs submit 이 거부, 2026-11-10). 설정 이름(label)은 +cont 그대로
     key = f"{cid}__{label.replace('+', '-')}__r{rep}__{datetime.now():%Y%m%d-%H%M%S}"
