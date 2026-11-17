@@ -771,11 +771,19 @@ def summary(cmp: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
+def without_fm(runs: pd.DataFrame) -> pd.DataFrame:
+    """C2 (+fm, 환경에 TFM 을 깐 설정) 실행을 뺀 Agent 실행. Elo 의 Agent 풀·obf 표는 공식 설정 (+cont 포함) 만:
+    +fm 을 넣으면 풀이 바뀌어 기존 Elo 가 모두 달라짐 (docs/tabarena.md 의 "C2 (+fm)")."""
+    from fab.agent import FM_SUFFIX
+
+    return runs[~runs.config.str.contains(FM_SUFFIX, regex=False)]
+
+
 def elo_tables(rounds: int) -> pd.DataFrame:
     """두 풀 (fm·agent, elo.py) 의 Elo → results/tabarena_elo.csv."""
     from fab.bench.tabarena import elo
 
-    ref, grades, runs = pd.read_csv(REFERENCE), latest_grades(pd.read_csv(GRADES)), pd.read_csv(RUNS)
+    ref, grades, runs = pd.read_csv(REFERENCE), latest_grades(pd.read_csv(GRADES)), without_fm(pd.read_csv(RUNS))
     all_ds = set(datasets().index)
     for name, models in {**elo.FM_MODELS, **elo.GBDT_MODELS}.items():
         for m in models:
@@ -815,7 +823,7 @@ def obf_table() -> pd.DataFrame:
     """원래 대 바꾼 대회 (r0f0): FM·GBDT (results/tabarena.csv) 와 Agent 설정별 (results/tabarena_runs.csv, 회차 평균·1회째).
     σ = 원래 데이터셋 kumo (kumo_cat_refit) 의 모든 split 표준편차 (ddof 1, docs/tabarena.md 의 요약 표와 같음).
     vs_kumo = 같은 대회의 kumo 와의 차 ÷ σ (음수 = kumo 보다 나음), change = 바꾼 것 − 원래 ÷ σ → results/tabarena_obf.csv."""
-    grades, runs = latest_grades(pd.read_csv(GRADES), obfuscated=True), pd.read_csv(RUNS)
+    grades, runs = latest_grades(pd.read_csv(GRADES), obfuscated=True), without_fm(pd.read_csv(RUNS))
     rows = []
     for key, oc in obf_committed().items():
         ds, orig = obf.base(key), committed().get(obf.base(key))
