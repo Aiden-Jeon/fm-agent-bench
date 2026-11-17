@@ -23,7 +23,7 @@ from fab.bench.tabarena import (GRADES, REFERENCE, RESULTS, categorical, dataset
 CATS = RESULTS / "tabarena_cats.csv"  # git 추적, fab ta cats
 HIGH_CARD = 100  # 고유값이 이보다 많은 범주 열을 고카디널리티로 셈
 NA_TEXT = ["nan", "NaN", "None", "<NA>"]  # 셀 때 결측으로 보는 글
-BINS = [("0%", 0, 0), ("0~50%", 0, 50), ("50~90%", 50, 90), ("90% 이상", 90, 100)]  # (이름, 초과, 이하). 0% 만 = 0
+BINS = [("0%", 0, 0), ("0~50%", 0, 50), ("50~90%", 50, 90), ("90% 이상", 90, 100)]  # 0% = 0, 0~50% = (0, 50], 50~90% = (50, 90), 90% 이상 = [90, 100]
 METHODS = {"kumo": "kumo (ours)", "ta_kumo": "TabArena Kumo-Tabular", "ta_icl2": "TabArena TabICLv2"}
 # docs/tabarena.md 6 의 묶음 (이름이 적힌 것만). Kaggle 데이터셋 = 부록의 출처 Kaggle 중 대회 3개를 뺀 12개
 CONTAM = {
@@ -42,7 +42,7 @@ TASK = {"binary": "이진", "multiclass": "다중", "regression": "회귀"}
 
 
 def cat_stats(dataset: str) -> dict:
-    """데이터셋 하나의 범주 열 통계 (로컬 캐시, 새로 받지 않음)."""
+    """데이터셋 하나의 범주 열 통계 (로컬 캐시. 캐시에 없으면 read_data → fetched 가 OpenML 에서 받음)."""
     df, meta, _ = read_data(dataset)
     cats = categorical(meta)
     # 결측이 글 "nan" 으로 든 열이 있음 (MIC 93열 · kddcup09 22열 등, F0 은 이것을 범주 값 하나로 봄) → 셀 때만 결측으로
@@ -58,15 +58,19 @@ def cat_stats(dataset: str) -> dict:
 
 def method_rows(grades: pd.DataFrame, ref: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """방법마다 (dataset, split, metric_error)."""
-    from fab.bench.tabarena.elo import FM_MODELS, _ours
+    from fab.bench.tabarena.elo import FM_MODELS, _ours, _ref
 
     kumo = _ours(grades, {"kumo (ours)": FM_MODELS["kumo (ours)"]})
-    pick = lambda name: ref[ref.ta_name == name][["dataset", "split", "metric_error"]]  # noqa: E731
-    return {"kumo": kumo, "ta_kumo": pick("Kumo-Tabular"), "ta_icl2": pick("TabICLv2")}
+    r = _ref(ref)
+    return {"kumo": kumo, "ta_kumo": r[r.method == "Kumo-Tabular"], "ta_icl2": r[r.method == "TabICLv2"]}
 
 
 def gaps(dataset: str, rows: dict[str, pd.DataFrame], ref: pd.DataFrame) -> dict:
     want = set(split_names(dataset))
+    g = ref[ref.ta_name.isin(["CatBoost", "LightGBM"]) & (ref.dataset == dataset) & ref.split.isin(want)]
+    have = g.groupby("ta_name").split.nunique().reindex(["CatBoost", "LightGBM"], fill_value=0)
+    if (have != len(want)).any():  # default_gbdt 는 있는 split 만 평균함 → FM 과 split 이 다르면 알림
+        print(f"경고: {dataset} 의 기본 GBDT split " + " · ".join(f"{k} {v}/{len(want)}" for k, v in have.items()))
     gbdt = default_gbdt(ref, dataset, want)
     out = dict(gbdt=gbdt)
     for k, r in rows.items():
@@ -81,7 +85,9 @@ def gaps(dataset: str, rows: dict[str, pd.DataFrame], ref: pd.DataFrame) -> dict
 
 
 def binned(pct: pd.Series) -> list[str]:
-    return [next(b for b, lo, hi in BINS if (p == 0 if hi == 0 else lo < p <= hi)) for p in pct]
+    def one(p):
+        return "0%" if p == 0 else "0~50%" if p <= 50 else "50~90%" if p < 90 else "90% 이상"
+    return [one(p) for p in pct]
 
 
 def table() -> pd.DataFrame:
@@ -98,26 +104,31 @@ def table() -> pd.DataFrame:
     return t
 
 
+def rho(t: pd.DataFrame, x: str, y: str) -> str:
+    """스피어만 상관 "ρ (p · n)". 둘 중 하나라도 빈 행은 뺌."""
+    ok = t[[x, y]].dropna()
+    r, p = spearmanr(ok[x], ok[y])
+    return f"{r:+.2f} ({p:.2g} · {len(ok)})"
+
+
 def report(t: pd.DataFrame):
     """상관·묶음을 출력 (문서의 표가 이것)."""
     cols = [f"{k}_{s}" for k in METHODS for s in ("pct", "sd")]
-    print(f"\n== 스피어만 순위 상관 (n = {len(t)}, 괄호는 p)")
+    print(f"\n== 스피어만 순위 상관 ({len(t)}개 중 두 값이 다 있는 것, 괄호는 p · n)")
     for x in ["cat_pct", "nonbin_pct", "card_max_pct", "card_max", "high_card", "rows"]:
-        cells = []
-        for c in cols:
-            ok = t[[x, c]].dropna()
-            rho, p = spearmanr(ok[x], ok[c])
-            cells.append(f"{c} {rho:+.2f} ({p:.2g})")
-        print(f"{x:>13}: " + " · ".join(cells))
-    has = t[t.cat > 0]
+        print(f"{x:>13}: " + " · ".join(f"{c} {rho(t, x, c)}" for c in cols))
+    has = t[t.cat > 0].assign(binary_pct=lambda v: 100 * v.binary_cat / v.cat)
     print(f"\n== 범주 열이 있는 {len(has)}개만")
     for x in ["cat_pct", "card_max_pct", "binary_pct"]:
-        v = has.assign(binary_pct=100 * has.binary_cat / has.cat)
-        rho, p = spearmanr(v[x], v.kumo_pct)
-        rho2, p2 = spearmanr(v[x], v.kumo_sd)
-        print(f"{x:>13}: kumo_pct {rho:+.2f} ({p:.2g}) · kumo_sd {rho2:+.2f} ({p2:.2g})")
+        print(f"{x:>13}: kumo_pct {rho(has, x, 'kumo_pct')} · kumo_sd {rho(has, x, 'kumo_sd')}")
+    print("\n== 묶어서 본 상관 (cat_pct 와 kumo_pct)")
+    for task, v in t.groupby("task"):
+        print(f"{'과제 ' + task:>13}: {rho(v, 'cat_pct', 'kumo_pct')}")
+    for name, v in [("> 2만 행", t[t.rows > 20000]), ("≤ 2만 행", t[t.rows <= 20000])]:
+        print(f"{name:>13}: {rho(v, 'cat_pct', 'kumo_pct')}")
+    print(f"{'행 수':>13}: cat_pct {rho(t, 'rows', 'cat_pct')} · high_card {rho(t, 'rows', 'high_card')}")
     agg = dict(n=("dataset", "size"), **{c: (c, "median") for c in cols},
-               fm_wins=("kumo_pct", lambda s: f"{(s < 0).sum()}/{len(s)}"))
+               fm_wins=("kumo_pct", lambda s: f"{(s < 0).sum()}/{s.notna().sum()}"))
     order = [b for b, _, _ in BINS]
     with pd.option_context("display.width", 250, "display.max_columns", 30):
         print("\n== 범주 비율 묶음 (중앙값)")
@@ -130,7 +141,7 @@ def report(t: pd.DataFrame):
         print("\n== 과제 × 범주 묶음 (kumo_pct 중앙값, 개수)")
         print(t.pivot_table(index="task", columns="cat_bin", values="kumo_pct", aggfunc=["median", "size"])
               .reindex(columns=order, level=1).round(1).to_string())
-        size = pd.cut(t.rows, [0, 2500, 20000, np.inf], labels=["< 2.5k", "2.5k~20k", "> 20k"])
+        size = pd.cut(t.rows, [0, 2499, 20000, np.inf], labels=["< 2.5k", "2.5k~20k", "> 20k"])  # 행은 정수
         print("\n== 크기 × 범주 묶음 (kumo_pct 중앙값, 개수)")
         print(t.assign(size=size).pivot_table(index="size", columns="cat_bin", values="kumo_pct",
                                               aggfunc=["median", "size"], observed=False)
