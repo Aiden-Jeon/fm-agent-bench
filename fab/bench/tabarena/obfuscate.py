@@ -46,9 +46,12 @@ def feature_names(features: list[str]) -> dict[str, str]:
 
 
 def class_names(classes: list[str]) -> dict[str, str]:
-    """정렬 순서대로 c0, c1, … (10개 이상이면 0 을 채워 글자 정렬 = 숫자 순서)."""
+    """원래 대회의 클래스 순서 (prepare 가 CSV 를 pandas 로 읽은 값의 정렬: 모두 숫자면 숫자로, 아니면 글자로) 대로
+    c0, c1, … (10개 이상이면 0 을 채워 글자 정렬 = 숫자 순서) → 이진의 양성 클래스·다중의 열 순서가 원래와 같음."""
+    num = pd.to_numeric(pd.Series(classes, dtype=object), errors="coerce")
+    order = [c for _, c in sorted(zip(num, classes))] if num.notna().all() else sorted(classes)
     w = len(str(len(classes) - 1))
-    return {c: f"c{i:0{w}d}" for i, c in enumerate(sorted(classes))}
+    return {c: f"c{i:0{w}d}" for i, c in enumerate(order)}
 
 
 def missing(s: pd.Series) -> pd.Series:

@@ -825,15 +825,21 @@ def obf_table() -> pd.DataFrame:
         score = {}
         for label, m in OBF_MODELS.items():
             a, b = g0[g0.model == m].metric_error, g1[g1.model == m].metric_error
-            score[label] = (a.iloc[-1] if len(a) else np.nan, b.iloc[-1] if len(b) else np.nan, np.nan, 0, len(b))
+            a0, b0 = a.iloc[-1] if len(a) else np.nan, b.iloc[-1] if len(b) else np.nan
+            score[label] = (a0, b0, a0, int(len(a) > 0), int(len(b) > 0))  # FM·GBDT 는 결정적, 회차 하나
         for cfg in sorted(set(runs[runs.comp.isin([orig.name if orig else "", oc.name])].config)):
             ra = runs[(runs.comp == (orig.name if orig else "")) & (runs.config == cfg)].sort_values("rep")
             rb = runs[(runs.comp == oc.name) & (runs.config == cfg)].sort_values("rep")
-            score[f"Agent: {cfg}"] = (ra.metric_error.mean(), rb.metric_error.mean(),
+            # 실패한 회차 (무효 제출·점수 없음) 가 있으면 평균을 비움 (점수 있는 회차만 평균하면 실패가 빠짐. elo 는 RandomForest 로 채움)
+            ok_a, ok_b = ra.valid_submission.eq(True) & ra.metric_error.notna(), rb.valid_submission.eq(True) & rb.metric_error.notna()
+            score[f"Agent: {cfg}"] = (ra.metric_error.mean() if ok_a.all() else np.nan,
+                                      rb.metric_error.mean() if ok_b.all() else np.nan,
                                       ra.metric_error.iloc[0] if len(ra) else np.nan, len(ra), len(rb))
+            if not (ok_a.all() and ok_b.all()):
+                print(f"경고: {oc.name} {cfg} 에 실패한 회차 (원래 {int((~ok_a).sum())} · 바꾼 것 {int((~ok_b).sum())}) → 평균 비움")
         k0, k1 = score["FM: kumo"][:2]
         for label, (a, b, a1, na, nb) in score.items():
-            rows.append(dict(dataset=ds, comp=oc.name, anon_id=oc.tabarena["anon_id"], method=label, orig=a, obf=b,
+            rows.append(dict(dataset=ds, comp=oc.name, anon_id=oc.tabarena.get("anon_id"), method=label, orig=a, obf=b,
                              orig_first=a1, orig_runs=na, obf_runs=nb, sigma=sigma, change=(b - a) / sigma,
                              orig_vs_kumo=(a - k0) / sigma, obf_vs_kumo=(b - k1) / sigma))
     out = pd.DataFrame(rows)
