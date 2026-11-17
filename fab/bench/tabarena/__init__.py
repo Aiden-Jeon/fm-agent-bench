@@ -6,6 +6,7 @@ TabArena 공개 결과와 비교. 조사·결정은 docs/tabarena.md.
     uv run --frozen fab ta reference                     # TabArena 공개 결과 (기본 설정) → results/tabarena_reference.csv
     uv run --frozen fab ta compare                       # results/tabarena.csv 와 TabArena 결과 비교 (맞춤 기준)
     uv run --frozen fab ta elo                           # TabArena 식 Elo (RandomForest = 1000) → results/tabarena_elo.csv
+    uv run --frozen fab ta cats                          # 범주 열 비율과 FM − 기본 GBDT (51개) → results/tabarena_cats.csv
     uv run --frozen fab ta agent run ta-<데이터셋> aide-sonnet   # 에이전트 (r0f0, 익명 id 로)
 
 대회 단위 (결정 5): (데이터셋, split) 마다 대회 하나. split = OpenML task 의 (repeat r, fold f) → 이름 r<r>f<f>,
@@ -788,6 +789,7 @@ def main(argv: list[str] | None = None):
     c.add_argument("--detail", action="store_true", help="데이터셋별 표도")
     e = sub.add_parser("elo", help="TabArena 식 Elo (RandomForest = 1000): FM 풀 (51개) · Agent 풀 (r0f0) → results/tabarena_elo.csv")
     e.add_argument("--rounds", type=int, default=200, help="부트스트랩 횟수 (기본 200, TabArena 와 같음. 0 = 점추정만)")
+    sub.add_parser("cats", help="범주 열 비율·카디널리티와 FM − 기본 GBDT (51개, 있는 결과만) → results/tabarena_cats.csv")
     sub.add_parser("agent", help="에이전트 실행 (fab ta agent -h, fab mleb agent 와 같은 명령)")
     args = ap.parse_args(argv)
 
@@ -836,3 +838,7 @@ def main(argv: list[str] | None = None):
             print(summary(cmp).to_string(index=False))
     elif args.cmd == "elo":
         elo_tables(args.rounds)
+    elif args.cmd == "cats":
+        from fab.bench.tabarena import cats
+
+        cats.main()
