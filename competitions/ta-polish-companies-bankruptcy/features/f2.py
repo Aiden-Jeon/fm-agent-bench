@@ -1,9 +1,10 @@
-"""C1 의 F2: TabArena Agent Codex × GPT 풀이의 CatBoost 성분 셋의 입력 합집합, 533열 (docs/tabarena.md 의 "C1").
+"""C1 의 F2: TabArena Agent Codex × GPT 풀이의 CatBoost 성분 셋의 입력 합집합 (equals 쌍은 train 으로만 고름), 열 수는 아래 (docs/tabarena.md 의 "C1").
 
 출처: 실행 tabarena-p10__codex-gpt__r1__20261116-193556 (r0f0 test AUC 0.9956, polish 의 Agent 최고) 의 작업 디렉터리.
+카드: competitions/ta-polish-companies-bankruptcy/c1.md (PR #34, 이 파일은 카드의 조건부 ~f2e).
 최종 제출 (submit_current.py) = seed 10개마다 CatBoost 성분 셋 (identity 0.6·all 0.4 → ×0.95, 원본 0.05, equals 0.1) + 같은 피처의
 fold·반복을 바꾼 것을 섞고, 그룹 행 (sales_to_total_assets == total_sales_to_total_assets) 은 ExtraTrees 그룹 모델·TabPFN 과 섞음,
-그룹 사전 확률 1.25배, 최근접·같은 train 행의 정답으로 덮어쓰기. 옮긴 피처 (계산식은 에이전트 그대로, 결측·inf 는 결측):
+그룹 사전 확률 1.25배, 최근접·같은 train 행의 정답으로 덮어쓰기. 옮긴 것 (계산식은 에이전트 그대로, 결측·inf 는 결측):
   identity   identity_utils.py 의 feature_engineer: 회계 항등식 22개 × (_diff = 좌 − 우, _relative = 차 / (|좌| + |우| + 1e-10),
              _error = |relative|) 66열 + 비율 8열 (short_liability_fraction … missing_count) = 74열
   all        feature_utils.py 의 feature_engineer(x, 'all'): 접미사 (to_total_assets·to_sales·to_short_term_liabilities·
@@ -11,15 +12,18 @@ fold·반복을 바꾼 것을 섞고, 그룹 행 (sales_to_total_assets == total
              identity 와 정의가 같은 5열 (current_assets_to_assets·depreciation_to_assets·interest_to_assets·share_capital_to_assets·
              missing_count) 은 한 번만. 이름은 같고 정의가 다른 2열 (inventory_to_assets·receivables_to_assets 가 sales_to_total_assets
              기준) 은 뒤에 _s 를 붙임
-  equals     equals.py: train+test 에서 두 열 값이 같은 행 수 n 이 20 ≤ n < 전체 − 20 인 쌍마다 eq_<a>__<b> (같으면 1) 와
+  equals     equals.py: fit 행에서 두 열 값이 같은 행 수 n 이 20 ≤ n < 행 수 − 20 인 쌍마다 eq_<a>__<b> (같으면 1) 와
              dif_<a>__<b> = a − b. diff_<a>_<b> 와 같은 쌍의 dif_ 는 한 번만
-빼 둔 것: 모델 입력 인코딩 fillna(−1e10), CatBoost·ExtraTrees·RF 그룹 모델과 그 안의 QuantileTransformer·SelectFromModel (fold 안
+뺀 것: 모델 입력 인코딩 fillna(−1e10), CatBoost·ExtraTrees·RF 그룹 모델과 그 안의 QuantileTransformer·SelectFromModel (fold 안
 fit)·TabPFN, seed·성분 섞기, 그룹 사전 확률 1.25배, 최근접 (near.npz)·같은 train 행의 정답 덮어쓰기 (train 정답을 쓰는 후처리).
 그룹 표시는 따로 넣지 않음 (모델 나누기에만 씀. 그 쌍이 equals 에 들면 eq_ 열로 들어감). 타깃 피처 없음.
-train+test 로 fit 한 것: equals 의 쌍 고르기 (값이 같은 행 수를 train+test 로 셈). 나머지는 행마다 계산.
-동일성 확인 (로컬, 2026-11-18): 열 수가 에이전트 기록과 같은지 (identity 138 = 원본 64 + 74, all 300, equals 362 · 쌍 112).
-identity 블록으로 에이전트 CatBoost (seed 123, depth 5, 1600번) 를 다시 돌려 predictions/identity_cat5_1600_123.npz 의 oof 와
-비교 (docs/tabarena.md 의 "C1"). TFM 피처 상한 없음 (TabArena 의 FM 은 1,777열까지 돎).
+train+test fit: 에이전트는 equals 의 쌍 고르기 (값이 같은 행 수) 를 train+test 로 셈 (112쌍) → 같은 계산을 train 행으로만 함
+(100쌍, PR #34 의 R3 해석, 2026-11-18 사용자). 나머지는 행마다 계산.
+열: 원본 64 + identity 74 + all 231 (에이전트 236 − identity 와 같은 5) + equals 143 (train 100쌍: eq_ 100 + diff_ 와 겹치지 않는
+dif_ 43) = 512. train+test 판은 112쌍 (eq_ 112 + dif_ 52) 으로 533.
+동일성 확인 (로컬, 2026-11-18): equal_pairs 를 train+test 로 부른 판의 열 수가 에이전트 기록과 같은지 (identity 138 = 원본 64 + 74,
+all 300, equals 362 · 쌍 112), 열마다 값이 에이전트 identity_utils · feature_utils · equals.py 의 출력과 같은지. identity 블록 (fit 없음) 은
+에이전트 CatBoost (seed 123) 를 다시 돌린 PR #35 의 값 그대로 (docs/tabarena.md 의 "C1"). TFM 피처 상한 없음 (TabArena 의 FM 은 1,777열까지 돎).
 """
 
 from __future__ import annotations
@@ -124,7 +128,7 @@ def all_features(x: pd.DataFrame) -> dict[str, pd.Series]:
 
 
 def equal_pairs(total: pd.DataFrame) -> list[tuple[str, str]]:
-    """equals.py 의 쌍 고르기 (total = train+test 원본)."""
+    """equals.py 의 쌍 고르기 (total = fit 행의 원본. 에이전트는 train+test)."""
     out = []
     for a, b in itertools.combinations(total.columns, 2):
         n = (total[a].notna() & total[b].notna() & total[a].eq(total[b])).sum()
@@ -149,8 +153,9 @@ def features(x: pd.DataFrame, pairs: list[tuple[str, str]]) -> pd.DataFrame:
     return out.replace([np.inf, -np.inf], np.nan).astype(float)
 
 
-def build(train: pd.DataFrame, test: pd.DataFrame):
+def build(train: pd.DataFrame, test: pd.DataFrame, with_test: bool = False):
+    """with_test=True 면 에이전트처럼 쌍을 train+test 로 고름 (동일성 확인용)."""
     cols = [c for c in test.columns if c != "id"]  # 원본 64열 (모두 수치, F0 와 같음)
     x, xt = train[cols].astype(float), test[cols].astype(float)
-    pairs = equal_pairs(pd.concat([x, xt], ignore_index=True))
+    pairs = equal_pairs(pd.concat([x, xt], ignore_index=True) if with_test else x)
     return features(x, pairs).reset_index(drop=True), features(xt, pairs).reset_index(drop=True), []
