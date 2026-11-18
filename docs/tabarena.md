@@ -24,6 +24,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [Agent 확장 1회째 (#26, 2026-11-16)](#agent-확장-1회째-26-2026-11-16)
 - [범주 비율과 FM − GBDT (51개, 2026-11-17)](#범주-비율과-fm--gbdt-51개-2026-11-17)
 - [범주 대 오염: 알아볼 수 없게 바꾼 3개 (2026-11-17)](#범주-대-오염-알아볼-수-없게-바꾼-3개-2026-11-17)
+- [C2 (+fm): FM 을 받은 Agent (7개 r0f0, 2026-11-18)](#c2-fm-fm-을-받은-agent-7개-r0f0-2026-11-18)
 - [Elo (2026-11-16)](#elo-2026-11-16)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
@@ -1099,7 +1100,7 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
 
 ### 다음에 정할 것
 
-- **C2 (+fm)**: 할지, 한다면 어디서. FM 이 이긴 9개에서는 "FM 을 손에 쥔 Agent 가 FM 보다 나아지는가", Agent 가 이긴 3개 (범주 많음·오염 높음) 에서는 "FM 을 섞어 더 나아지는가" 를 봄. 같은 10개면 약 50 A10 시간
+- ~~**C2 (+fm)**~~: 7개 × 2설정 (14회) 으로 마무리 (2026-11-18, 아래 "C2 (+fm)"). 나머지 5개 (in_vehicle · Amazon 포함) 는 안 돌림
 - **2회째 (결정 2)**: Agent − FM 이 1σ 안인 6개 (QSAR_fish · MIC · Is-this · splice · polish · QSAR-TID) 는 1회째로 승패를 말하기 어려움. 10개 모두 (약 50 A10 시간) 또는 1σ 안인 6개만 (약 30)
 - 범주 많음 대 오염을 가르려면 **범주가 많고 덜 알려진 데이터** 가 필요 (예: 대안의 hiva_agnostic 은 수치, website_phishing 은 범주 9열 · UCI). 후보를 더 찾을지
 
@@ -1431,6 +1432,60 @@ Amazon (알아본 둘 · 못 알아본 셋)
 | 클래스 이름 안 바뀜 | 처음 `prepare` 에서 타깃 클래스가 원래 이름 그대로 (`EI`·`Yes`). pandas 3 은 문자열 열이 `object` 가 아니라서 `dtype == object` 판정이 거짓 | 과제 종류 (`is_classification`) 로 판정하게 고치고 다시 `prepare`. 원격에 올리기 전이라 영향 없음 |
 | 로컬 대기 멈춤 | 줄 스크립트 (저장소 밖, Databricks CLI 로 2분마다 상태 조회) 가 16:24~18:08 에 다음 실행을 안 냄. Amazon × Codex 는 16:24 에 끝났고 in_vehicle +cont 도 그 사이 끝남 (작업 시간은 59분 · 13분) | 18:08 에 이어서 냄. 점수·조건에는 영향 없음 (같은 엔드포인트를 둘 쓰지는 않음). 맥 잠자기 또는 CLI 조회가 멈춘 것으로 봄 (확인 못 함) |
 | 도구의 대기 상한 | 로컬 줄을 처음에 도구의 백그라운드 명령으로 띄웠는데 4시간 상한이 있어 첫 제출 직후 `nohup` 으로 다시 띄움 (첫 실행은 run_id 를 기다리는 것으로 이어 받음) | 빠진·두 번 낸 실행 없음 |
+
+## C2 (+fm): FM 을 받은 Agent (7개 r0f0, 2026-11-18)
+
+Agent 를 돌린 12개 중 7개의 r0f0 에서, 환경에 TFM 을 깐 Agent (`codex-gpt+fm`·`aide-sonnet+fm`) 를 1회씩 돌림 (14회).
+규칙은 roadmap 의 "C2 규칙" 그대로: tabpfn_v2·tabicl·kumo 를 깔고 가중치를 받아 둔 뒤 (하네스 1시간 밖), 지시문에 `fab/agent/fm_notes.txt` (이름·사용 예, "optional").
+`uv run --frozen fab ta agent run ta-<데이터셋> <설정> --fm` → 설정 이름 `<설정>+fm`, 결과는 `results/tabarena_runs.csv`.
+
+- **멈춘 곳 (2026-11-18, 사용자가 정함)**: 배치 2 (QSAR-TID-11 · in_vehicle · Amazon · physiochemical · APSFailure, 10회, 약 12~13 A10 시간) 는 내지 않고 여기까지로 마무리. 그래서 Agent 가 이긴 3개 가운데 in_vehicle · Amazon 은 C2 가 없음 ("Agent 가 이긴 곳에서 FM 을 섞어 더 나아지나" 는 splice 하나로만 봄)
+- 설정은 2개만 (2026-11-17 사용자가 정함): MLE-bench C2 에서 효과가 갈린 Codex × GPT · AIDE × Sonnet. 두 설정은 엔드포인트가 달라 동시에, 같은 설정은 데이터셋을 차례로
+- **조건 차이**: `fm_notes.txt` 는 MLE-bench C2 와 같게 그대로 둠 (2026-11-17 사용자가 정함). Kumo 예는 "수치만, 범주는 정수로" → 범주 열을 범주로 넘기는 우리 FM (`kumo_cat_refit`, 결정 11) 보다 약한 사용 예일 수 있음. 또 Agent 안의 FM 은 Agent 가 짠 CV·refit 으로 돎 (우리 FM 은 refit 한 번)
+- Elo 의 Agent 풀과 obf 표에는 +fm 을 넣지 않음 (`without_fm`, 넣으면 풀이 바뀌어 기존 Elo 가 모두 달라짐)
+
+### 결과 (r0f0, 1회)
+
+`metric_error` (낮을수록 좋음). Agent = 같은 설정의 공식 설정 (hazelnut 은 2회 평균, 나머지 1회). σ = kumo (ours) 의 split 표준편차 (요약 표와 같음). 굵게 = kumo 보다 나음
+
+| 데이터셋 | kumo (ours) | σ | 설정 | Agent | C2 (+fm) | C2 − Agent (÷σ) | C2 − kumo (÷σ) | 제출에 든 FM (최종 코드) |
+|---|---|---|---|---|---|---|---|---|
+| hazelnut (`p01`) | 0.00390 | 0.00084 | AIDE × Sonnet | 0.01757 | **0.00384** | −16.3 | −0.07 | Kumo 100% (test 의사 레이블 ¹) |
+| | | | Codex × GPT | 0.00988 | 0.00398 | −7.0 | +0.10 | Kumo 100% (test 의사 레이블 ¹) |
+| QSAR_fish (`p05`) | 0.8855 | 0.050 | AIDE × Sonnet | 0.9136 | 0.8891 | −0.49 | +0.07 | Kumo 주 성분 |
+| | | | Codex × GPT | 0.9003 | 0.8885 | −0.24 | +0.06 | Kumo 주 성분 (정수 열 둘에 `categorical`, 가중 0.025) |
+| MIC (`p06`) | 0.4412 | 0.019 | AIDE × Sonnet | 0.4591 | 0.4520 | −0.37 | +0.57 | Kumo · TabPFN |
+| | | | Codex × GPT | 0.4554 | **0.4313** | −1.28 | −0.52 | Kumo 주 성분 |
+| Is-this (`p07`) | 0.2565 | 0.021 | AIDE × Sonnet | 0.2752 | 0.2793 | +0.19 | +1.09 | TabPFN 27% |
+| | | | Codex × GPT | 0.2792 | 0.2798 | +0.03 | +1.12 | 없음 (0%) |
+| splice (`p08`) | 0.06693 | 0.015 | AIDE × Sonnet | 0.07781 | 0.07274 | −0.34 | +0.39 | Kumo 주 성분 (원-핫으로 넘김) |
+| | | | Codex × GPT | 0.06179 | **0.06588** ² | +0.27 | −0.07 | Kumo 주 성분 + train 근접 행 kNN 보정 |
+| students (`p09`) | 0.5251 | 0.014 | AIDE × Sonnet | 0.5515 | 0.5275 | −1.70 | +0.18 | Kumo 100% |
+| | | | Codex × GPT | 0.5537 | 0.5256 | −1.99 | +0.04 | Kumo 100% (object 열에 `categorical`, 가중 0.95) |
+| polish (`p10`) | 0.00342 | 0.0017 | AIDE × Sonnet | 0.03166 | 0.00374 | −16.5 | +0.19 | Kumo 100% (test 의사 레이블 ¹) |
+| | | | Codex × GPT | 0.00436 | **0.00081** | −2.1 | −1.54 | Kumo · GBDT + 비율 열 쌍 피처 |
+
+- ¹ Kumo 예측으로 test 행에 의사 레이블을 붙여 컨텍스트에 넣음 → TabArena 의 "inductive" 규칙 (5) 밖. 셋 다 점수는 FM 수준이거나 그 근처
+- ² 하네스가 끝난 뒤 노드가 플랫폼 오류로 죽어 진행 사본으로 채점 (`run_crashed`). 하네스 58분, 제출은 끝까지 씀
+- "제출에 든 FM" 은 최종 코드로 확인한 것. `tfm_at_submit` (근사) 은 Codex 가 FM 예측을 파일로 남겨 다른 프로세스에서 섞어 대부분 빈칸, AIDE × MIC 는 tabicl 이 더 잡힘 (실제는 Kumo · TabPFN)
+
+### 읽은 것 (7개 · 14회, 1회씩이라 판단은 약함)
+
+- **FM 을 받으면 같은 설정의 Agent 보다 나아짐: 14회 중 11회.** 아닌 셋은 Is-this 둘 (FM 을 거의 안 넣음) 과 splice × Codex (공식 설정 0.0618 이 이미 FM 보다 나았음)
+- **점수는 FM 한 번 (kumo) 근처로 모임**: 14회 중 11회가 kumo 와 1σ 안 (밖은 Is-this 둘 · polish × Codex). 대부분 Kumo 가 제출의 주 성분이고 (5회는 Kumo 100%), Agent 의 피처가 더해 주는 몫은 작음
+- **FM 보다 뚜렷이 나은 것은 polish × Codex 하나** (−76%, −1.5σ): 공식 설정에서도 Codex 만 찾던 비율 열 사이 관계 피처 (#26 의 polish 메모) 에 Kumo · GBDT 를 섞음. 누출 흔적 없음 (원본 URL 0, 코드 읽음). MIC × Codex 도 kumo 보다 나음 (−0.5σ, 흔들림 안)
+- **FM 보다 1σ 넘게 나쁜 것은 Is-this 둘**: FM 을 제출에 거의 안 넣음 (Codex 0%, AIDE TabPFN 27%). FM 이 근소하게 이기는 데이터 (FM − GBDT −2.9%) 라 Agent 가 CV 에서 FM 을 고르지 않은 것으로 봄
+- **Agent 가 이긴 splice**: AIDE 는 FM 을 섞어 나아짐 (0.0778 → 0.0727), Codex 는 오히려 나빠짐 (0.0618 → 0.0659, 흔들림 안). splice 는 두 실행 모두 "UCI splice" 로 알아봄 (#32 와 같음)
+- **Kumo 에 범주를 넘긴 방식**: 대부분 안내문대로 수치로 넘김 (MIC 둘, splice 는 원-핫, students × AIDE). Codex 는 두 곳에서 안내문에 없는 `categorical` stype 을 스스로 찾아 씀 (students · QSAR_fish). 범주가 많은 in_vehicle · Amazon 은 돌리지 않아 이 차이가 점수에 얼마나 드는지는 확인 못 함
+- **공식 설정에서 TFM 을 스스로 깐 실행과 비교**: Codex × QSAR_fish (공식 0.9003, TFM 깖) → +fm 0.8885, Codex × hazelnut 1회째 (공식 0.0064, TFM 깖) → +fm 0.0040. 깔아 주면 더 나아짐 (가중치·사용 예를 받은 덕으로 봄, 나눠 재지 않음)
+- MLE-bench C2 와 같은 그림: FM 을 쥐여 주면 대개 FM 수준으로 올라오고, 넘는 것은 Agent 가 FM 이 못 보는 구조를 찾은 곳 (nomad × AIDE, 여기서는 polish × Codex)
+
+### 사후 검사 · 비용
+
+- 14회 모두 `valid_submission` 참, `data_source_urls` 0 · `kaggle_urls` 0. 429 는 Codex 0~83번 (students 83), AIDE × Sonnet 0. 기준 (Codex 200번) 안
+- 실행: 2026-11-18 07:22 → 17:40 KST (배치 0: QSAR_fish · MIC, 배치 1: Is-this · hazelnut · splice · students · polish). 배치마다 내기 전 사용자 확인
+- 비용: 하네스 시간 합 13.6시간 (Codex × Is-this 43분 외 57~60분). TFM 설치·사전 점검·회수를 더한 A10 시간은 약 16~17시간으로 어림 (작업별로 재지 않음)
+- 같은 날 TabArena C1 (`~f2`) 의 FM · GBDT 행이 `fab sync` 로 같이 받아졌지만 그쪽 작업의 것이라 이 PR 에는 넣지 않음
 
 ## Elo (2026-11-16)
 
