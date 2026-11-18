@@ -1519,7 +1519,7 @@ F2 로 옮겨 FM·GBDT 를 돌리는 것 (`features/f2.py`) 은 다음 단계. �
 | MIC | `tabarena-p06__aide-gpt__r1__20261116-145653` | AIDE × GPT | 0.4445 | +0.17 | Agent 최고 | 없음 |
 | Is-this-a-good-customer | `tabarena-p07__claude-code-sonnet-cont__r1__20261116-161213` | Claude Code × Sonnet +cont | 0.2617 | +0.25 | Agent 최고 | 비율 3열뿐, 에이전트 CV 로도 효과 작음 (0.7445 대 0.7436) |
 | splice | `tabarena-p08__codex-gpt__r1__20261116-172003` | Codex × GPT | 0.06179 | −0.34 | Agent 최고, FM 보다 나음 | 피처 블록 성분은 최종의 약 0.36. 생성 모델·OOF 스택·train 정답 이웃 치환은 뺌 (치환은 피처와 섞여 있어 R3(a) 로 실행째 빼지는 않음). 어휘·레벨이 train+test |
-| students_dropout_and_academic_success | `tabarena-p09__aide-sonnet__r1__20261116-182911` | AIDE × Sonnet | 0.5515 | +1.88 | Agent 최고 | 빈도 10열은 train+test |
+| students_dropout_and_academic_success | `tabarena-p09__aide-sonnet__r1__20261116-182911` | AIDE × Sonnet | 0.5515 | +1.88 | Agent 최고 | 범주 빈도 17열은 train+test |
 | polish_companies_bankruptcy | `tabarena-p10__codex-gpt__r1__20261116-193556` | Codex × GPT | 0.00436 | +0.56 | Agent 최고 | 정확 일치·근접 이웃 정답 (test 28 · 40행), 스스로 깐 TabPFN 은 모델 쪽. 회계 항등식·차이 블록은 fit 없음 |
 | QSAR-TID-11 | `tabarena-p11__codex-gpt__r1__20261116-204754` | Codex × GPT | 0.7976 | +0.23 | Agent 최고 | 1차 규칙 안 블록은 행 합 1열뿐이라 빈도 합·PCA 128 (train+test fit) 을 train 으로만 다시 fit 해 씀 (R3 해석, 아니면 R3(c)). 이웃 라벨 특징·쌍 랭킹은 뺌 |
 | APSFailure | `tabarena-p12__aide-sonnet__r1__20261117-002041` | AIDE × Sonnet | 0.00478 | +1.46 | Agent 최고 | GBDT (lgbm 0.00488) 보다 0.07σ 만 나음 → 해석 약함 |
@@ -1575,7 +1575,7 @@ uv run --frozen fab ta agent lineage <key> --json --out lineage.json           #
 | [MIC](../competitions/ta-mic/c1.md) | `~f2m` 111 + 결측 지시 k (k 는 데이터로 셈) | – | 트리 CV 0.413678 → 선형 더한 0.409726 |
 | [Is-this](../competitions/ta-is-this-a-good-customer/c1.md) | `~f2` 16 (비율 3) | – | `r.py` CV AUC 0.76056 |
 | [splice](../competitions/ta-splice/c1.md) | (행 단위 원-핫뿐, 어휘가 train+test) | `~f2s` 수천 (k-mer · 쌍 원-핫 · 구간 개수), `~f2` 5만+ (TFM 상한) | 배열 모양 (3190, 1310) · (3190, 48727), 성분 OOF logloss |
-| [students](../competitions/ta-students-dropout-and-academic-success/c1.md) | `~f2s` 43 (파생 7) | `~f2` 53 (+ 빈도 10) | LR CV logloss 0.55776 |
+| [students](../competitions/ta-students-dropout-and-academic-success/c1.md) | `~f2s` 43 (파생 7) | `~f2` 60 (+ 범주 빈도 17) | LR CV logloss 0.55776 |
 | [polish](../competitions/ta-polish-companies-bankruptcy/c1.md) | `~f2s` 138 (항등식 74), `~f2` 300 (+ 차이 236) | `~f2e` 362 (+ 같은 값 쌍 224) | 블록별 CatBoost CV AUC (0.99394 · 0.99244) |
 | [QSAR-TID-11](../competitions/ta-qsar-tid-11/c1.md) | (행 합 1열뿐) | 1,024 + 빈도 합 3~4 + PCA 128 | `pca_features.npy` (5742, 128) |
 | [APSFailure](../competitions/ta-apsfailure/c1.md) | `~f2` 248 (결측 수 · 무리 합 · 무리 안 비율 78) | – | LGB OOF AUC 0.99130 |
@@ -1587,6 +1587,19 @@ uv run --frozen fab ta agent lineage <key> --json --out lineage.json           #
 ### 정할 것
 
 - **C1 실행 (다음 단계)**: 카드의 F2 후보를 `competitions/ta-<데이터셋>/features/f2.py` 로 옮기고 동일성 확인 → F0/F2 × {tabicl, kumo, tabpfn_v2} + {lgbm, catboost} (r0f0 먼저, 결과를 보고 모든 split). 데이터셋마다 FM·GBDT 작업 하나씩
+  - 따로 진행 중인 C1 실행 (브랜치 `Aiden-Jeon/tabarena-c1`, 카드 전에 시작) 의 `f2.py` 는 이 카드·R3 해석과 다른 곳이 있음.
+    그 PR 이 올라온 뒤 카드 기준으로 고쳐 다시 돌림 (2026-11-18 사용자가 정함: 이 절의 규칙이 기준). 2026-11-18 에 본 차이:
+
+    | 데이터셋 | 그 `f2.py` | 카드 기준으로 고칠 것 |
+    |---|---|---|
+    | train+test fit 블록 (Amazon 빈도·nunique, students 범주 빈도, splice n-gram 어휘, QSAR-TID 비트 빈도, polish equals 쌍 고르기) | 에이전트 그대로 train+test 로 계산 (inductive 밖 표시만) | train 행으로만 fit (R3 해석) |
+    | in_vehicle | 응답자 id 계열 (`person` 키 · `person_demo` · 설문 묶음) 을 모두 뺌 (55열) | `person` 키는 행 단위 (fit 없음) → 넣음. 설문 묶음 (6열) 은 train 으로만 다시 fit 해 넣음 (약 75열) |
+    | QSAR-TID-11 | 지문 요약 3열만 (1,027열), PCA 128 은 커널 SVR 입력이라 뺌 | PCA 128 도 넣음 (모델 바로 앞의 전처리, R3 해석), train 으로만 fit |
+    | Amazon | 쌍 36 · 삼중 28 을 범주로 넣음 (190열) | 최종 제출에 타깃 비의존 꼴로 안 들어감 → 뺌 (117열) |
+    | 같음 | APSFailure 248 · Is-this 16 · physio 45 · QSAR_fish (원본 6 + 투영 32) · students 60 · polish · splice 의 열 범위 (트리 성분 입력 1,165, 카드보다 좁고 정확 → 그쪽을 따름) | – |
+    | 없음 | MIC · hazelnut | 카드대로 새로 씀 |
+
+    그쪽 r0f0 결과 (in_vehicle · splice · Amazon) 는 이 차이가 섞인 값이라 고친 뒤 다시 돌린 값으로 바꿈
 - (정함 2026-11-18, 사용자) inductive 밖 블록은 train 으로만 다시 fit 해 옮김 · 모델 바로 앞의 전처리도 블록으로 봄 (위 "R3 해석"). 카드의 "조건부" 열이 C1 1차 후보.
   다시 fit 하면 값이 에이전트 배열과 달라지므로 동일성 확인은 train+test 판으로 먼저 맞춘 뒤 train 판으로 바꿈
 - splice 카드의 메모: 최종 명령 (#293) 이 "애매한 염기" 보정 6행 중 1행 (id 2376) 만 제출에 옮김 (나머지 5행을 안 옮긴 까닭은 코드에 없음). 점수·F2 에는 영향 없음 (예측 쪽 보정)
