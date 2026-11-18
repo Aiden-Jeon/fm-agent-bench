@@ -72,17 +72,17 @@ leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. �
 
 | 데이터셋 (지표) | FM | GBDT | Agent | FM + Agent 피처 (C1) | FM 을 깐 Agent (C2) |
 |---|---|---|---|---|---|
-| QSAR_fish (RMSE ↓) | **0.8855** | 0.9123 | 0.9003 | – | – |
-| MIC (logloss ↓) | **0.4412** | 0.4712 | 0.4445 | – | – |
-| Is-this-a-good-customer (AUC ↑) | **0.7435** | 0.6803 | 0.7383 | – | – |
-| splice (logloss ↓) | 0.0669 | 0.0940 | **0.0618** | – | – |
-| students_dropout (logloss ↓) | **0.5251** | 0.5702 | 0.5515 | – | – |
-| polish_bankruptcy (AUC ↑) | **0.9966** | 0.9656 | 0.9956 | – | – |
+| QSAR_fish (RMSE ↓) | **0.8855** | 0.9123 | 0.9003 | – | 0.8885 |
+| MIC (logloss ↓) | 0.4412 | 0.4712 | 0.4445 | – | **0.4313** |
+| Is-this-a-good-customer (AUC ↑) | **0.7435** | 0.6803 | 0.7383 | – | 0.7208 |
+| splice (logloss ↓) | 0.0669 | 0.0940 | **0.0618** | – | 0.0659 |
+| students_dropout (logloss ↓) | **0.5251** | 0.5702 | 0.5515 | – | 0.5256 |
+| polish_bankruptcy (AUC ↑) | 0.9966 | 0.9656 | 0.9956 | – | **0.9992** |
 | QSAR-TID-11 (RMSE ↓) | **0.7867** | 0.8459 | 0.7976 | – | – |
 | APSFailure (AUC ↑) | **0.9973** | 0.9951 | 0.9952 | – | – |
 | Amazon (AUC ↑) | 0.8723 | 0.8808 | **0.8932** | – | – |
 | physiochemical (RMSE ↓) | **2.852** | 3.961 | 2.977 | – | – |
-| hazelnut (AUC ↑) | **0.9961** | 0.9738 | 0.9936 | – | – |
+| hazelnut (AUC ↑) | 0.9961 | 0.9738 | 0.9936 | – | **0.9962** |
 | in_vehicle (AUC ↑) | 0.8629 | 0.8410 | **0.8685** | – | – |
 
 **읽는 법**
@@ -90,6 +90,7 @@ leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. �
 - Agent 가 1회 1시간이라 51개 중 12개 (파일럿 2 + #26 10) 의 r0f0 하나에서만 돌림. FM·GBDT 는 51개 모든 split 을 돌렸지만 여기서는 같은 r0f0 값
 - FM 은 refit 셋 (kumo·tabicl·tabpfn_v2) 중 최고 (12개 모두 kumo), GBDT 는 lgbm·catboost refit 중 나은 쪽, 튜닝 없음. Agent 는 5설정 × 1~2회 (파일럿 2회, #26 1회) 중 최고. – 는 아직 안 돌림
 - 12개 중 1등: FM 9 · Agent 3 (splice · Amazon · in_vehicle, 모두 범주 열이 대부분이고 오염 위험도 큼) · GBDT 0
+- C2 는 7개만 (codex-gpt+fm · aide-sonnet+fm 1회씩 중 최고, 나머지 5개는 안 돌리고 마무리). 대부분 FM 근처로 모이고, FM 보다 뚜렷이 나은 건 polish 하나 ([docs/tabarena.md 의 "C2 (+fm)"](docs/tabarena.md#c2-fm-fm-을-받은-agent-7개-r0f0-2026-11-18)). C2 를 더하면 7개 중 1등은 C2 3 (MIC · polish · hazelnut, hazelnut 은 FM 과 0.0001 차) · FM 3 · Agent 1
 - 결과 표: `results/tabarena.csv` (FM·GBDT 채점), `results/tabarena_runs.csv` (Agent 실행)
 
 **Elo** (같은 12개 r0f0, 설정마다)

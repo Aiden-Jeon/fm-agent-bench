@@ -1463,7 +1463,7 @@ Agent 를 돌린 12개 중 7개의 r0f0 에서, 환경에 TFM 을 깐 Agent (`co
 | students (`p09`) | 0.5251 | 0.014 | AIDE × Sonnet | 0.5515 | 0.5275 | −1.70 | +0.18 | Kumo 100% |
 | | | | Codex × GPT | 0.5537 | 0.5256 | −1.99 | +0.04 | Kumo 100% (object 열에 `categorical`, 가중 0.95) |
 | polish (`p10`) | 0.00342 | 0.0017 | AIDE × Sonnet | 0.03166 | 0.00374 | −16.5 | +0.19 | Kumo 100% (test 의사 레이블 ¹) |
-| | | | Codex × GPT | 0.00436 | **0.00081** | −2.1 | **−1.54** | Kumo · GBDT + 비율 열 쌍 피처 |
+| | | | Codex × GPT | 0.00436 | **0.00081** | −2.1 | −1.54 | Kumo · GBDT + 비율 열 쌍 피처 |
 
 - ¹ Kumo 예측으로 test 행에 의사 레이블을 붙여 컨텍스트에 넣음 → TabArena 의 "inductive" 규칙 (5) 밖. 셋 다 점수는 FM 수준이거나 그 근처
 - ² 하네스가 끝난 뒤 노드가 플랫폼 오류로 죽어 진행 사본으로 채점 (`run_crashed`). 하네스 58분, 제출은 끝까지 씀
@@ -1472,7 +1472,7 @@ Agent 를 돌린 12개 중 7개의 r0f0 에서, 환경에 TFM 을 깐 Agent (`co
 ### 읽은 것 (7개 · 14회, 1회씩이라 판단은 약함)
 
 - **FM 을 받으면 같은 설정의 Agent 보다 나아짐: 14회 중 11회.** 아닌 셋은 Is-this 둘 (FM 을 거의 안 넣음) 과 splice × Codex (공식 설정 0.0618 이 이미 FM 보다 나았음)
-- **점수는 FM 한 번 (kumo) 근처로 모임**: 14회 중 12회가 kumo 와 1σ 안. 대부분 Kumo 가 제출의 주 성분이고 (5회는 Kumo 100%), Agent 의 피처가 더해 주는 몫은 작음
+- **점수는 FM 한 번 (kumo) 근처로 모임**: 14회 중 11회가 kumo 와 1σ 안 (밖은 Is-this 둘 · polish × Codex). 대부분 Kumo 가 제출의 주 성분이고 (5회는 Kumo 100%), Agent 의 피처가 더해 주는 몫은 작음
 - **FM 보다 뚜렷이 나은 것은 polish × Codex 하나** (−76%, −1.5σ): 공식 설정에서도 Codex 만 찾던 비율 열 사이 관계 피처 (#26 의 polish 메모) 에 Kumo · GBDT 를 섞음. 누출 흔적 없음 (원본 URL 0, 코드 읽음). MIC × Codex 도 kumo 보다 나음 (−0.5σ, 흔들림 안)
 - **FM 보다 1σ 넘게 나쁜 것은 Is-this 둘**: FM 을 제출에 거의 안 넣음 (Codex 0%, AIDE TabPFN 27%). FM 이 근소하게 이기는 데이터 (FM − GBDT −2.9%) 라 Agent 가 CV 에서 FM 을 고르지 않은 것으로 봄
 - **Agent 가 이긴 splice**: AIDE 는 FM 을 섞어 나아짐 (0.0778 → 0.0727), Codex 는 오히려 나빠짐 (0.0618 → 0.0659, 흔들림 안). splice 는 두 실행 모두 "UCI splice" 로 알아봄 (#32 와 같음)
@@ -1483,7 +1483,7 @@ Agent 를 돌린 12개 중 7개의 r0f0 에서, 환경에 TFM 을 깐 Agent (`co
 ### 사후 검사 · 비용
 
 - 14회 모두 `valid_submission` 참, `data_source_urls` 0 · `kaggle_urls` 0. 429 는 Codex 0~83번 (students 83), AIDE × Sonnet 0. 기준 (Codex 200번) 안
-- 실행: 2026-11-18 08:22 → 17:40 KST (배치 0: QSAR_fish · MIC, 배치 1: Is-this · hazelnut · splice · students · polish). 배치마다 내기 전 사용자 확인
+- 실행: 2026-11-18 07:22 → 17:40 KST (배치 0: QSAR_fish · MIC, 배치 1: Is-this · hazelnut · splice · students · polish). 배치마다 내기 전 사용자 확인
 - 비용: 하네스 시간 합 13.6시간 (Codex × Is-this 43분 외 57~60분). TFM 설치·사전 점검·회수를 더한 A10 시간은 약 16~17시간으로 어림 (작업별로 재지 않음)
 - 같은 날 TabArena C1 (`~f2`) 의 FM · GBDT 행이 `fab sync` 로 같이 받아졌지만 그쪽 작업의 것이라 이 PR 에는 넣지 않음
 

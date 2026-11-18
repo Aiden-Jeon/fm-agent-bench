@@ -772,11 +772,12 @@ def summary(cmp: pd.DataFrame) -> pd.DataFrame:
 
 
 def without_fm(runs: pd.DataFrame) -> pd.DataFrame:
-    """C2 (+fm, 환경에 TFM 을 깐 설정) 실행을 뺀 Agent 실행. Elo 의 Agent 풀·obf 표는 공식 설정 (+cont 포함) 만:
-    +fm 을 넣으면 풀이 바뀌어 기존 Elo 가 모두 달라짐 (docs/tabarena.md 의 "C2 (+fm)")."""
-    from fab.agent import FM_SUFFIX
+    """C2 (+fm, 환경에 TFM 을 깐 설정) · 게이트웨이 (+gw) 실행을 뺀 Agent 실행. Elo 의 Agent 풀·obf 표는 공식 설정 (+cont 포함) 만:
+    +fm 을 넣으면 풀이 바뀌어 기존 Elo 가 모두 달라짐 (docs/tabarena.md 의 "C2 (+fm)"), +gw 는 FM API 실행과 섞지 않음 (fab/agent)."""
+    from fab.agent import FM_SUFFIX, GATEWAY_SUFFIX
 
-    return runs[~runs.config.str.contains(FM_SUFFIX, regex=False)]
+    other = runs.config.str.contains(FM_SUFFIX, regex=False) | runs.config.str.contains(GATEWAY_SUFFIX, regex=False)
+    return runs[~other]
 
 
 def elo_tables(rounds: int) -> pd.DataFrame:
