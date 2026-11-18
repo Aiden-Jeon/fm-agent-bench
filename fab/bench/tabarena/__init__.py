@@ -517,15 +517,25 @@ def request_grade(comps: list[str], models: list[str], note: str = ""):
 def check_models(models: list[str], comps: list[str] | None = None):
     """제출 전에 모델 이름 확인: fab.models 의 REGISTRY·VARIANTS (컨텍스트 래퍼 @spec 허용). 피처 변형 (~v) 은 고른 대회
     (comps) 모두에 competitions/<대회>/features/<v>.py 가 있을 때만 (r0f0 대회의 C1. 생성 split 대회 tas-* 에는 없음)."""
-    from fab.core.competition import COMP_DIR
-    from fab.models import REGISTRY, VARIANTS, is_known_model, split_features
+    from fab.core.competition import COMP_DIR, VARIANT_NAME
+    from fab.models import FEATURES_SEP, REGISTRY, VARIANTS, is_known_model
 
-    bad = [m for m in models if not is_known_model(m)]
+    def known(m):  # 끝이 ~ 뿐인 이름은 split_features 가 ValueError → 알 수 없는 모델로
+        try:
+            return is_known_model(m)
+        except ValueError:
+            return False
+
+    bad = [m for m in models if not known(m)]
     if bad:
         raise SystemExit(f"알 수 없는 모델: {bad}. 사용 가능: {', '.join([*REGISTRY, *VARIANTS])}")
     for m in models:
-        if (v := split_features(m)[1]) and (comps is None or (
-                missing := [c for c in comps if not (COMP_DIR / c / "features" / f"{v}.py").exists()])):
+        v = m.partition(FEATURES_SEP)[2]
+        if not v:
+            continue
+        if not VARIANT_NAME.fullmatch(v):  # features_path 와 같은 규칙 (도우미 _*.py·경로는 안 됨)
+            raise SystemExit(f"피처 변형 {m}: 이름은 영문·숫자로 시작하고 영문·숫자·_·- 만")
+        if comps is None or (missing := [c for c in comps if not (COMP_DIR / c / "features" / f"{v}.py").exists()]):
             raise SystemExit(f"피처 변형 {m}: " + ("대회를 모름" if comps is None else f"변형 파일 없는 대회 {missing[:5]}"))
 
 
@@ -932,8 +942,9 @@ def main(argv: list[str] | None = None):
                 submit_fm(ds, splits, args.models, args.note, args.timeout, args.accelerator, not args.no_grade)
         print("끝난 뒤 fab remote kick → 결과 합치기·채점, fab sync 로 results/tabarena.csv")
     elif args.cmd == "grade":
-        comps = [c.name for ds in names(args.datasets) for c in make_comps(ds, pick_splits(ds, args.splits))]
-        check_models(args.models, comps)
+        todo = [(ds, pick_splits(ds, args.splits)) for ds in names(args.datasets)]
+        check_models(args.models, [comp_name(ds, s) for ds, ss in todo for s in ss])  # 대회 폴더를 만들기 전에
+        comps = [c.name for ds, ss in todo for c in make_comps(ds, ss)]
         request_grade(comps, args.models, args.note)
     elif args.cmd == "timing":
         from datetime import datetime
@@ -941,8 +952,9 @@ def main(argv: list[str] | None = None):
         from fab.bench.tabarena.remote import upload_answers
         from fab.remote import settings, submit_item
 
-        check_models(args.models)
-        comps = [c.name for ds in names(args.datasets) for c in make_comps(ds, pick_splits(ds, args.splits))]
+        todo = [(ds, pick_splits(ds, args.splits)) for ds in names(args.datasets)]
+        check_models(args.models, [comp_name(ds, s) for ds, ss in todo for s in ss])
+        comps = [c.name for ds, ss in todo for c in make_comps(ds, ss)]
         cfg = settings()
         upload_answers(cfg, comps)
         submit_item(cfg, "timing", f"tabarena__{datetime.now():%Y%m%d-%H%M%S}", dict(comps=comps, models=args.models))
