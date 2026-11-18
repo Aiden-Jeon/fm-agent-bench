@@ -1525,7 +1525,7 @@ F2 로 옮겨 FM·GBDT 를 돌리는 것 (`features/f2.py`) 은 다음 단계. �
 | APSFailure | `tabarena-p12__aide-sonnet__r1__20261117-002041` | AIDE × Sonnet | 0.00478 | +1.46 | Agent 최고 | GBDT (lgbm 0.00488) 보다 0.07σ 만 나음 → 해석 약함 |
 | Amazon_employee_access | `tabarena-p03__aide-sonnet__r1__20261116-215907` | AIDE × Sonnet | 0.1068 | −3.27 | Agent 최고, FM 보다 나음 | 최종의 타깃 비의존 블록 (빈도 45 · nunique 72) 이 모두 train+test → train 으로만 다시 fit 해 씀 (R3 해석, 아니면 R3(c) 로 Claude Code +cont 0.1093). 이득의 대부분은 타깃 인코딩·스택 (뺄 것) 으로 보임 |
 | physiochemical_protein | `tabarena-p04__codex-gpt__r1__20261116-230759` | Codex × GPT | 2.9772 | +3.41 | Agent 최고 | 최종의 0.90 이 스태킹 메타 (타깃 의존). 피처만 받는 성분은 0.10 (nn · cat10). 정확 일치 조회 753행은 점수 원인 아님 (조회 무게를 바꿔도 OOF 같음) |
-| hazelnut-spread-contaminant-detection | `tabarena-p01__aide-gpt__r1__20261114-090001` | AIDE × GPT | 0.01624 | +14.67 | 다음 순위 (GBDT 보다 −11.9σ) | 최고 Codex (0.00640) 는 R3(b): 최종 `finalize_submission.py` 가 TabICL 변형 (원본 열 · 잡음 늘리기 · 의사 레이블) 만 섞음. AIDE 의 블록은 fold 안에서 fit 한 백색화 31열뿐 (커널 SVM 의 입력) → 블록으로 봄 (R3 해석, 아니면 hazelnut 은 C1 빈칸) |
+| hazelnut-spread-contaminant-detection | `tabarena-p01__aide-gpt__r1__20261114-090001` | AIDE × GPT | 0.01624 | +14.67 | 다음 순위 (GBDT 보다 −11.9σ) | 최고 Codex (0.00640) 는 R3(b): 최종 `finalize_submission.py` 가 TabICL 변형 (원본 열 · 잡음 늘리기 · 의사 레이블) 만 섞음. AIDE 의 블록은 fold 안에서 fit 한 백색화 30열뿐 (커널 SVM 의 입력) → 블록으로 봄 (R3 해석, 아니면 hazelnut 은 C1 빈칸) |
 | in_vehicle_coupon_recommendation | `tabarena-p02__codex-gpt__r1__20261114-122945` | Codex × GPT | 0.13150 | −1.38 | Agent 최고, FM 보다 나음 | 응답자 템플릿 묶음 (6열) 이 train+test. `person` 키 자체는 행 단위 (fit 없음, 앞 절의 "train+test 로 응답자 id" 는 정확히는 이 묶음). 응답자별 타깃 집계는 최종에 없음 |
 
 - 12개 모두 R4 (GBDT 보다 나음) 통과. R3 로 뺀 것은 hazelnut × Codex 하나. R3 해석 (위) 에 걸린 넷: train 으로만 다시 fit (Amazon · QSAR-TID), 모델 앞 전처리를 블록으로 (QSAR_fish · hazelnut)
@@ -1572,7 +1572,7 @@ uv run --frozen fab ta agent lineage <key> --json --out lineage.json           #
 | 카드 | F2 후보 (열) | 조건부 (train 으로만 다시 fit 하면) | 동일성 확인 |
 |---|---|---|---|
 | [QSAR_fish](../competitions/ta-qsar-fish-toxicity/c1.md) | `~f2` 38 (변환 6 + 랜덤 투영 32) | – | `power_proj.log` 의 CV RMSE 0.83228 |
-| [MIC](../competitions/ta-mic/c1.md) | `~f2m` 111 + 결측 지시 k (k 는 데이터로 셈) | – | 트리 CV 0.413678 → 선형 더한 0.409726 |
+| [MIC](../competitions/ta-mic/c1.md) | `~f2m` 128 (+ 결측 지시 17) | – | 트리 CV 0.413678 → 선형 더한 0.409726 |
 | [Is-this](../competitions/ta-is-this-a-good-customer/c1.md) | `~f2` 16 (비율 3) | – | `r.py` CV AUC 0.76056 |
 | [splice](../competitions/ta-splice/c1.md) | (행 단위 원-핫뿐, 어휘가 train+test) | `~f2s` 수천 (k-mer · 쌍 원-핫 · 구간 개수), `~f2` 5만+ (TFM 상한) | 배열 모양 (3190, 1310) · (3190, 48727), 성분 OOF logloss |
 | [students](../competitions/ta-students-dropout-and-academic-success/c1.md) | `~f2s` 43 (파생 7) | `~f2` 60 (+ 범주 빈도 17) | LR CV logloss 0.55776 |
@@ -1581,7 +1581,7 @@ uv run --frozen fab ta agent lineage <key> --json --out lineage.json           #
 | [APSFailure](../competitions/ta-apsfailure/c1.md) | `~f2` 248 (결측 수 · 무리 합 · 무리 안 비율 78) | – | LGB OOF AUC 0.99130 |
 | [Amazon](../competitions/ta-amazon-employee-access/c1.md) | – | `~f2` 117 (빈도 45 · nunique 72) | CB OOF AUC 0.87854 |
 | [physiochemical](../competitions/ta-physiochemical-protein/c1.md) | `~f2` 45 (비율 36), `~f2s` 54 (log · log 차이) | – | `full_cat10_preds.npz` 값, holdout RMSE 3.30665 |
-| [hazelnut](../competitions/ta-hazelnut-spread-contaminant-detection/c1.md) | `~f2s` 31 (fold 안 백색화) | – | 노드 CV 0.985474 · holdout 0.988203 |
+| [hazelnut](../competitions/ta-hazelnut-spread-contaminant-detection/c1.md) | `~f2s` 30 (fold 안 백색화) | – | 노드 CV 0.985474 · holdout 0.988203 |
 | [in_vehicle](../competitions/ta-in-vehicle-coupon-recommendation/c1.md) | `~f2s` 약 69 (행 단위 교차 · 구간) | `~f2` 약 75 (+ 응답자 템플릿 6) | xgb 3-fold CV 0.817503 (GPU) |
 
 ### 정할 것
