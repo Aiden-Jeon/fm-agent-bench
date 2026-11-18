@@ -514,14 +514,29 @@ def request_grade(comps: list[str], models: list[str], note: str = ""):
 # --- FM·GBDT 제출 ----------------------------------------------------------------------------------------------
 
 
-def check_models(models: list[str]):
-    """제출 전에 모델 이름 확인: fab.models 의 REGISTRY·VARIANTS (컨텍스트 래퍼 @spec 허용). 피처 변형 (~) 은 split 대회에
-    없어서 거부."""
-    from fab.models import REGISTRY, VARIANTS, is_known_model
+def check_models(models: list[str], comps: list[str] | None = None):
+    """제출 전에 모델 이름 확인: fab.models 의 REGISTRY·VARIANTS (컨텍스트 래퍼 @spec 허용). 피처 변형 (~v) 은 고른 대회
+    (comps) 모두에 competitions/<대회>/features/<v>.py 가 있을 때만 (r0f0 대회의 C1. 생성 split 대회 tas-* 에는 없음)."""
+    from fab.core.competition import COMP_DIR, VARIANT_NAME
+    from fab.models import FEATURES_SEP, REGISTRY, VARIANTS, is_known_model
 
-    bad = [m for m in models if "~" in m or not is_known_model(m)]
+    def known(m):  # 끝이 ~ 뿐인 이름은 split_features 가 ValueError → 알 수 없는 모델로
+        try:
+            return is_known_model(m)
+        except ValueError:
+            return False
+
+    bad = [m for m in models if not known(m)]
     if bad:
-        raise SystemExit(f"알 수 없는 모델 (또는 피처 변형 ~): {bad}. 사용 가능: {', '.join([*REGISTRY, *VARIANTS])}")
+        raise SystemExit(f"알 수 없는 모델: {bad}. 사용 가능: {', '.join([*REGISTRY, *VARIANTS])}")
+    for m in models:
+        v = m.partition(FEATURES_SEP)[2]
+        if not v:
+            continue
+        if not VARIANT_NAME.fullmatch(v):  # features_path 와 같은 규칙 (도우미 _*.py·경로는 안 됨)
+            raise SystemExit(f"피처 변형 {m}: 이름은 영문·숫자로 시작하고 영문·숫자·_·- 만")
+        if comps is None or (missing := [c for c in comps if not (COMP_DIR / c / "features" / f"{v}.py").exists()]):
+            raise SystemExit(f"피처 변형 {m}: " + ("대회를 모름" if comps is None else f"변형 파일 없는 대회 {missing[:5]}"))
 
 
 def submit_fm(dataset: str, splits: list[str], models: list[str], note: str, timeout: int, accelerator: str | None,
@@ -542,9 +557,9 @@ def submit_fm_group(todo: list[tuple[str, list[str]]], models: list[str], note: 
     from fab.runner.databricks import CPU_MODELS, record, submit, submit_cpu
     from fab.runner.databricks import settings as dbx_settings
 
-    check_models(models)
-    cfg = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))
     comps = [c for dataset, splits in todo for c in make_comps(dataset, splits)]
+    check_models(models, [c.name for c in comps])
+    cfg = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))
     data = upload_data(cfg, comps)
     cpu = [m for m in models if base_name(m) in CPU_MODELS]
     gpu = [m for m in models if m not in cpu]
@@ -915,8 +930,8 @@ def main(argv: list[str] | None = None):
         for ds in names(args.datasets):
             make_comps(ds, pick_splits(ds, args.splits))
     elif args.cmd == "fm":
-        check_models(args.models)  # 데이터셋을 하나라도 내기 전에
         todo = [(ds, pick_splits(ds, args.splits)) for ds in names(args.datasets)]  # split 이름도 내기 전에 확인
+        check_models(args.models, [comp_name(ds, s) for ds, ss in todo for s in ss])  # 데이터셋을 하나라도 내기 전에
         if args.one_job:
             submit_fm_group(todo, args.models, args.note, args.timeout, args.accelerator, not args.no_grade)
         elif args.max_concurrent > 0:
@@ -927,8 +942,9 @@ def main(argv: list[str] | None = None):
                 submit_fm(ds, splits, args.models, args.note, args.timeout, args.accelerator, not args.no_grade)
         print("끝난 뒤 fab remote kick → 결과 합치기·채점, fab sync 로 results/tabarena.csv")
     elif args.cmd == "grade":
-        check_models(args.models)
-        comps = [c.name for ds in names(args.datasets) for c in make_comps(ds, pick_splits(ds, args.splits))]
+        todo = [(ds, pick_splits(ds, args.splits)) for ds in names(args.datasets)]
+        check_models(args.models, [comp_name(ds, s) for ds, ss in todo for s in ss])  # 대회 폴더를 만들기 전에
+        comps = [c.name for ds, ss in todo for c in make_comps(ds, ss)]
         request_grade(comps, args.models, args.note)
     elif args.cmd == "timing":
         from datetime import datetime
@@ -936,8 +952,9 @@ def main(argv: list[str] | None = None):
         from fab.bench.tabarena.remote import upload_answers
         from fab.remote import settings, submit_item
 
-        check_models(args.models)
-        comps = [c.name for ds in names(args.datasets) for c in make_comps(ds, pick_splits(ds, args.splits))]
+        todo = [(ds, pick_splits(ds, args.splits)) for ds in names(args.datasets)]
+        check_models(args.models, [comp_name(ds, s) for ds, ss in todo for s in ss])
+        comps = [c.name for ds, ss in todo for c in make_comps(ds, ss)]
         cfg = settings()
         upload_answers(cfg, comps)
         submit_item(cfg, "timing", f"tabarena__{datetime.now():%Y%m%d-%H%M%S}", dict(comps=comps, models=args.models))
