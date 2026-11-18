@@ -152,6 +152,10 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
   `lgb4.log` 출력과 같음. `gmm8·12·16`·`gmm_log` 는 20MB 를 넘어 회수에서 빠져 값 비교는 못 함. 만드는 시간: 로컬 8코어 약 30초 (캐시 뒤 4초)
 - FM 은 컨텍스트가 순위를 정함 → `~f1` 의 0.99232 와 같은 `@rand200000` 컨텍스트. 244열이라 `~f1` (41열) 보다 메모리가 큼
 
+### TabArena 12개의 F2 (2026-11-18)
+
+같은 규칙으로 Agent 를 돌린 TabArena 12개 r0f0 의 Agent 최고 실행에서 F2 를 옮김 (`competitions/ta-*/features/f2.py`, 10개. MIC · hazelnut 은 옮길 피처 없음), `~f2` × {kumo, tabicl} + {lgbm, catboost} refit. 출처·뺀 것·동일성 확인·결과는 [docs/tabarena.md](../tabarena.md) 의 "C1" (C1 지표 양수 4 / 10, splice 는 FM + 에이전트 피처가 Agent 를 넘음)
+
 ## C2 규칙 (2026-11-12)
 
 `fab mleb agent run <대회> <설정> --fm` → 설정 이름 `<config>+fm` (`+cont` 와 같이 쓰면 `claude-code-sonnet+cont+fm`).
