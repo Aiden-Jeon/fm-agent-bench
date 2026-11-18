@@ -6933,3 +6933,35 @@ timestamp,comp,dataset,task_id,split,fold,model,metric,score,metric_error,run,no
 2026-11-18T07:00:35,ta-physiochemical-protein,physiochemical_protein,363693,r0f0,0,tabicl_kv_refit~f2,rmse,3.035395234079252,3.035395234079252,2026-11-18T06:47:43,c1,kv_cache=True
 2026-11-18T07:00:35,ta-physiochemical-protein,physiochemical_protein,363693,r0f0,0,lgbm_refit~f2,rmse,3.744026697582634,3.744026697582634,2026-11-18T06:47:27,c1,default
 2026-11-18T07:00:35,ta-physiochemical-protein,physiochemical_protein,363693,r0f0,0,catboost_refit~f2,rmse,3.764711081957108,3.764711081957108,2026-11-18T06:47:42,c1,default
+2026-11-18T14:16:58,ta-amazon-employee-access,Amazon_employee_access,363613,r0f0,0,kumo_cat_refit~f2,auc,0.870058051215945,0.12994194878405496,2026-11-18T14:00:53,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:16:59,ta-amazon-employee-access,Amazon_employee_access,363613,r0f0,0,tabicl_kv_refit~f2,auc,0.8201465517983638,0.17985344820163618,2026-11-18T14:01:13,c1,kv_cache=True
+2026-11-18T14:16:59,ta-amazon-employee-access,Amazon_employee_access,363613,r0f0,0,lgbm_refit~f2,auc,0.8626404385545192,0.13735956144548078,2026-11-18T14:00:45,c1,default
+2026-11-18T14:16:59,ta-amazon-employee-access,Amazon_employee_access,363613,r0f0,0,catboost_refit~f2,auc,0.8732128448232387,0.1267871551767613,2026-11-18T14:01:43,c1,default
+2026-11-18T14:17:02,ta-students-dropout-and-academic-success,students_dropout_and_academic_success,363704,r0f0,0,kumo_cat_refit~f2,logloss,0.5270799111247754,0.5270799111247754,2026-11-18T14:01:54,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:17:02,ta-students-dropout-and-academic-success,students_dropout_and_academic_success,363704,r0f0,0,tabicl_kv_refit~f2,logloss,0.5528178571094805,0.5528178571094805,2026-11-18T14:02:06,c1,kv_cache=True
+2026-11-18T14:17:02,ta-students-dropout-and-academic-success,students_dropout_and_academic_success,363704,r0f0,0,lgbm_refit~f2,logloss,0.6588915713554258,0.6588915713554258,2026-11-18T14:01:39,c1,default
+2026-11-18T14:17:03,ta-students-dropout-and-academic-success,students_dropout_and_academic_success,363704,r0f0,0,catboost_refit~f2,logloss,0.5564976915606528,0.5564976915606528,2026-11-18T14:02:09,c1,default
+2026-11-18T14:17:06,ta-splice,splice,363702,r0f0,0,kumo_cat_refit~f2,logloss,0.060072489532549976,0.060072489532549976,2026-11-18T14:02:53,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:17:06,ta-splice,splice,363702,r0f0,0,tabicl_kv_refit~f2,logloss,0.06263126582533711,0.06263126582533711,2026-11-18T14:03:18,c1,kv_cache=True
+2026-11-18T14:17:06,ta-splice,splice,363702,r0f0,0,lgbm_refit~f2,logloss,0.09732616416948779,0.09732616416948779,2026-11-18T14:02:51,c1,default
+2026-11-18T14:17:06,ta-splice,splice,363702,r0f0,0,catboost_refit~f2,logloss,0.07557646877511247,0.07557646877511247,2026-11-18T14:08:41,c1,default
+2026-11-18T14:17:13,ta-qsar-tid-11,QSAR-TID-11,363697,r0f0,0,kumo_cat_refit~f2,rmse,0.7717880421144071,0.7717880421144071,2026-11-18T14:03:51,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:17:13,ta-qsar-tid-11,QSAR-TID-11,363697,r0f0,0,tabicl_kv_refit~f2,rmse,0.8371923472009735,0.8371923472009735,2026-11-18T14:04:28,c1,kv_cache=True
+2026-11-18T14:17:14,ta-qsar-tid-11,QSAR-TID-11,363697,r0f0,0,lgbm_refit~f2,rmse,0.8764601379037109,0.8764601379037109,2026-11-18T14:03:40,c1,default
+2026-11-18T14:17:14,ta-qsar-tid-11,QSAR-TID-11,363697,r0f0,0,catboost_refit~f2,rmse,0.8872652462756481,0.8872652462756481,2026-11-18T14:04:33,c1,default
+2026-11-18T14:17:17,ta-polish-companies-bankruptcy,polish_companies_bankruptcy,363694,r0f0,0,kumo_cat_refit~f2,auc,0.9986769516967092,0.0013230483032907747,2026-11-18T14:04:38,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:17:17,ta-polish-companies-bankruptcy,polish_companies_bankruptcy,363694,r0f0,0,tabicl_kv_refit~f2,auc,0.9953111969978832,0.004688803002116826,2026-11-18T14:04:59,c1,kv_cache=True
+2026-11-18T14:17:17,ta-polish-companies-bankruptcy,polish_companies_bankruptcy,363694,r0f0,0,lgbm_refit~f2,auc,0.9947960100070562,0.005203989992943803,2026-11-18T14:04:49,c1,default
+2026-11-18T14:17:17,ta-polish-companies-bankruptcy,polish_companies_bankruptcy,363694,r0f0,0,catboost_refit~f2,auc,0.9937415806017064,0.006258419398293635,2026-11-18T14:06:01,c1,default
+2026-11-18T14:17:22,ta-in-vehicle-coupon-recommendation,in_vehicle_coupon_recommendation,363681,r0f0,0,kumo_cat_refit~f2,auc,0.8673371044604024,0.13266289553959765,2026-11-18T14:07:08,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:17:22,ta-in-vehicle-coupon-recommendation,in_vehicle_coupon_recommendation,363681,r0f0,0,tabicl_kv_refit~f2,auc,0.8426085818226933,0.15739141817730673,2026-11-18T14:07:23,c1,kv_cache=True
+2026-11-18T14:17:22,ta-in-vehicle-coupon-recommendation,in_vehicle_coupon_recommendation,363681,r0f0,0,lgbm_refit~f2,auc,0.8459646477362291,0.15403535226377085,2026-11-18T14:06:52,c1,default
+2026-11-18T14:17:22,ta-in-vehicle-coupon-recommendation,in_vehicle_coupon_recommendation,363681,r0f0,0,catboost_refit~f2,auc,0.8630006276089559,0.1369993723910441,2026-11-18T14:08:15,c1,default
+2026-11-18T14:17:26,ta-hazelnut-spread-contaminant-detection,hazelnut-spread-contaminant-detection,363674,r0f0,0,kumo_cat_refit~f2,auc,0.9943875,0.00561250000000002,2026-11-18T14:07:59,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:17:26,ta-hazelnut-spread-contaminant-detection,hazelnut-spread-contaminant-detection,363674,r0f0,0,tabicl_kv_refit~f2,auc,0.99268125,0.0073187500000000405,2026-11-18T14:08:12,c1,kv_cache=True
+2026-11-18T14:17:26,ta-hazelnut-spread-contaminant-detection,hazelnut-spread-contaminant-detection,363674,r0f0,0,lgbm_refit~f2,auc,0.9784125,0.02158749999999998,2026-11-18T14:07:51,c1,default
+2026-11-18T14:17:26,ta-hazelnut-spread-contaminant-detection,hazelnut-spread-contaminant-detection,363674,r0f0,0,catboost_refit~f2,auc,0.976375,0.023625000000000007,2026-11-18T14:08:02,c1,default
+2026-11-18T14:39:44,ta-mic,MIC,363711,r0f0,0,kumo_cat_refit~f2,logloss,0.42803411992092066,0.42803411992092066,2026-11-18T14:12:44,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-18T14:39:44,ta-mic,MIC,363711,r0f0,0,tabicl_kv_refit~f2,logloss,0.45179941330484247,0.45179941330484247,2026-11-18T14:12:57,c1,kv_cache=True
+2026-11-18T14:39:44,ta-mic,MIC,363711,r0f0,0,lgbm_refit~f2,logloss,1.1057570819255442,1.1057570819255442,2026-11-18T14:09:12,c1,default
+2026-11-18T14:39:44,ta-mic,MIC,363711,r0f0,0,catboost_refit~f2,logloss,0.46523822335046605,0.46523822335046605,2026-11-18T14:37:59,c1,default

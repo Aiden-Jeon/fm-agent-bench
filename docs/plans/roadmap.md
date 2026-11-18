@@ -154,7 +154,7 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 
 ### TabArena 12개의 F2 (2026-11-18)
 
-같은 규칙으로 Agent 를 돌린 TabArena 12개 r0f0 의 Agent 최고 실행에서 F2 를 옮김 (`competitions/ta-*/features/f2.py`, 10개. MIC · hazelnut 은 옮길 피처 없음), `~f2` × {kumo, tabicl} + {lgbm, catboost} refit. 출처·뺀 것·동일성 확인·결과는 [docs/tabarena.md](../tabarena.md) 의 "C1" (C1 지표 양수 4 / 10, splice 는 FM + 에이전트 피처가 Agent 를 넘음)
+같은 규칙으로 Agent 를 돌린 TabArena 12개 r0f0 에서 F2 를 옮김 (`competitions/ta-*/features/f2.py`, 12개). 쓸 실행·블록은 [docs/tabarena.md](../tabarena.md) 의 "C1 준비" 카드 · R3 해석 (train+test fit 블록은 train 으로만 다시 fit, 2026-11-18 사용자), `~f2` × {kumo, tabicl} + {lgbm, catboost} refit. 출처·뺀 것·동일성 확인·결과는 그 문서의 "C1" (C1 지표 양수 5 / 12, splice 는 FM + 에이전트 피처가 Agent 를 넘음)
 
 ## C2 규칙 (2026-11-12)
 

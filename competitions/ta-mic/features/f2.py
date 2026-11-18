@@ -5,15 +5,16 @@
 (PR #34, 카드의 ~f2m. 변형 이름은 이 저장소 관례대로 ~f2).
 최종 제출 = 사망 확률 (CatBoost·XGBoost 트리 섞기 + 선형 사망 LR 0.30, 로지스틱 보정) × 원인 분포 (CatBoost + XGBoost). 옮긴 것:
   <열>_missing  수치 17열 (AGE · 혈압 4 · 혈액 7 · ROE · NA_R 3 · NOT_NA 2, solution.py:371-391 의 numeric_features) 의 결측 지시
-               (solution.py:409 의 MissingIndicator(features="all"): 모든 수치 열에 지시 열, fit 없음. 카드는 "결측이 있는 열만"
-               으로 적었지만 코드는 "all". r0f0 train 에서 17열 모두 결측이 있어 열 수는 같음). 선형 성분의 입력 → 최종 사망 확률에
+               (solution.py:409 의 MissingIndicator(features="all"): 모든 수치 열에 지시 열, fit 없음. 카드 처음 판은 "결측이 있는 열만"
+               으로 적었고 #34 머지 전에 "all" 로 고침. r0f0 train 에서 17열 모두 결측이 있음). 선형 성분의 입력 → 최종 사망 확률에
                0.30 으로 들어감. 결측은 에이전트처럼 to_numeric (coerce) 한 뒤 inf 도 결측으로 셈
 뺀 것: 수치 17 의 중앙값 대치 + 표준화, 범주 94 의 −999 대치 + OneHot (선형 모델 입력 인코딩, 카드의 ~f2lr 은 1차 후보 아님),
 CatBoost 입력의 결측 → −999 (모델 입력), 사망·원인 두 단계 구조 (dead 라벨 = 타깃), 보정·섞기 무게 (OOF 로 고름), ExtraTrees 원인 모델
 (최종에 안 들어감). F0 의 범주 94열은 그대로 범주 (에이전트 CatBoost 는 범주 표시 없이 수치로 넘겼지만 그것은 모델 설정).
 train+test fit: 없음 (행마다).
-동일성 확인 (로컬, 2026-11-18): 지시 열이 에이전트 MissingIndicator(features="all") 의 출력과 같은지, solution.py 를 r0f0 데이터로 돌려
-카드의 Tree CV 0.413678 → 선형 더한 0.409726 이 나오는지 (docs/tabarena.md 의 "C1").
+동일성 확인 (로컬, 2026-11-18): 지시 열이 에이전트 MissingIndicator(features="all") 의 출력과 train·test 모두 같음. solution.py 를
+r0f0 데이터로 돌린 값이 지시 열을 이 함수로 바꿔도 같음 (트리 CV 0.413857 → 선형 더해 0.409785, 제출 파일도 같음. 카드 값
+0.413678 → 0.409726 과의 차는 플랫폼) (docs/tabarena.md 의 "C1").
 TFM 피처 상한 없음 (128열).
 """
 

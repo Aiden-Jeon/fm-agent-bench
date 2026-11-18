@@ -73,17 +73,17 @@ leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. �
 | 데이터셋 (지표) | FM | GBDT | Agent | FM + Agent 피처 (C1) | FM 을 깐 Agent (C2) |
 |---|---|---|---|---|---|
 | QSAR_fish (RMSE ↓) | **0.8855** | 0.9123 | 0.9003 | 0.8949 | 0.8885 |
-| MIC (logloss ↓) | 0.4412 | 0.4712 | 0.4445 | 피처 없음 | **0.4313** |
+| MIC (logloss ↓) | 0.4412 | 0.4712 | 0.4445 | **0.4280** | 0.4313 |
 | Is-this-a-good-customer (AUC ↑) | 0.7435 | 0.6803 | 0.7383 | **0.7451** | 0.7208 |
-| splice (logloss ↓) | 0.0669 | 0.0940 | 0.0618 | **0.0594** | 0.0659 |
-| students_dropout (logloss ↓) | **0.5251** | 0.5702 | 0.5515 | 0.5264 | 0.5256 |
-| polish_bankruptcy (AUC ↑) | 0.9966 | 0.9656 | 0.9956 | 0.9985 | **0.9992** |
-| QSAR-TID-11 (RMSE ↓) | 0.7867 | 0.8459 | 0.7976 | **0.7752** | – |
+| splice (logloss ↓) | 0.0669 | 0.0940 | 0.0618 | **0.0601** | 0.0659 |
+| students_dropout (logloss ↓) | **0.5251** | 0.5702 | 0.5515 | 0.5271 | 0.5256 |
+| polish_bankruptcy (AUC ↑) | 0.9966 | 0.9656 | 0.9956 | 0.9987 | **0.9992** |
+| QSAR-TID-11 (RMSE ↓) | 0.7867 | 0.8459 | 0.7976 | **0.7718** | – |
 | APSFailure (AUC ↑) | 0.9973 | 0.9951 | 0.9952 | **0.9975** | – |
-| Amazon (AUC ↑) | 0.8723 | 0.8808 | **0.8932** | 0.8853 | – |
+| Amazon (AUC ↑) | 0.8723 | 0.8808 | **0.8932** | 0.8701 | – |
 | physiochemical (RMSE ↓) | **2.852** | 3.961 | 2.977 | 2.868 | – |
-| hazelnut (AUC ↑) | 0.9961 | 0.9738 | 0.9936 | 피처 없음 | **0.9962** |
-| in_vehicle (AUC ↑) | 0.8629 | 0.8410 | **0.8685** | 0.8682 | – |
+| hazelnut (AUC ↑) | 0.9961 | 0.9738 | 0.9936 | 0.9944 | **0.9962** |
+| in_vehicle (AUC ↑) | 0.8629 | 0.8410 | **0.8685** | 0.8673 | – |
 
 **읽는 법**
 
@@ -91,7 +91,7 @@ leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. �
 - FM 은 refit 셋 (kumo·tabicl·tabpfn_v2) 중 최고 (12개 모두 kumo), GBDT 는 lgbm·catboost refit 중 나은 쪽, 튜닝 없음. Agent 는 5설정 × 1~2회 (파일럿 2회, #26 1회) 중 최고. – 는 아직 안 돌림
 - 12개 중 1등: FM 9 · Agent 3 (splice · Amazon · in_vehicle, 모두 범주 열이 대부분이고 오염 위험도 큼) · GBDT 0
 - C2 는 7개만 (codex-gpt+fm · aide-sonnet+fm 1회씩 중 최고, 나머지 5개는 안 돌리고 마무리). 대부분 FM 근처로 모이고, FM 보다 뚜렷이 나은 건 polish 하나 ([docs/tabarena.md 의 "C2 (+fm)"](docs/tabarena.md#c2-fm-fm-을-받은-agent-7개-r0f0-2026-11-18)). C2 를 더하면 7개 중 1등은 C2 3 (MIC · polish · hazelnut, hazelnut 은 FM 과 0.0001 차) · FM 3 · Agent 1
-- C1 = 데이터셋마다 Agent 최고 실행의 전처리 (`competitions/ta-*/features/f2.py`) 를 넣은 FM (kumo·tabicl refit `~f2`) 중 최고. 옮길 피처가 없는 곳 (원본 열 + 모델만인 풀이: MIC · hazelnut) 은 "피처 없음". C1 을 넣으면 1등은 C1 5 · FM 5 · Agent 2. FM 의 향상이 GBDT 의 향상보다 큰 곳은 10개 중 4개 (Amazon · QSAR-TID 등), Elo 에는 안 넣음 ([docs/tabarena.md 의 "C1"](docs/tabarena.md#c1-에이전트-피처--fm-r0f0-2026-11-18))
+- C1 = 데이터셋마다 Agent 실행 ("C1 준비" 의 카드로 고른 것) 의 전처리 (`competitions/ta-*/features/f2.py`, train 으로만 fit) 를 넣은 FM (kumo·tabicl refit `~f2`) 중 최고. C1 을 넣으면 (C2 빼고) 1등은 C1 6 · FM 4 · Agent 2, C2 까지 넣으면 C1 5 · FM 3 · C2 2 · Agent 2. FM 의 향상이 GBDT 의 향상보다 큰 곳은 12개 중 5개 (QSAR-TID · MIC 등, Amazon 은 둘 다 나빠짐), Elo 에는 안 넣음 ([docs/tabarena.md 의 "C1"](docs/tabarena.md#c1-에이전트-피처--fm-r0f0-2026-11-18))
 - 결과 표: `results/tabarena.csv` (FM·GBDT 채점), `results/tabarena_runs.csv` (Agent 실행)
 
 **Elo** (같은 12개 r0f0, 설정마다)

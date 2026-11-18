@@ -11,7 +11,7 @@
              pca_kernel_cv.py 는 앞 32열). 모델 바로 앞의 전처리도 블록으로 봄 (PR #34 의 R3 해석)
 뺀 것: Tanimoto 커널·kNN·SVR (모델), 순서형 NN, 임계값 증강 (타깃 임계값으로 행 복제 = 모델 쪽), 쌍 모델, 최대 유사도 이동·최근접 Ridge·
 spline 보정 (train 정답을 쓰는 후처리), 섞기, lgb_cv.py 의 X@sqrt(freq) (최종 성분 lgbB·F·G 는 extra=False 라 비트만 받음.
-카드는 LGB 가 4열을 받는다고 적었지만 코드와 다름), DAE (최종 계보 밖).
+카드 처음 판은 LGB 가 4열을 받는다고 적었고, #34 머지 전에 고침), DAE (최종 계보 밖).
 train+test fit: 에이전트는 freq 와 PCA 평균·고유벡터를 train+test 로 구함 → 같은 계산을 train 행으로만 fit (PR #34 의 R3 해석,
 2026-11-18 사용자). test 행은 train 의 freq·평균·고유벡터로 계산. 고유벡터 부호는 구현마다 달라서 열마다 가장 큰 성분이 양수가 되게 고정.
 동일성 확인 (로컬, 2026-11-18): fit 을 train+test 로 둔 판의 PCA 를 작업 디렉터리의 pca_features.npy (5742, 128) 와 열마다 비교
