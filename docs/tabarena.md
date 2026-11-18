@@ -25,6 +25,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [범주 비율과 FM − GBDT (51개, 2026-11-17)](#범주-비율과-fm--gbdt-51개-2026-11-17)
 - [범주 대 오염: 알아볼 수 없게 바꾼 3개 (2026-11-17)](#범주-대-오염-알아볼-수-없게-바꾼-3개-2026-11-17)
 - [C2 (+fm): FM 을 받은 Agent (7개 r0f0, 2026-11-18)](#c2-fm-fm-을-받은-agent-7개-r0f0-2026-11-18)
+- [C1 준비: 쓸 Agent 실행과 최종 제출의 계보 (2026-11-18)](#c1-준비-쓸-agent-실행과-최종-제출의-계보-2026-11-18)
 - [Elo (2026-11-16)](#elo-2026-11-16)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
@@ -1486,6 +1487,125 @@ Agent 를 돌린 12개 중 7개의 r0f0 에서, 환경에 TFM 을 깐 Agent (`co
 - 실행: 2026-11-18 07:22 → 17:40 KST (배치 0: QSAR_fish · MIC, 배치 1: Is-this · hazelnut · splice · students · polish). 배치마다 내기 전 사용자 확인
 - 비용: 하네스 시간 합 13.6시간 (Codex × Is-this 43분 외 57~60분). TFM 설치·사전 점검·회수를 더한 A10 시간은 약 16~17시간으로 어림 (작업별로 재지 않음)
 - 같은 날 TabArena C1 (`~f2`) 의 FM · GBDT 행이 `fab sync` 로 같이 받아졌지만 그쪽 작업의 것이라 이 PR 에는 넣지 않음
+
+## C1 준비: 쓸 Agent 실행과 최종 제출의 계보 (2026-11-18)
+
+C1 (에이전트 피처 → FM, [plans/roadmap.md](plans/roadmap.md) 의 "C1 규칙") 을 TabArena 에서 하려고 두 가지를 정함.
+데이터셋마다 어느 Agent 실행의 풀이를 쓸지 (고르는 규칙), 그 실행의 최종 제출 (`submission.csv`) 에 실제로 들어간 성분·피처가 무엇인지 (계보 도구 + 카드).
+F2 로 옮겨 FM·GBDT 를 돌리는 것 (`features/f2.py`) 은 다음 단계. 이번에는 카드의 "F2 후보" 까지.
+
+- "최종 풀이" = 그 실행의 최종 제출에 실제로 들어간 것. 작업 디렉터리에 있지만 최종 섞기에 안 들어간 실험은 F2 가 아님
+- 도구는 정해진 방식으로 찾을 수 있는 것 (계보·import·파일 입출력) 만 함. 피처의 뜻·타깃 의존·inductive 여부는 카드에서 사람·LLM 이 읽고 채움 (C1 규칙 1 의 "LLM 변환 + 사람 검토" 와 같음)
+- 에이전트 지시문 (`fab/agent/additional_notes.txt` 등) 은 안 바꿈 (바꾸면 지금까지 결과와 이어 읽을 수 없음)
+
+### 고르는 규칙 (2026-11-18 사용자가 정함)
+
+| 규칙 | 내용 |
+|---|---|
+| R1 후보 | 원래 대회 (`~obf` 는 뺌) 의 r0f0 1회째 5설정. 12개 × 5 = 60회 ("Agent 확장 1회째" 의 요약 표와 같은 기준. 파일럿의 2회째는 후보 아님) |
+| R2 고르기 | 데이터셋마다 Agent 최고 (`metric_error` 최소) 하나 = 요약 표의 "Agent 최고 (설정)" |
+| R3 빼기 | 다음이면 다음 순위로 내려감 (카드에 둘 다 남김): (a) 점수가 피처가 아니라 배정·외부 정보에서 나옴 (MLE-bench leaf × Codex 를 뺀 선례), (b) 최종 제출에 원본 열 말고 피처 블록이 없음 (F2 = F0, 예: 스스로 깐 TFM 에 원본 열만), (c) 1차 규칙 (타깃 비의존 · inductive 안) 을 지키는 블록이 하나도 안 남음. 판단은 카드에서 |
+| R3 해석 (2026-11-18 사용자가 정함) | (c) 의 "inductive 안" 은 train 으로만 다시 fit 할 수 있으면 됨: train+test 로 fit 한 블록 (빈도 수 · PCA · 레벨 등) 은 같은 계산을 train 행으로만 fit 해 F2 후보로 둠. (b) 의 "피처 블록" 에는 모델 바로 앞의 전처리도 넣음 (타깃 비의존 · inductive 안이면: fold 안 백색화, 고정 seed 랜덤 투영 등) |
+| R4 하한 | 우리 GBDT refit (lgbm·catboost 중 나은 쪽, r0f0) 보다 나쁜 Agent 는 안 고름 (피처+모델로도 기본 GBDT 를 못 넘으면 피처 몫을 해석하기 어려움). 걸리면 그 데이터셋은 C1 빈칸. C1 규칙 2 의 "GBDT 의 F2 > F0" 은 C1 실행 뒤 따로 봄 |
+| R5 하네스 | 데이터셋마다 하나 (최고) 만. 다른 하네스는 C1 결과를 보고 정함 ("정할 것") |
+
+### 12개에 적용 (r0f0 1회째)
+
+σ = FM (kumo) 의 모든 split 표준편차 (요약 표와 같음). 점수는 `metric_error`.
+
+| 데이터셋 | 실행 id | 설정 | 점수 | Agent − FM ÷σ | 고른 까닭 | 뺀 까닭 · 주의 |
+|---|---|---|---|---|---|---|
+| QSAR_fish_toxicity | `tabarena-p05__codex-gpt__r1__20261116-133105` | Codex × GPT | 0.9003 | +0.29 | Agent 최고. 최종 ExtraTrees 성분 (최종의 0.8) 이 원본 6열 + 랜덤 투영 32열을 받음 → R3(b) 아님 | 투영도 블록으로 봄 (R3 해석). 다른 기준이었다면 AIDE × GPT (0.9084) 도 원본 6열만이라 Claude Code 공식 (0.9121) 까지 내려갔음. 스스로 깐 TabICL 은 모델 쪽. test 303행 중 55행이 train 과 6열 일치, 그 행에 train 정답 평균을 0.10~0.15 섞음 (뺄 것) |
+| MIC | `tabarena-p06__aide-gpt__r1__20261116-145653` | AIDE × GPT | 0.4445 | +0.17 | Agent 최고 | 없음 |
+| Is-this-a-good-customer | `tabarena-p07__claude-code-sonnet-cont__r1__20261116-161213` | Claude Code × Sonnet +cont | 0.2617 | +0.25 | Agent 최고 | 비율 3열뿐, 에이전트 CV 로도 효과 작음 (0.7445 대 0.7436) |
+| splice | `tabarena-p08__codex-gpt__r1__20261116-172003` | Codex × GPT | 0.06179 | −0.34 | Agent 최고, FM 보다 나음 | 피처 블록 성분은 최종의 약 0.36. 생성 모델·OOF 스택·train 정답 이웃 치환은 뺌 (치환은 피처와 섞여 있어 R3(a) 로 실행째 빼지는 않음). 어휘·레벨이 train+test |
+| students_dropout_and_academic_success | `tabarena-p09__aide-sonnet__r1__20261116-182911` | AIDE × Sonnet | 0.5515 | +1.88 | Agent 최고 | 범주 빈도 17열은 train+test |
+| polish_companies_bankruptcy | `tabarena-p10__codex-gpt__r1__20261116-193556` | Codex × GPT | 0.00436 | +0.56 | Agent 최고 | 정확 일치·근접 이웃 정답 (test 28 · 40행), 스스로 깐 TabPFN 은 모델 쪽. 회계 항등식·차이 블록은 fit 없음 |
+| QSAR-TID-11 | `tabarena-p11__codex-gpt__r1__20261116-204754` | Codex × GPT | 0.7976 | +0.23 | Agent 최고 | 1차 규칙 안 블록은 행 합 1열뿐이라 빈도 합·PCA 128 (train+test fit) 을 train 으로만 다시 fit 해 씀 (R3 해석, 아니면 R3(c)). 이웃 라벨 특징·쌍 랭킹은 뺌 |
+| APSFailure | `tabarena-p12__aide-sonnet__r1__20261117-002041` | AIDE × Sonnet | 0.00478 | +1.46 | Agent 최고 | GBDT (lgbm 0.00488) 보다 0.07σ 만 나음 → 해석 약함 |
+| Amazon_employee_access | `tabarena-p03__aide-sonnet__r1__20261116-215907` | AIDE × Sonnet | 0.1068 | −3.27 | Agent 최고, FM 보다 나음 | 최종의 타깃 비의존 블록 (빈도 45 · nunique 72) 이 모두 train+test → train 으로만 다시 fit 해 씀 (R3 해석, 아니면 R3(c) 로 Claude Code +cont 0.1093). 이득의 대부분은 타깃 인코딩·스택 (뺄 것) 으로 보임 |
+| physiochemical_protein | `tabarena-p04__codex-gpt__r1__20261116-230759` | Codex × GPT | 2.9772 | +3.41 | Agent 최고 | 최종의 0.90 이 스태킹 메타 (타깃 의존). 피처만 받는 성분은 0.10 (nn · cat10). 정확 일치 조회 753행은 점수 원인 아님 (조회 무게를 바꿔도 OOF 같음) |
+| hazelnut-spread-contaminant-detection | `tabarena-p01__aide-gpt__r1__20261114-090001` | AIDE × GPT | 0.01624 | +14.67 | 다음 순위 (GBDT 보다 −11.9σ) | 최고 Codex (0.00640) 는 R3(b): 최종 `finalize_submission.py` 가 TabICL 변형 (원본 열 · 잡음 늘리기 · 의사 레이블) 만 섞음. AIDE 의 블록은 fold 안에서 fit 한 백색화 30열뿐 (커널 SVM 의 입력) → 블록으로 봄 (R3 해석, 아니면 hazelnut 은 C1 빈칸) |
+| in_vehicle_coupon_recommendation | `tabarena-p02__codex-gpt__r1__20261114-122945` | Codex × GPT | 0.13150 | −1.38 | Agent 최고, FM 보다 나음 | 응답자 템플릿 묶음 (6열) 이 train+test. `person` 키 자체는 행 단위 (fit 없음, 앞 절의 "train+test 로 응답자 id" 는 정확히는 이 묶음). 응답자별 타깃 집계는 최종에 없음 |
+
+- 12개 모두 R4 (GBDT 보다 나음) 통과. R3 로 뺀 것은 hazelnut × Codex 하나. R3 해석 (위) 에 걸린 넷: train 으로만 다시 fit (Amazon · QSAR-TID), 모델 앞 전처리를 블록으로 (QSAR_fish · hazelnut)
+- 설정별: Codex × GPT 6 · AIDE × Sonnet 3 · AIDE × GPT 2 · Claude Code × Sonnet +cont 1
+
+### 계보 도구 (`fab ta agent lineage`, `fab/agent/lineage.py`)
+
+```
+uv run --frozen fab ta agent lineage <key 또는 실행 폴더>                      # 사람이 읽는 나무
+uv run --frozen fab ta agent lineage <key> --json --out lineage.json           # 기계가 읽는 JSON
+```
+
+- 회수한 실행 폴더 (`meta.json` · 하네스 기록 · `workspace.tgz` · `submission.csv`) 만 읽음 (원격 없음). key 는 `AGENT_RUNS` (메인 체크아웃의 `results/_mlebench/agents/`, `FAB_OUTPUTS` 로 바꿈) 아래에서 찾음. 없으면 `fab sync --pull outputs/_mlebench/agents/<key>` (worktree 에서는 `FAB_OUTPUTS=<worktree>/results` 를 붙이면 메인 체크아웃에 안 씀. 결과표도 같이 받으니 바뀐 `results/*.csv` 는 되돌릴 것)
+- `fab mleb agent lineage` 도 같음 (MLE-bench 실행)
+
+하는 일
+
+| 단계 | 규칙 |
+|---|---|
+| 실행 목록 | Codex: `command_execution` 의 명령 (`bash -lc` 안쪽). Claude Code: Bash 명령 + Write·Edit 도구 (Bash 의 cwd 는 다음 명령으로 이어짐). AIDE: `journal.json` 의 노드마다 코드 하나 = 실행 하나 (step 순), 최종 = best 노드 (`node_id.txt`) |
+| 명령 풀기 | `python x.py` · `python - <<'PY' … PY` (인라인) · `python -c` · `bash x.sh` (내용을 풀어 봄) · `cat > x.py <<EOF` (내용이 남음) · `cp`/`mv` · `sed -i` (내용 모름) · `> 파일`. 셸 `for x in a b; do …; done` 은 값이 글자 목록이면 펼침. `nohup`·`timeout`·`nice -n`·환경 변수 대입은 뗌 |
+| 성공 여부 | exit 0 = 성공, 124·137·143 (시간 제한·신호로 끊김) = 모름 (쓰기 후보로 셈: physio × Codex 의 `metric_local.py` 는 143 으로 끊겼지만 결과 npz 를 최종 섞기가 읽음), 그 밖 = 실패 (쓰기로 안 셈). Claude Code 는 `is_error` |
+| 코드 안 경로 | AST: 글자 · f-string (`{…}` = `*`) · Path `/` · `os.path.join` · `+` · `%` · 변수 대입 · 글자 목록을 도는 `for` (값마다 펼침). 부른 함수로 역할: `np.load`·`read_csv`·`open(r)` 읽기, `np.save`·`to_csv`·`open(w)`·`joblib.dump` 쓰기, `shutil.copy`·`os.replace`·`Path.replace` 복사. 함수 인자로 넘어가 역할을 모르는 경로는 "언급" (읽기로 봄, 쓰기로는 안 셈). `exec(open('x.py').read())`·`runpy.run_path` 는 코드 의존으로 따라감. `import` 한 모듈 중 작업 디렉터리에 `<모듈>.py` 가 있으면 로컬 모듈 (그 경로도 같이) |
+| 생산자 | 파일을 읽은 실행보다 앞선 실행 중: 정확한 경로 (`*` 없음) 로 쓴 실행이 있으면 그 마지막 (덮어쓰기). 없으면 `*` 밖 글자가 가장 많은 쓰기의 마지막. 그 쓰기가 서로 다른 코드 둘 이상이면 "여럿" (고르지 않음), 쓰기가 없으면 "못 찾음", 파일 이름이 통째로 변수 (`f'{name}.npz'`) 면 "이름이 변수" (따라가지 않음). 정확한 쓰기 뒤에 같은 파일과 맞는 `*` 쓰기가 있으면 `later_wildcard_writers` 로 표시. 같은 코드가 쓰는 경로를 그 코드 안 첫 쓰기보다 앞 (줄·열) 에서 읽으면 "읽고 고쳐 다시 쓰기" (`rewrites`, 예: 제출을 읽어 보정하고 덮어씀) → 앞선 다른 코드의 쓰기로 이어 감. 쓴 뒤 읽으면 (검사 서버에 올리기 등) "자기가 씀" |
+| 끌어온 코드 | 코드에 `exec(`·`compile(`·`runpy` 가 있고 `.py` 를 읽으면 그 파일의 쓰기도 이 실행의 쓰기로 셈 (`s = Path('x.py').read_text().replace(...); exec(compile(s, ...))` 꼴). 읽은 글에 `.replace(` 가 있으면 `exec_text_modified` (글자를 고쳐 돌렸을 수 있음: 도구는 치환을 풀지 않음, 카드에서 확인). 읽은 글을 잘라 (`.split(…)[0]` 등) 앞부분만 돌리면 쓰기로 안 셈. 명령 앞의 환경 변수 (`VERSION=6`, 스레드 수는 뺌) 는 실행마다 `env` 로 남김 |
+| 코드 판 | 실행 시점의 코드: 기록에 전체 내용 (heredoc · Write, Edit 은 적용) 이 남은 판이 있으면 그것 (`판=log`), 아니면 작업 디렉터리 최종본 (`판=workspace`). 최종본인데 실행 뒤 그 파일을 고친 명령 (`sed -i` · 인라인 쓰기 등) 이 있으면 `changed_after_run` (실행한 판과 다를 수 있음) |
+| 빼는 파일 | 작업 디렉터리의 pip 가 깐 파일 (`*.dist-info/RECORD` 목록, `fab/agent` 의 `installed_files`) 은 코드로 안 봄 (9 의 "사후 검사" 와 같은 규칙) |
+| 내는 것 | 제출 경로와 그것을 마지막으로 쓴 실행, 제출과 바이트가 같은 작업 디렉터리 파일, 노드 (코드) 마다 실행 명령·순서·판·import·로컬 모듈·읽는 파일 (상태: 찾음 / 여럿 / 못 찾음 / 데이터 / 코드 / 자기가 씀 / 이름이 변수, 생산자, 파일 크기·npy 모양·csv 행열), AIDE 는 best 노드의 조상 (step·metric), 못 찾은 연결 목록 |
+
+하지 않는 것: 피처의 뜻·타깃 의존·train+test fit·섞기 무게의 해석 (카드), 셸 변수·argparse·명령 출력으로만 정해지는 경로, 같은 스크립트를 인자만 바꿔 여러 번 돌린 경우 어느 실행이 어느 파일을 썼는지 (스크립트 단위로 모으고 실행 목록을 남김).
+
+로컬 확인 (2026-11-18)
+
+- 단위 테스트 15개: `uv run --frozen python -m unittest discover -s tests -v` (가짜 실행 폴더로 Codex · Claude Code · AIDE, 경로 식, 셸 풀기, 끊긴 실행, 여럿·못 찾음을 고르지 않는지, pip 가 깐 파일 빼기, 읽고 고쳐 다시 쓰기, 고쳐 exec · 잘라 exec)
+- 로컬에 있는 회수물 46개 (TabArena 38 · MLE-bench 8, 하네스 셋 모두) 에 돌림: 46개 모두 제출을 쓴 실행을 찾음, 죽은 것 없음, 46개 모두 회수한 `submission.csv` 와 작업 디렉터리의 제출 사본이 바이트까지 같음. 걸린 시간 대부분 1~5초, 큰 Codex 실행 15~60초 (splice 56초)
+- 손으로 따라간 기록과 견줌: tps-may × Codex `build_submission2.py` · leaf × AIDE × Sonnet 노드 `34920bd2` (roadmap 의 C1 확장) · hazelnut × Codex `finalize_submission.py` (파일럿) 는 같음.
+  카드를 쓰며 코드 읽기와 어긋난 셋은 도구를 고쳐 맞춤: QSAR_fish × Codex (제출을 세 번 읽고 고쳐 다시 씀 → 처음엔 "자기가 씀" 으로 멈춤), physio × Codex (최종 #272 가 `compose_submission_nn.py` 의 무게 식을 고쳐 exec → 처음엔 그 앞 #261 을 냄), Amazon-obf × Codex (같은 꼴, 최종 #259).
+  "범주 대 오염" 의 "풀이 읽기" 와는 둘이 다름 (아래 "정할 것"): splice-obf × Codex 의 최종 제출은 `stack_both_test.py` 의 `stackboth_avg_0.1.csv` 를 복사한 것 (그 절은 `compose_submission.py`), in_vehicle-obf × Codex 는 `build_weighted.py` 의 `candidate.csv` 를 복사한 것 (그 절은 `build_submission.py`). 둘 다 작업 디렉터리에서 제출과 바이트가 같은 파일로 다시 확인함
+
+### 카드
+
+같은 틀 (머리 표 · 최종 제출을 만든 성분 · 피처 블록 (타깃 의존 · train+test fit · fold 안 fit · 몫) · F2 후보와 뺄 것 · 동일성 확인에 쓸 값 · 못 찾은 연결). 도구 출력 + 코드 읽기 (Is-this 는 직접, 나머지 11장은 하위 에이전트가 쓰고 검토함).
+
+| 카드 | F2 후보 (열) | 조건부 (train 으로만 다시 fit 하면) | 동일성 확인 |
+|---|---|---|---|
+| [QSAR_fish](../competitions/ta-qsar-fish-toxicity/c1.md) | `~f2` 38 (변환 6 + 랜덤 투영 32) | – | `power_proj.log` 의 CV RMSE 0.83228 |
+| [MIC](../competitions/ta-mic/c1.md) | `~f2m` 128 (+ 결측 지시 17) | – | 트리 CV 0.413678 → 선형 더한 0.409726 |
+| [Is-this](../competitions/ta-is-this-a-good-customer/c1.md) | `~f2` 16 (비율 3) | – | `r.py` CV AUC 0.76056 |
+| [splice](../competitions/ta-splice/c1.md) | (행 단위 원-핫뿐, 어휘가 train+test) | `~f2s` 수천 (k-mer · 쌍 원-핫 · 구간 개수), `~f2` 5만+ (TFM 상한) | 배열 모양 (3190, 1310) · (3190, 48727), 성분 OOF logloss |
+| [students](../competitions/ta-students-dropout-and-academic-success/c1.md) | `~f2s` 43 (파생 7) | `~f2` 60 (+ 범주 빈도 17) | LR CV logloss 0.55776 |
+| [polish](../competitions/ta-polish-companies-bankruptcy/c1.md) | `~f2s` 138 (항등식 74), `~f2` 300 (+ 차이 236) | `~f2e` 362 (+ 같은 값 쌍 224) | 블록별 CatBoost CV AUC (0.99394 · 0.99244) |
+| [QSAR-TID-11](../competitions/ta-qsar-tid-11/c1.md) | (행 합 1열뿐) | 1,024 + 빈도 합 3~4 + PCA 128 | `pca_features.npy` (5742, 128) |
+| [APSFailure](../competitions/ta-apsfailure/c1.md) | `~f2` 248 (결측 수 · 무리 합 · 무리 안 비율 78) | – | LGB OOF AUC 0.99130 |
+| [Amazon](../competitions/ta-amazon-employee-access/c1.md) | – | `~f2` 117 (빈도 45 · nunique 72) | CB OOF AUC 0.87854 |
+| [physiochemical](../competitions/ta-physiochemical-protein/c1.md) | `~f2` 45 (비율 36), `~f2s` 54 (log · log 차이) | – | `full_cat10_preds.npz` 값, holdout RMSE 3.30665 |
+| [hazelnut](../competitions/ta-hazelnut-spread-contaminant-detection/c1.md) | `~f2s` 30 (fold 안 백색화) | – | 노드 CV 0.985474 · holdout 0.988203 |
+| [in_vehicle](../competitions/ta-in-vehicle-coupon-recommendation/c1.md) | `~f2s` 약 69 (행 단위 교차 · 구간) | `~f2` 약 75 (+ 응답자 템플릿 6) | xgb 3-fold CV 0.817503 (GPU) |
+
+### 정할 것
+
+- **C1 실행 (다음 단계)**: 카드의 F2 후보를 `competitions/ta-<데이터셋>/features/f2.py` 로 옮기고 동일성 확인 → F0/F2 × {tabicl, kumo, tabpfn_v2} + {lgbm, catboost} (r0f0 먼저, 결과를 보고 모든 split). 데이터셋마다 FM·GBDT 작업 하나씩
+  - 따로 진행 중인 C1 실행 (브랜치 `Aiden-Jeon/tabarena-c1`, 카드 전에 시작) 의 `f2.py` 는 이 카드·R3 해석과 다른 곳이 있음.
+    그 PR 이 올라온 뒤 카드 기준으로 고쳐 다시 돌림 (2026-11-18 사용자가 정함: 이 절의 규칙이 기준). 2026-11-18 에 본 차이:
+
+    | 데이터셋 | 그 `f2.py` | 카드 기준으로 고칠 것 |
+    |---|---|---|
+    | train+test fit 블록 (Amazon 빈도·nunique, students 범주 빈도, splice n-gram 어휘, QSAR-TID 비트 빈도, polish equals 쌍 고르기) | 에이전트 그대로 train+test 로 계산 (inductive 밖 표시만) | train 행으로만 fit (R3 해석) |
+    | in_vehicle | 응답자 id 계열 (`person` 키 · `person_demo` · 설문 묶음) 을 모두 뺌 (55열) | `person` 키는 행 단위 (fit 없음) → 넣음. 설문 묶음 (6열) 은 train 으로만 다시 fit 해 넣음 (약 75열) |
+    | QSAR-TID-11 | 지문 요약 3열만 (1,027열), PCA 128 은 커널 SVR 입력이라 뺌 | PCA 128 도 넣음 (모델 바로 앞의 전처리, R3 해석), train 으로만 fit |
+    | Amazon | 쌍 36 · 삼중 28 을 범주로 넣음 (190열) | 최종 제출에 타깃 비의존 꼴로 안 들어감 → 뺌 (117열) |
+    | 같음 | APSFailure 248 · Is-this 16 · physio 45 · QSAR_fish (원본 6 + 투영 32) · students 60 · polish · splice 의 열 범위 (트리 성분 입력 1,165, 카드보다 좁고 정확 → 그쪽을 따름) | – |
+    | 없음 | MIC · hazelnut | 카드대로 새로 씀 |
+
+    그쪽 r0f0 결과 (in_vehicle · splice · Amazon) 는 이 차이가 섞인 값이라 고친 뒤 다시 돌린 값으로 바꿈
+- (정함 2026-11-18, 사용자) inductive 밖 블록은 train 으로만 다시 fit 해 옮김 · 모델 바로 앞의 전처리도 블록으로 봄 (위 "R3 해석"). 카드의 "조건부" 열이 C1 1차 후보.
+  다시 fit 하면 값이 에이전트 배열과 달라지므로 동일성 확인은 train+test 판으로 먼저 맞춘 뒤 train 판으로 바꿈
+- splice 카드의 메모: 최종 명령 (#293) 이 "애매한 염기" 보정 6행 중 1행 (id 2376) 만 제출에 옮김 (나머지 5행을 안 옮긴 까닭은 코드에 없음). 점수·F2 에는 영향 없음 (예측 쪽 보정)
+- **하네스**: 12개 중 Codex 가 다수 → C1 결과가 "Codex 피처" 에 기울 수 있음. 다른 하네스 최고를 더할지 (예: Codex 가 최고인 곳 중 다른 하네스가 1σ 안인 QSAR_fish · splice · QSAR-TID) 는 C1 결과를 보고
+- **"풀이 읽기" (범주 대 오염) 를 다시 볼 것**: 도구로 보니 splice-obf · in_vehicle-obf × Codex 의 최종 제출 스크립트가 그 절에 적은 것과 다름 (위 "로컬 확인"). in_vehicle-obf 의 `build_weighted.py` 는 `profile_svc` 성분 (`cv_svc_profile.py`·`cv3_svc_profile.py` 의 출력, 어느 쪽인지는 도구로 "여럿") 을 읽음 → 그 절의 "`person` 이 같은 행끼리의 커널 SVM 은 최종 섞기에 없음" 과 맞지 않음. 그 절의 결론 (응답자 id 풀이가 남음 · FM 을 못 넘음) 은 점수로 정해져 바뀌지 않지만, 성분 목록은 이 도구로 다시 쓸 것
+- **앞으로의 대안 (안만, 구현 안 함)**: 1시간이 끝난 뒤 같은 세션에 "최종 제출을 만든 파이프라인 (스크립트·입력 파일·섞기 무게) 을 설명하라" 고 따로 물어 기록. 점수에는 영향이 없지만 (제출 뒤) 다시 실행해야 하고, 답은 도구 결과와 대조하는 참고로만 씀 (에이전트의 설명이 틀릴 수 있음). 지시문은 그대로 둠
 
 ## Elo (2026-11-16)
 

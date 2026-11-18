@@ -5,6 +5,7 @@
     uv run fab mleb agent run spaceship-titanic claude-code-sonnet --continue  # 별도 설정 +cont (kaggle-master#35)
     uv run fab mleb agent run nomad2018-predict-transparent-conductors codex-gpt --fm  # C2: TFM 을 깐 환경 (+fm)
     uv run fab mleb agent list                                              # 제출한 실행과 처리 상태 (Volume 의 state/agent/)
+    uv run fab ta agent lineage <key>                                       # 회수한 실행의 최종 제출 계보 (C1 준비, lineage.py)
     uv run fab sync                                                         # 채점된 결과 → results/mlebench_runs.csv
 
 실행은 제출한 뒤 맥북을 꺼도 원격에서 계속 돎. 끝난 뒤 `fab remote kick` 으로 정리 작업(fab/remote/reconcile.py)이 회수·채점·사후 검사.
@@ -752,6 +753,12 @@ def main(argv: list[str], bench: str | None = None):
     x = sub.add_parser("exclude", help="실행을 결과에서 빼는 요청 (실행 환경 문제 등). 원격 정리 작업이 사유를 남기고 mlebench_runs.csv 행 삭제")
     x.add_argument("keys", nargs="+")
     x.add_argument("--reason", required=True)
+    sub.add_parser("lineage", add_help=False,
+                   help="회수한 실행의 최종 제출 계보 (로컬만, fab/agent/lineage.py): 제출을 쓴 스크립트 → 읽는 파일을 만든 스크립트 …")
+    if argv[:1] == ["lineage"]:  # 인자는 lineage.main 이 받음
+        from fab.agent import lineage
+
+        return lineage.main(argv[1:])
     args = ap.parse_args(argv)
     if args.cmd == "run" and ta:
         from fab.bench.tabarena import ensure_prepared

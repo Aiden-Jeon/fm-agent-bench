@@ -85,6 +85,12 @@ P1 = kaggle-master#34 (Agent 2회째)·#38 (FM 시드), P2 = #36 (C1), P3 = #39 
 6. TFM 피처 상한: 변형 파일의 `TFM_MAX_FEATURES` (없으면 대회 설정 `tfm_max_features`). 상한을 넘으면 fold 학습 데이터의
    LightGBM 중요도 상위만 TFM 에 감 (누수 없음) → TFM 이 GBDT 가 고른 열을 받으니 "TFM 에 특히 도움" 에 GBDT 몫이 섞일 수 있음.
    그래서 작은 변형은 상한 없이 다 넣고, 큰 변형만 상한
+7. TabArena 에서 고르기·따라가기 (2026-11-18, [docs/tabarena.md](../tabarena.md) 의 "C1 준비"): 데이터셋마다 r0f0 1회째의 Agent 최고 하나.
+   점수가 배정·외부 정보에서 나왔거나 최종 제출에 원본 열 말고 피처 블록이 없으면 다음 순위로 (GBDT refit 보다 나쁜 Agent 는 안 고름).
+   train+test 로 fit 한 블록은 train 으로만 다시 fit 해 옮기고, 모델 바로 앞의 전처리 (fold 안 백색화 등) 도 블록으로 봄.
+   최종 제출에 실제로 들어간 피처만 F2 후보: `fab ta agent lineage <key>` (`fab/agent/lineage.py`) 가 하네스 기록·작업 디렉터리에서 제출을 쓴 실행 →
+   그 실행이 읽은 파일을 만든 실행을 거꾸로 따라감 (정해진 방식으로 찾은 것만, 못 찾으면 못 찾음). 성분·블록의 뜻은 카드
+   (`competitions/ta-<데이터셋>/c1.md`) 에서 사람·LLM 이 채움
 
 ### nomad × Codex 의 F2 (2026-11-11)
 
