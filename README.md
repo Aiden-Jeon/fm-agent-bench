@@ -20,7 +20,7 @@
 - **MLE-bench** (`openai/mle-bench`): Kaggle 대회의 원래 train 을 다시 나눈 test 로 채점하고, 원래 리더보드로 순위·메달을 매기는 벤치마크.
   이 중 표 형식 대회 4개 (spaceship·nomad·tps-may-2022·leaf) 를 씀
 - **TabArena** (`autogluon/tabarena` v0.1, 51개): OpenML 고정 분할로 채점하고 공개된 TFM·GBDT 의 split 별 결과와 비교.
-  FM (tabicl·kumo 51개, tabpfn_v2 33개) 은 모든 split, Agent 는 hazelnut · in_vehicle 의 r0f0 × 5설정 × 2회 ([docs/tabarena.md](docs/tabarena.md))
+  FM (tabicl·kumo 51개, tabpfn_v2 33개) 은 모든 split, Agent 는 1회 1시간이라 12개 (파일럿 2개 × 2회 + #26 10개 × 1회) 의 r0f0 × 5설정만 ([docs/tabarena.md](docs/tabarena.md))
 
 계획과 단계 (P0~P6, C1·C2 규칙) 는 [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
@@ -28,34 +28,90 @@
 
 대회마다 각 방식의 최고 점수 (MLE-bench test), 괄호는 원래 Kaggle 리더보드에서의 위치. 대회별 전체 표·해석은 [docs/mle-bench.md](docs/mle-bench.md).
 
-| 대회 (지표) | FM | GBDT | Agent | FM + Agent 피처 (C1) | FM 을 깐 Agent (C2) |
+| 방식 | nomad2018 (RMSLE ↓) | spaceship-titanic (accuracy ↑) | tps-may-2022 (AUC ↑) | leaf-classification (logloss ↓) |
+|---|---|---|---|---|
+| FM | 0.05723 (16위) | 0.8218 (6위) | 0.99113 (444위)¹ | 0.02059 (229위) |
+| GBDT | 0.06036 (34위) | **0.8276 (2위)** | 0.97185 (585위)¹ | 0.35967 (1001위) |
+| Agent | 0.04567 (1위) | 0.8241 (2위) | **0.99734 (240위)** | **0.00000 (1위)**² |
+| FM + Agent 피처 (C1) | **0.04488 (1위)** | – | 0.99381 (392위)⁴ | 0.00114 (29위)⁴ |
+| FM 을 깐 Agent (C2) | 0.04545 (1위)³ | – | 0.99681 (296위)³ | **0.00000 (1위)**²·³ |
+
+**읽는 법**
+
+- FM·GBDT 는 튜닝 없음. test 예측은 refit (CV 없이 train 전체로 한 번 학습, 2026-11-15). 옛 5-fold 값은 [docs/mle-bench.md](docs/mle-bench.md) 의 "refit 으로 다시".
+- Agent·C2 는 1~2회 실행 중 최고. – 는 아직 안 돌림.
+
+**각주**
+
+- ¹ 사람 피처 (`~f1`). FM 은 컨텍스트 20만 행. refit 은 컨텍스트를 한 번만 뽑아서 5-fold 의 0.99232 보다 조금 낮음.
+- ² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님).
+- ³ C2 최고 실행
+  - nomad: Codex × GPT +fm 2회째. TabPFN·TabICL 을 제출에 섞음, Codex Agent 2회째와 같은 수준.
+  - leaf: Codex × GPT +fm 2회째와 AIDE × GPT +fm 2회째. 둘 다 분할 구조 배정이고, AIDE 는 FM 을 안 씀.
+  - tps: Codex × GPT +fm. 아무도 FM 을 안 씀.
+  - FM 을 제출에 넣어 같은 설정의 Agent 보다 두 번 다 좋아진 건 leaf × Claude Code +cont 와 nomad × AIDE × Sonnet ([C2 2회째](docs/mle-bench.md#c2-2회째-leaf--nomad-2026-11-13)).
+- ⁴ C1 에 쓴 피처
+  - nomad·tps: Codex × GPT. tps 의 FM 은 kumo 컨텍스트 20만 행.
+  - leaf: AIDE × Sonnet 1회째 (그 에이전트 1·2회째 점수 0.00385·0.00195), FM 은 tabicl. Codex 피처는 ² 라서 안 씀.
+
+**C1 해석**: leaf 의 FM 향상은 대부분 test 99행 중 한 행이고, CV (5-fold) 로 보면 작음.
+leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. 그래서 질문 2 의 답이 "예" 인 곳은 아직 nomad × kumo 하나.
+
+**결과 파일**
+
+| 파일 | 내용 | 출처 |
+|---|---|---|
+| `results/mlebench.csv` | FM·GBDT 채점 | Volume 의 `tables/` 원본을 `fab sync` 로 받은 사본 |
+| `results/mlebench_runs.csv` | Agent 실행 | 〃 |
+| `results/results.csv` | CV | 〃 |
+| `results/mlebench_agents.csv` | 공개 리더보드 에이전트 | 로컬 `fab mleb agents` 로 만듦 |
+
+### TabArena
+
+데이터셋마다 각 방식의 최고 점수 (TabArena r0f0 split 의 test). 대회별 전체 표·해석은 [docs/tabarena.md 의 "Agent 확장 1회째"](docs/tabarena.md#agent-확장-1회째-26-2026-11-16).
+
+| 데이터셋 (지표) | FM | GBDT | Agent | FM + Agent 피처 (C1) | FM 을 깐 Agent (C2) |
 |---|---|---|---|---|---|
-| nomad2018 (RMSLE ↓) | 0.05723 (16위) | 0.06036 (34위) | 0.04567 (1위) | **0.04488 (1위)** | 0.04545 (1위)³ |
-| spaceship-titanic (accuracy ↑) | 0.8218 (6위) | **0.8276 (2위)** | 0.8241 (2위) | – | – |
-| tps-may-2022 (AUC ↑) | 0.99113 (444위)¹ | 0.97185 (585위)¹ | **0.99734 (240위)** | 0.99381 (392위)⁴ | 0.99681 (296위)³ |
-| leaf-classification (logloss ↓) | 0.02059 (229위) | 0.35967 (1001위) | **0.00000 (1위)**² | 0.00114 (29위)⁴ | **0.00000 (1위)**²·³ |
+| QSAR_fish (RMSE ↓) | **0.8855** | 0.9123 | 0.9003 | – | – |
+| MIC (logloss ↓) | **0.4412** | 0.4712 | 0.4445 | – | – |
+| Is-this-a-good-customer (AUC ↑) | **0.7435** | 0.6803 | 0.7383 | – | – |
+| splice (logloss ↓) | 0.0669 | 0.0940 | **0.0618** | – | – |
+| students_dropout (logloss ↓) | **0.5251** | 0.5702 | 0.5515 | – | – |
+| polish_bankruptcy (AUC ↑) | **0.9966** | 0.9656 | 0.9956 | – | – |
+| QSAR-TID-11 (RMSE ↓) | **0.7867** | 0.8459 | 0.7976 | – | – |
+| APSFailure (AUC ↑) | **0.9973** | 0.9951 | 0.9952 | – | – |
+| Amazon (AUC ↑) | 0.8723 | 0.8808 | **0.8932** | – | – |
+| physiochemical (RMSE ↓) | **2.852** | 3.961 | 2.977 | – | – |
+| hazelnut (AUC ↑) | **0.9961** | 0.9738 | 0.9936 | – | – |
+| in_vehicle (AUC ↑) | 0.8629 | 0.8410 | **0.8685** | – | – |
 
-FM·GBDT 는 튜닝 없음, test 예측은 refit (CV 없이 train 전체로 한 번, 2026-11-15. 옛 5-fold 값은 [docs/mle-bench.md](docs/mle-bench.md) 의 "refit 으로 다시").
-Agent·C2 는 1~2회 실행 중 최고, – 는 아직 안 돌림. ¹ 사람 피처(`~f1`), FM 은 컨텍스트 20만 행 (refit 은 컨텍스트를 한 번만 뽑아 5-fold 의 0.99232 보다 조금 낮음).
-² 분할 구조로 test 행을 배정한 결과 (외부 데이터 아님).
-³ C2 최고: nomad 는 Codex × GPT +fm 2회째 (TabPFN·TabICL 을 제출에 섞음, Codex Agent 2회째와 같은 수준), leaf 는 Codex × GPT +fm 2회째와 AIDE × GPT +fm 2회째 (분할 구조 배정, AIDE 는 FM 안 씀),
-  tps 는 Codex × GPT +fm (아무도 FM 을 안 씀). FM 을 제출에 넣어 같은 설정의 Agent 보다 두 번 다 좋아진 건 leaf × Claude Code +cont 와 nomad × AIDE × Sonnet ([C2 2회째](docs/mle-bench.md#c2-2회째-leaf--nomad-2026-11-13)).
-⁴ C1 의 피처: nomad·tps 는 Codex × GPT, leaf 는 AIDE × Sonnet 1회째 (그 에이전트 1·2회째 0.00385·0.00195, Codex 는 ² 라 안 씀). tps 는 kumo 컨텍스트 20만 행, leaf 는 tabicl.
-leaf 의 FM 향상 대부분은 test 99행 중 한 행이고 CV (5-fold) 로는 작음. leaf·tps 에서는 같은 피처의 GBDT 가 FM 보다 더 좋아짐 (질문 2 의 답은 아직 nomad × kumo 하나만 예).
-결과 표: `results/mlebench.csv` (FM·GBDT 채점), `results/mlebench_runs.csv` (Agent 실행), `results/results.csv` (CV) 는
-Volume 의 `tables/` 가 원본이고 `fab sync` 로 받은 사본. `results/mlebench_agents.csv` (공개 리더보드 에이전트) 는 로컬 `fab mleb agents` 로 만듦.
+**읽는 법**
 
-### TabArena Elo
+- Agent 가 1회 1시간이라 51개 중 12개 (파일럿 2 + #26 10) 의 r0f0 하나에서만 돌림. FM·GBDT 는 51개 모든 split 을 돌렸지만 여기서는 같은 r0f0 값
+- FM 은 refit 셋 (kumo·tabicl·tabpfn_v2) 중 최고 (12개 모두 kumo), GBDT 는 lgbm·catboost refit 중 나은 쪽, 튜닝 없음. Agent 는 5설정 × 1~2회 (파일럿 2회, #26 1회) 중 최고. – 는 아직 안 돌림
+- 12개 중 1등: FM 9 · Agent 3 (splice · Amazon · in_vehicle, 모두 범주 열이 대부분이고 오염 위험도 큼) · GBDT 0
+- 결과 표: `results/tabarena.csv` (FM·GBDT 채점), `results/tabarena_runs.csv` (Agent 실행)
 
-TabArena 와 같은 식의 Elo (RandomForest 기본 = 1000, Bradley-Terry, 데이터셋 부트스트랩 200번 95% 구간), TabArena 공개 결과 (기본 설정) 와 한 풀.
-`uv run --frozen fab ta elo` → `results/tabarena_elo.csv`. 계산·전체 표는 [docs/tabarena.md 의 "Elo"](docs/tabarena.md#elo-2026-11-16).
+**Elo** (같은 12개 r0f0, 설정마다)
 
-| 풀 | 순서 (Elo) |
-|---|---|
-| FM: 51개 × 모든 split | TabArena Kumo 1871 · **kumo (ours) 1829** · TabICLv2 1538 · **tabicl (ours) 1535** · CatBoost 1333 · **tabpfn_v2 (ours) 1269** · TabPFNv2 1223 · LightGBM 1175 · RF 1000 |
-| Agent: r0f0 2개 (구간 없음) | kumo (ours) = TabArena Kumo 2540 · **Codex × GPT 2372** · tabicl (ours) 2108 · **AIDE × Sonnet = AIDE × GPT = TabICLv2 1944** · **Claude Code +cont 1628** · CatBoost 1356 · **Claude Code = 우리 GBDT 1314** · RF 1000 |
+| 방식 | 방법 | Elo | 95% 구간 |
+|---|---|---|---|
+| FM | kumo (ours) | **1964** | +2204 / −140 |
+| FM | tabicl (ours) | 1608 | +183 / −230 |
+| FM | tabpfn_v2 (ours) | 1341 | +167 / −247 |
+| Agent | Codex × GPT | **1680** | +275 / −335 |
+| Agent | AIDE × Sonnet | 1569 | +127 / −342 |
+| Agent | AIDE × GPT | 1542 | +130 / −335 |
+| Agent | Claude Code × Sonnet +cont | 1481 | +92 / −319 |
+| Agent | Claude Code × Sonnet | 1297 | +83 / −278 |
+| GBDT (기준점) | catboost (ours) | 1241 | +120 / −318 |
+| GBDT (기준점) | lgbm (ours) | 1134 | +110 / −332 |
 
-우리 FM 셋은 TabArena 의 같은 모델과 구간 안 (kumo +134 / −77 등). Agent 풀은 데이터셋이 2개뿐이라 순위를 다시 쓴 것에 가깝고, 숫자를 FM 풀과 나란히 놓지 않음.
+- TabArena 와 같은 식: RandomForest 기본 = 1000, Bradley-Terry, 데이터셋 부트스트랩 200번 95% 구간, TabArena 공개 결과 (기본 설정) 와 한 풀.
+  같은 풀의 공개 결과: Kumo-Tabular 2016 · TabICLv2 1564 · CatBoost 1346 · TabICL v1 1324 · TabPFNv2 1267 · LightGBM 1187 · RandomForest 1000
+- Agent 는 설정마다 회차 평균 (위 점수표는 회차 중 최고). 위 표의 칸별 최고를 묶어 Elo 를 매기지 않는 것은 고른 결과라 부풀고, Agent 가 GBDT 를 12개 모두 이겨 값이 안 정해져서
+- Agent 넷이 기본 GBDT 보다 위. Codex 는 kumo 보다 284 아래 (기대 승률 16%), tabicl 보다는 위. 데이터셋이 12개뿐이라 구간이 넓고, Agent 끼리·tabicl 과의 순서는 단단하지 않음
+- 모든 방법·평균 순위·승률은 [docs/tabarena.md 의 "Elo"](docs/tabarena.md#elo-2026-11-16). `uv run --frozen fab ta elo` → `results/tabarena_elo.csv`
 
 ## 구조
 
