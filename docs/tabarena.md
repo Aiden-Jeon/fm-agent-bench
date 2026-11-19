@@ -372,7 +372,7 @@ uv run --frozen fab ta compare --detail
 
 익명화 (5 의 "익명화" 를 구현)
 
-- 에이전트에게 보이는 이름은 설정의 `anon_id` (`tabarena-p01` hazelnut, `p02` in_vehicle, `p03`·`p04` 는 Amazon·physiochemical 에 붙여 두었지만 Agent 는 안 돌림): 원격 실행 이름·MLflow run·Volume 의 데이터 묶음 (`data/<anon_id>-<내용 해시>.tgz`: 설명·데이터를 고치면 새 묶음, 옛 묶음을 다시 쓰지 않음)·`run.json`·실행 키
+- 에이전트에게 보이는 이름은 설정의 `anon_id` (`tabarena-p01` hazelnut, `p02` in_vehicle, `p03`·`p04` 는 Amazon·physiochemical 에 붙여 둠. 이때는 Agent 를 안 돌렸고 #26 부터 돌림): 원격 실행 이름·MLflow run·Volume 의 데이터 묶음 (`data/<anon_id>-<내용 해시>.tgz`: 설명·데이터를 고치면 새 묶음, 옛 묶음을 다시 쓰지 않음)·`run.json`·실행 키
 - 대회 이름은 내 Volume 의 제출 기록 (`state/agent/<key>.json` 의 `comp`) 에만. 정리 작업이 이걸로 정답을 찾음
 - 제출 전 누출 검사 (`fab/agent/__init__.py` 의 `leak_check`): 에이전트 노드에 가는 코드 묶음 (실행기·지시문·`run.json`)·실행 이름·데이터 파일 이름·`description.md` 에 데이터셋 이름 (구분자 바꾼 꼴 포함)·대회 이름·OpenML task·dataset id 가 있으면 제출 안 함.
   이름은 단어 경계로 봄 (짧은 이름 `mic` 가 `dynamic` 에 걸리지 않게), 숫자는 앞뒤가 숫자가 아닐 때. 검사 전에 `data/description.md` 를 대회 폴더의 것으로 맞춤
@@ -1457,7 +1457,7 @@ Agent 를 돌린 12개 모두의 r0f0 에서, 환경에 TFM 을 깐 Agent (`code
 | in_vehicle (`p02`) | 0.1371 | 0.0040 | AIDE × Sonnet | 0.1386 | 0.1383 | −0.07 | +0.30 | TabICL 70% (순위 섞기, 나머지 CatBoost). TabPFN 은 CV 만, Kumo 안 씀 ³ |
 | | | | Codex × GPT | 0.1322 | **0.1321** | −0.03 | −1.23 | 직접 약 5% (Kumo 2.4 · TabPFN 1.9 · TabICL 1.2%) + stacker 입력. 주 성분은 응답자 키 위 CatBoost · LGBM · logistic. Kumo 에 범주는 정수 코드 |
 | Amazon (`p03`) | 0.1277 | 0.0064 | AIDE × Sonnet | 0.1068 | **0.1091** | +0.36 | −2.91 | TabICL 50% · TabPFN 30% (범주는 정수 코드 + 개수 + TE), Kumo 안 씀 ³ |
-| | | | Codex × GPT | 0.1102 | **0.1025** | −1.20 | −3.94 | TabICL 25% · Kumo 16% · TabPFN 8%. Kumo 에는 범주 열을 빼고 빈도 · 쌍 개수 · 이웃 통계 80열 ³ |
+| | | | Codex × GPT | 0.1102 | **0.1025** | −1.20 | −3.94 | TabICL 24.5% · Kumo 16% · TabPFN 7.8%. Kumo 에는 범주 열을 빼고 빈도 · 쌍 개수 · 이웃 통계 80열 ³ |
 | physiochemical (`p04`) | 2.852 | 0.037 | AIDE × Sonnet | 3.206 | **2.849** | −9.7 | −0.09 | Kumo 100% |
 | | | | Codex × GPT | 2.977 | **2.840** | −3.7 | −0.32 | Kumo 중심 약 93% (Kumo 셋 + Kumo 위 CatBoost 잔차) · TabICL 6% |
 | QSAR_fish (`p05`) | 0.8855 | 0.050 | AIDE × Sonnet | 0.9136 | 0.8891 | −0.49 | +0.07 | Kumo 주 성분 |
@@ -1475,7 +1475,7 @@ Agent 를 돌린 12개 모두의 r0f0 에서, 환경에 TFM 을 깐 Agent (`code
 | QSAR-TID-11 (`p11`) | 0.7867 | 0.047 | AIDE × Sonnet | 0.8145 | 0.8082 | −0.14 | +0.46 | TabPFN 32% (PCA 100, 나머지 Tanimoto 커널 SVR · MLP · LGBM) ³ |
 | | | | Codex × GPT | 0.7976 | **0.7646** | −0.70 | −0.47 | Kumo 약 86% (비트 고르기 · PCA 변형 여럿) · TabICL 5% |
 | APSFailure (`p12`) | 0.00265 | 0.0015 | AIDE × Sonnet | 0.00478 | 0.00474 ⁴ | −0.03 | +1.42 | TabICL 25% (LGBM · XGB · CatBoost 와 같은 가중 순위 평균), Kumo 안 씀 |
-| | | | Codex × GPT | 0.00525 | 0.00397 | −0.87 | +0.90 | TabICL 약 35% (LGBM · XGB · CatBoost · MLP 와 순위 섞기), Kumo 안 씀 ³ |
+| | | | Codex × GPT | 0.00525 | 0.00396 | −0.87 | +0.90 | TabICL 약 35% (LGBM · XGB · CatBoost · MLP 와 순위 섞기), Kumo 안 씀 ³ |
 
 - ¹ Kumo 예측으로 test 행에 의사 레이블을 붙여 컨텍스트에 넣음 → TabArena 의 "inductive" 규칙 (5) 밖. 셋 다 점수는 FM 수준이거나 그 근처
 - ² 하네스가 끝난 뒤 노드가 플랫폼 오류로 죽어 진행 사본으로 채점 (`run_crashed`). 하네스 58분, 제출은 끝까지 씀
@@ -1493,13 +1493,14 @@ Agent 를 돌린 12개 모두의 r0f0 에서, 환경에 TFM 을 깐 Agent (`code
 - **FM 보다 1σ 넘게 나쁜 것은 Is-this 둘 · APS × AIDE**: Is-this 는 FM 을 제출에 거의 안 넣음 (Codex 0%, AIDE TabPFN 27%). FM 이 근소하게 이기는 데이터 (FM − GBDT −2.9%) 라 Agent 가 CV 에서 FM 을 고르지 않은 것으로 봄. APS × AIDE 는 TabICL (컨텍스트 음성 9,000 행 표본) 을 GBDT 셋과 같은 가중으로 섞어 공식 설정과 같은 점수 (+1.42σ, 공식 +1.45σ). 1시간에 LLM 호출 15번 (노드마다 TabICL 5-fold 가 길었음)
 - **어느 FM 을 썼나**: 배치 0·1 은 거의 Kumo 였고, 배치 2 는 갈림. physiochemical 둘 · QSAR-TID × Codex 는 Kumo 중심, in_vehicle × AIDE · Amazon 둘 · APS × Codex 는 TabICL 이 가장 큼. 배치 2 의 AIDE 는 physiochemical 말고 넷 모두, APS × Codex 도 Kumo 를 안 씀
 - **공식 설정에서 TFM 을 스스로 깐 실행과 비교**: Codex × QSAR_fish (공식 0.9003, TFM 깖) → +fm 0.8885, Codex × hazelnut 1회째 (공식 0.0064, TFM 깖) → +fm 0.0040. 깔아 주면 더 나아짐 (가중치·사용 예를 받은 덕으로 봄, 나눠 재지 않음)
-- MLE-bench C2 와 같은 그림: FM 을 쥐여 주면 대개 FM 수준으로 올라오고, 넘는 것은 Agent 가 FM 이 못 보는 구조를 찾은 곳 (nomad × AIDE, 여기서는 polish · Amazon · QSAR-TID × Codex)
+- MLE-bench C2 와 같은 그림: FM 을 쥐여 주면 대개 FM 수준으로 올라오고, 넘는 것은 Agent 가 FM 이 못 보는 구조를 찾은 곳 (nomad × AIDE, 여기서는 polish × Codex · Amazon 둘 · in_vehicle × Codex. QSAR-TID × Codex 는 1σ 안이지만 이 데이터셋 최고)
 
 ### 사후 검사 · 비용
 
 - 24회 모두 `valid_submission` 참, `data_source_urls` 0 · `kaggle_urls` 0. 429 는 Codex 0~154번 (physiochemical 154), AIDE × Sonnet 0. 기준 (Codex 200번) 안
+- 환경 밖에 더 깐 것 (`pip_added`): Is-this × Codex (interpret-core), physiochemical × Codex (transformers · tokenizers · huggingface_hub, 최종 제출 사슬의 스크립트는 안 씀). `llm_errors` 는 QSAR-TID × Codex 1번 외 0
 - 배치 2 의 데이터셋 알아봄 (에이전트 글에 원래 이름): in_vehicle × AIDE ("in-vehicle coupon recommendation dataset"), Amazon 둘 ("Amazon Employee Access", "original Amazon challenge"), physiochemical 둘 ("CASP"), APS × Codex ("UCI APS"). 원본 URL 은 0 (내려받지 않음). #32 의 "알아봄" 과 같은 꼴
-- 실행: 배치 0·1 은 2026-11-18 07:22 → 17:40 KST (배치 0: QSAR_fish · MIC, 배치 1: Is-this · hazelnut · splice · students · polish). 배치 2 는 2026-11-19 07:47 → 16:35 KST (in_vehicle → Amazon → QSAR-TID → physiochemical → APS, 두 설정 동시). 배치마다 내기 전 사용자 확인
+- 실행: 배치 0·1 은 2026-11-18 07:22 → 17:40 KST (배치 0: QSAR_fish · MIC, 배치 1: Is-this · hazelnut · splice · students · polish). 배치 2 는 2026-11-19 07:47 → 16:38 KST (in_vehicle → Amazon → QSAR-TID → physiochemical → APS, 두 설정 동시). 배치마다 내기 전 사용자 확인
 - **배치 2 의 플랫폼 오류 2회 (APS × AIDE)**: 1차 (`…-120834`) · 2차 (`…-140031`) 모두 하네스 약 2~4분째 AI Runtime `INTERNAL_ERROR` (작업 10분 · 8분, 일반 메시지). 둘 다 둘째 노드의 TabICL (5-fold, 컨텍스트 약 9.7k 행) 이 도는 중이었고, 2차의 MLflow 시스템 지표로는 GPU 메모리 0.5 → 18GB (23GB 중) 뒤 실패, 호스트 메모리는 8GB 아래. 노드 로그는 SP 의 MLflow 실행에 있어 내 로그인으로는 못 읽음. 진행 사본 채점 (0.00483 · 0.0047, `run_crashed`) 은 1시간 조건이 아니라 둘 다 `exclude` 하고 같은 설정 rep 1 로 다시 돌림 (사용자가 정함). 3차 (`…-153007`) 는 같은 꼴의 TabICL 노드를 돌리고도 1시간을 다 씀 → 이 설정의 고정 실패는 아님 (원인 확인 못 함)
 - 비용: 하네스 시간 합 배치 0·1 13.6시간 + 배치 2 9.9시간 (죽은 두 번 약 4분 포함). TFM 설치·사전 점검·회수를 더한 A10 시간은 배치 0·1 약 16~17시간, 배치 2 약 11시간으로 어림 (작업마다 62~65분, 작업별로 재지 않음)
 - 11-18 에 TabArena C1 (`~f2`) 의 FM · GBDT 행이 `fab sync` 로 같이 받아졌지만 그쪽 작업의 것이라 넣지 않음. 배치 2 의 sync 에는 다른 행이 섞이지 않음
