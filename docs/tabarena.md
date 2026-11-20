@@ -1943,7 +1943,7 @@ r0f0 정답은 FM 이 쓴 `tas-naticusdroid-r0f0` 정답과 바이트까지 같�
 | Agent: Claude Code × Sonnet | 0.01579 | 10초 | 스스로 끝냄 | |
 
 - 점수로는 **Agent 최고 (Codex) 가 FM (kumo) 보다 뚜렷이 나음**: 0.00855 대 0.01208, −29.3% (−2.78σ). FM 보다 나은 Agent 2 / 5 (Codex · AIDE × Sonnet −0.67σ), 나머지 셋은 kumo 보다 1.8~2.9σ 나쁨 (Claude Code 둘은 기본 GBDT 보다도 나쁨)
-- 그러나 **그 몫은 데이터 구조에서 나옴** (바로 아래). 구조에 걸린 test 70행을 빼면 kumo 가 모든 방식 중 최고
+- 그러나 **그 몫은 데이터 구조에서 나옴** (바로 아래). 구조에 걸린 test 70행을 빼면 kumo 가 Agent 다섯 · GBDT · 다른 FM 보다 나음 (아래 C2 의 Codex +fm 만 kumo 보다 조금 나음)
 - 우리 kumo 는 TabArena Kumo (0.01206) 와 같음. 우리 GBDT 둘은 TabArena CatBoost 보다 조금 나쁨 (표준편차 안)
 
 #### 구조 70행: 반대 레이블 짝
@@ -1967,7 +1967,7 @@ r0f0 정답은 FM 이 쓴 `tas-naticusdroid-r0f0` 정답과 바이트까지 같�
 | Agent: Claude Code × Sonnet | 0.01579 | 0.01123 | 0.01176 | 0.44 |
 
 - 같은 배정을 우리 kumo 예측에 하면 0.00840 (Codex 보다 나음), 70행을 빼면 kumo 0.00781 대 Codex 0.00795 → **Codex 가 FM 보다 나은 몫은 모두 배정**. 70행 밖에서는 FM 둘이 1·3등 (kumo · Codex · tabicl), AIDE × Sonnet 은 kumo 보다 0.0019 (1.5σ) 나쁨
-- 이 구조는 데이터 만들기 (중복 빼기) 의 산물이라 피처 공학이 아님 (MLE-bench leaf 의 "분할 구조로 test 행 배정" ² 과 같은 꼴). TabArena 공개 결과의 방법들도 같은 42행을 거꾸로 맞혔을 것 (TabArena 의 예측은 안 받아 확인 못 함)
+- 이 구조는 데이터 만들기 (중복 빼기) 의 산물이라 피처 공학이 아님 (MLE-bench leaf × Codex 의 분할 구조 배정, [mle-bench.md](mle-bench.md) 의 P3 "결과: leaf-classification" 과 같은 꼴). TabArena 공개 결과의 방법들도 같은 42행을 거꾸로 맞혔을 것 (TabArena 의 예측은 안 받아 확인 못 함)
 
 사후 검사 (5회)
 
@@ -2031,7 +2031,7 @@ r0f0 정답은 FM 이 쓴 `tas-naticusdroid-r0f0` 정답과 바이트까지 같�
 
 ### 해석 (r0f0 한 split, 실행 1회. 판단은 약함)
 
-- **알려지지 않은 범주 데이터에서도 Agent 가 FM 을 이기나 → 점수로는 예, 피처 · 모델로는 아니오.** Agent 최고 (Codex) 0.00855 가 kumo 0.01208 보다 −2.78σ 로 14개 중 가장 큰 차이지만, 그 몫은 모두 데이터 만들기의 산물 (꼴이 같은 행은 반대 레이블 짝) 을 이용한 test 행 배정. 그 70행을 빼면 kumo 0.00781 이 Agent 다섯 · GBDT 둘보다 모두 나음 (Codex 0.00795 는 kumo 보다 0.11σ 나쁜 2등, 나머지 Agent 넷은 1.3σ 이상 나쁨)
+- **알려지지 않은 범주 데이터에서도 Agent 가 FM 을 이기나 → 점수로는 예, 피처 · 모델로는 아니오.** Agent 최고 (Codex) 0.00855 가 kumo 0.01208 보다 −2.78σ 로 14개 중 Amazon (−3.3σ) 다음으로 큰 차이지만, 그 몫은 모두 데이터 만들기의 산물 (꼴이 같은 행은 반대 레이블 짝) 을 이용한 test 행 배정. 그 70행을 빼면 kumo 0.00781 이 Agent 다섯 · GBDT 둘보다 모두 나음 (Codex 0.00795 는 kumo 보다 0.11σ 나쁜 2등, 나머지 Agent 넷은 1.3σ 이상 나쁨)
 - 알아본 실행은 없음 (5회 · C2 2회 모두 데이터셋 · 논문 이름 없음, Codex 의 "UCI mobile malware" 짐작 1번뿐). 그래서 이 행은 "기억" 이 아니라 **데이터를 살펴 구조를 찾는 몫** 을 보여 줌: Codex 는 시작 몇 분 안에 반대 레이블 짝을 찾았고 AIDE × Sonnet 은 꼴 타깃 인코딩으로 같은 구조를 배움. FM · GBDT · Claude Code 는 그 행들을 거꾸로 맞힘
 - **kddcup09 와 나란히**:
 

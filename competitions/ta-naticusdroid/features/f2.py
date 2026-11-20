@@ -5,7 +5,7 @@
 이 행의 Agent 최고는 Codex × GPT (0.00855) 지만 FM 보다 나은 몫이 test 행 배정 후처리에서 나와 R3 (a) 로 내려옴 (카드).
 최종 제출 = CatBoost (depth 8, rsm 0.15) 5-fold × seed 3 의 test 예측 평균. 옮긴 것 (계산식은 에이전트 그대로):
   개수     n_perm (요청한 권한 수), n_sens (이름에 SMS · PHONE · LOCATION 등 10개 말이 든 권한 수),
-           n_vendor (android.permission. 로 시작하지 않는 권한 수)  best_solution.py:14-38, 행 단위
+           n_vendor (android.permission. 로 시작하지 않는 권한 수)  best_solution.py:15-38, 행 단위
   꼴 빈도  pfreq: 86열 0/1 꼴이 같은 행의 수 (자기 포함)  :41-47
   이웃 수  nn1 · nn2 · nn4: 해밍 거리 1 · 2 · 4 안의 다른 행 수  :49-62
 뺀 것: 꼴 타깃 인코딩 pte · pcnt (:76-93 · :111-114, 타깃 의존), 해밍 이웃 레이블 평균 b2_te · b4_te 와 그 개수 b2_c · b4_c (:95-142, 타깃 의존,
