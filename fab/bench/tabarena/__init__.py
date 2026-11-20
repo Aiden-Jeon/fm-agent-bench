@@ -238,6 +238,8 @@ def split_comp(dataset: str, split: str) -> Competition:
     if base:
         cfg = yaml.safe_load((base.dir / "config.yaml").read_text())
         cfg["tabarena"] = {k: v for k, v in cfg["tabarena"].items() if k != "anon_id"}
+        if not obf.is_obf(dataset):  # r0f0 에서만 바꾼 타깃 이름 (에이전트용, prepare) 은 생성 split 에 안 옮김 → FM 이 돈 데이터 그대로
+            cfg["target"] = json.loads((fetched(dataset) / "meta.json").read_text())["target"]
     else:
         cfg = default_config(dataset)
     cfg["name"], cfg["tabarena"]["split"] = name, split
@@ -294,6 +296,10 @@ def prepare(comp: Competition):
         OBF_MAPS.mkdir(parents=True, exist_ok=True)
         (OBF_MAPS / f"{comp.name}.json").write_text(json.dumps(dict(m, dataset=ta["dataset"], seed=ob["seed"]),
                                                                indent=1, ensure_ascii=False))
+    elif comp.target != y:  # 타깃 열 이름만 바꿈 (값·행·id 그대로): 원래 이름이 데이터셋을 알려 줄 때 (kddcup09 의 appetency)
+        if comp.target in feats:
+            raise SystemExit(f"{comp.name}: 설정의 target '{comp.target}' 이 피처 이름과 겹침")
+        df, y = df.rename(columns={y: comp.target}), comp.target
     ids = np.random.default_rng(seed).permutation(len(df))
     train = df.iloc[tr].assign(**{ID_COL: ids[tr]}).sort_values(ID_COL)[[ID_COL, *feats, y]]
     test = df.iloc[te].assign(**{ID_COL: ids[te]}).sort_values(ID_COL)

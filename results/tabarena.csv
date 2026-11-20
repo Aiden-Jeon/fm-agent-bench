@@ -6965,3 +6965,25 @@ timestamp,comp,dataset,task_id,split,fold,model,metric,score,metric_error,run,no
 2026-11-18T14:39:44,ta-mic,MIC,363711,r0f0,0,tabicl_kv_refit~f2,logloss,0.45179941330484247,0.45179941330484247,2026-11-18T14:12:57,c1,kv_cache=True
 2026-11-18T14:39:44,ta-mic,MIC,363711,r0f0,0,lgbm_refit~f2,logloss,1.1057570819255442,1.1057570819255442,2026-11-18T14:09:12,c1,default
 2026-11-18T14:39:44,ta-mic,MIC,363711,r0f0,0,catboost_refit~f2,logloss,0.46523822335046605,0.46523822335046605,2026-11-18T14:37:59,c1,default
+2026-11-19T13:37:27,ta-kddcup09-appetency,kddcup09_appetency,363683,r0f0,0,lgbm_refit,auc,0.7711762298200906,0.2288237701799094,2026-11-19T12:54:04,kddcup09 GBDT refit,default
+2026-11-19T13:37:27,ta-kddcup09-appetency,kddcup09_appetency,363683,r0f0,0,catboost_refit,auc,0.8398347144834621,0.16016528551653786,2026-11-19T12:58:02,kddcup09 GBDT refit,default
+2026-11-19T13:37:28,tas-kddcup09-appetency-r0f1,kddcup09_appetency,363683,r0f1,1,lgbm_refit,auc,0.7757145883596709,0.2242854116403291,2026-11-19T12:58:17,kddcup09 GBDT refit,default
+2026-11-19T13:37:28,tas-kddcup09-appetency-r0f1,kddcup09_appetency,363683,r0f1,1,catboost_refit,auc,0.8352107925107314,0.16478920748926862,2026-11-19T13:02:13,kddcup09 GBDT refit,default
+2026-11-19T13:37:29,tas-kddcup09-appetency-r0f2,kddcup09_appetency,363683,r0f2,2,lgbm_refit,auc,0.7947510277534713,0.20524897224652872,2026-11-19T13:02:28,kddcup09 GBDT refit,default
+2026-11-19T13:37:29,tas-kddcup09-appetency-r0f2,kddcup09_appetency,363683,r0f2,2,catboost_refit,auc,0.8541295877429048,0.14587041225709518,2026-11-19T13:06:19,kddcup09 GBDT refit,default
+2026-11-19T13:37:29,tas-kddcup09-appetency-r1f0,kddcup09_appetency,363683,r1f0,3,lgbm_refit,auc,0.7708088829652666,0.22919111703473338,2026-11-19T13:06:34,kddcup09 GBDT refit,default
+2026-11-19T13:37:29,tas-kddcup09-appetency-r1f0,kddcup09_appetency,363683,r1f0,3,catboost_refit,auc,0.8446933188533677,0.15530668114663226,2026-11-19T13:10:25,kddcup09 GBDT refit,default
+2026-11-19T13:37:30,tas-kddcup09-appetency-r1f1,kddcup09_appetency,363683,r1f1,4,lgbm_refit,auc,0.7598234431465951,0.2401765568534049,2026-11-19T13:10:39,kddcup09 GBDT refit,default
+2026-11-19T13:37:30,tas-kddcup09-appetency-r1f1,kddcup09_appetency,363683,r1f1,4,catboost_refit,auc,0.8496259685019613,0.15037403149803874,2026-11-19T13:14:27,kddcup09 GBDT refit,default
+2026-11-19T13:37:31,tas-kddcup09-appetency-r1f2,kddcup09_appetency,363683,r1f2,5,lgbm_refit,auc,0.7612697914774884,0.2387302085225116,2026-11-19T13:14:42,kddcup09 GBDT refit,default
+2026-11-19T13:37:31,tas-kddcup09-appetency-r1f2,kddcup09_appetency,363683,r1f2,5,catboost_refit,auc,0.8290740725453616,0.17092592745463842,2026-11-19T13:18:31,kddcup09 GBDT refit,default
+2026-11-19T13:37:31,tas-kddcup09-appetency-r2f0,kddcup09_appetency,363683,r2f0,6,lgbm_refit,auc,0.7658278982041964,0.2341721017958036,2026-11-19T13:18:45,kddcup09 GBDT refit,default
+2026-11-19T13:37:31,tas-kddcup09-appetency-r2f0,kddcup09_appetency,363683,r2f0,6,catboost_refit,auc,0.8380526914430396,0.16194730855696038,2026-11-19T13:22:37,kddcup09 GBDT refit,default
+2026-11-19T13:37:32,tas-kddcup09-appetency-r2f1,kddcup09_appetency,363683,r2f1,7,lgbm_refit,auc,0.773543621924807,0.22645637807519303,2026-11-19T13:22:51,kddcup09 GBDT refit,default
+2026-11-19T13:37:32,tas-kddcup09-appetency-r2f1,kddcup09_appetency,363683,r2f1,7,catboost_refit,auc,0.8317619279745119,0.16823807202548813,2026-11-19T13:26:39,kddcup09 GBDT refit,default
+2026-11-19T13:37:33,tas-kddcup09-appetency-r2f2,kddcup09_appetency,363683,r2f2,8,lgbm_refit,auc,0.7798271392956793,0.22017286070432074,2026-11-19T13:26:53,kddcup09 GBDT refit,default
+2026-11-19T13:37:33,tas-kddcup09-appetency-r2f2,kddcup09_appetency,363683,r2f2,8,catboost_refit,auc,0.8540726279119681,0.14592737208803186,2026-11-19T13:30:39,kddcup09 GBDT refit,default
+2026-11-20T00:31:31,ta-kddcup09-appetency,kddcup09_appetency,363683,r0f0,0,kumo_cat_refit~f2,auc,0.8153512317226429,0.1846487682773571,2026-11-20T00:28:09,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-20T00:31:31,ta-kddcup09-appetency,kddcup09_appetency,363683,r0f0,0,tabicl_kv_refit~f2,auc,0.8264867160713221,0.17351328392867793,2026-11-20T00:28:40,c1,kv_cache=True
+2026-11-20T00:31:31,ta-kddcup09-appetency,kddcup09_appetency,363683,r0f0,0,lgbm_refit~f2,auc,0.786584640952387,0.213415359047613,2026-11-20T00:25:03,c1,default
+2026-11-20T00:31:31,ta-kddcup09-appetency,kddcup09_appetency,363683,r0f0,0,catboost_refit~f2,auc,0.8376131504414951,0.1623868495585049,2026-11-20T00:29:01,c1,default
