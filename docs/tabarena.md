@@ -1770,7 +1770,8 @@ kddcup09 는 51개 중 고카디널리티 범주 열이 가장 많고 (범주 38
 - `competitions/ta-kddcup09-appetency/` (`config.yaml`·`features.py`·`description.md`). `config.yaml` 은 `default_config` (FM 이 돈 `tas-kddcup09-appetency-r0f0` 과 같은 범주 38열·지표 `auc`·`submit_proba`) + `anon_id`
 - **익명 id 는 `tabarena-p16`**: `p13` 은 `ta-splice-obf` (#32), `p14`·`p15` 는 다른 바꾼 대회가 씀. 실행 키가 익명 id 로 시작해서 겹치면 실행이 섞임
 - **타깃 열 이름만 바꿈 (`appetency` → `BoughtNewProduct`, 2026-11-19 사용자가 정함)**: 원래 이름이 데이터셋을 바로 알려 주는 말 (description 에 안 써도 CSV 머리에 보임). 값·행·id 는 그대로.
-  `prepare` 가 바꾼 대회가 아닌데 설정의 `target` 이 OpenML 타깃과 다르면 열 이름만 바꿈 (`fab/bench/tabarena/__init__.py`). 생성 split (`tas-*`) 은 원래 이름 그대로 둠 (`split_comp`): Volume 에는 없는 대회만 올리므로 (`upload_data`) FM 때 올린 데이터를 그대로 씀
+  설정에 `tabarena.target_from: appetency` (OpenML 타깃 이름) 를 적으면 `prepare` 가 열 이름만 `target` 으로 바꿈 (`fab/bench/tabarena/__init__.py`). `target_from` 이 OpenML 타깃과 다르거나, 없는데 `target` 이 데이터의 타깃과 다르면 (오타 등) 멈춤. 새 이름이 피처·`id` 와 겹쳐도 멈춤.
+  생성 split (`tas-*`) 은 `split_comp` 가 `target_from` 을 떼고 원래 이름으로 둠: Volume 에는 없는 대회만 올리므로 (`upload_data`) FM 때 올린 데이터를 그대로 씀. `ensure_prepared` 는 `data/train.csv` 의 마지막 열이 설정의 `target` 과 다르면 멈춤 (이름을 바꾼 뒤 옛 data/ 가 남은 경우)
 - `description.md` (영어): "a large company 의 고객이 새 상품·서비스를 샀는지". 대회 이름 · 연도 · 통신사 · "appetency" 를 안 씀. 열은 "anonymized numeric 174 (`Var1`..`Var190`, 번호가 빔) · categorical 38 (`Var191`..`Var229`, 섞은 글자, 몇 열은 값이 수천 가지)" 와 결측 · 드문 값 · test 에만 있는 값만 적음
 - `fab ta prepare kddcup09_appetency --splits all`: 9 split (r0f0 train 33,333 / test 16,667, 양성 1.8%)
 

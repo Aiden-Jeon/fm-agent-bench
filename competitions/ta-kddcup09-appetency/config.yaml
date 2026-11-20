@@ -9,11 +9,12 @@ tabarena:
   task_id: 363683
   split: r0f0
   anon_id: tabarena-p16
+  target_from: appetency  # OpenML 타깃 이름. 데이터셋을 알려 주는 말이라 r0f0 에서만 target 으로 바꿈 (prepare, 생성 split 은 원래 이름)
   categorical: [Var191, Var192, Var193, Var194, Var195, Var196, Var197, Var198, Var199, Var200, Var201, Var202, Var203,
     Var204, Var205, Var206, Var207, Var208, Var210, Var211, Var212, Var213, Var214, Var215, Var216, Var217, Var218, Var219,
     Var220, Var221, Var222, Var223, Var224, Var225, Var226, Var227, Var228, Var229]
 task: binary
-target: BoughtNewProduct  # 원래 이름 appetency 는 데이터셋을 알려 줌 → 열 이름만 바꿈 (prepare)
+target: BoughtNewProduct
 id_col: id
 metric: auc
 submit_proba: true
