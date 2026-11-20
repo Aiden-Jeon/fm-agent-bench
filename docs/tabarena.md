@@ -1,6 +1,6 @@
 # TabArena (P4): 조사 · 연동 · 파일럿
 
-TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 전 조사 (2026-11-13), 9 는 연동 구현, "파일럿 결과" 는 2026-11-14 실행 (Agent 2회째는 2026-11-14~15), "Agent 확장 1회째" 는 2026-11-16~17 (#26), "행 추가: kddcup09_appetency" 는 2026-11-19~20.
+TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 전 조사 (2026-11-13), 9 는 연동 구현, "파일럿 결과" 는 2026-11-14 실행 (Agent 2회째는 2026-11-14~15), "Agent 확장 1회째" 는 2026-11-16~17 (#26), "행 추가: kddcup09_appetency" 는 2026-11-19~20, "행 추가: NATICUSdroid" 는 2026-11-20~21.
 
 - 조사일 2026-11-13. TabArena 저장소는 `autogluon/tabarena` 의 `c9f57b2` (2026-11-11 커밋) 기준
 - 확인 못 한 것은 "확인 못 함" 으로 적음. 추측으로 채우지 않음
@@ -28,6 +28,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [C1 준비: 쓸 Agent 실행과 최종 제출의 계보 (2026-11-18)](#c1-준비-쓸-agent-실행과-최종-제출의-계보-2026-11-18)
 - [C1: 에이전트 피처 → FM (r0f0, 2026-11-18)](#c1-에이전트-피처--fm-r0f0-2026-11-18)
 - [행 추가: kddcup09_appetency (r0f0, 2026-11-19 · 11-20)](#행-추가-kddcup09_appetency-r0f0-2026-11-19--11-20)
+- [행 추가: NATICUSdroid (r0f0, 2026-11-20 · 11-21)](#행-추가-naticusdroid-r0f0-2026-11-20--11-21)
 - [Elo (2026-11-16)](#elo-2026-11-16)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
@@ -1070,6 +1071,7 @@ TabArena 참고 줄은 공개 결과의 같은 split (r0f0). `kumo` 는 범주 �
 - σ = FM (kumo) 의 split 표준편차 (모든 split). "Agent − FM" 은 r0f0 한 split 끼리의 차이를 그 σ 로 나눈 것 (1σ 안 = split 흔들림 정도)
 - 승자 = r0f0 에서 FM·GBDT·Agent 다섯 중 최고. 12개 중 **FM 9 · Agent 3 (in_vehicle · splice · Amazon) · GBDT 0**. Amazon 에서 우리 CatBoost 는 FM 보다 낫지만 Agent 넷보다 나쁨
 - 13번째 행 kddcup09 (2026-11-20) 는 이 표에 넣지 않고 [행 추가: kddcup09_appetency](#행-추가-kddcup09_appetency-r0f0-2026-11-19--11-20) 에 둠 (Agent 최고 0.1559 · kumo 0.1594, 승자 Agent → 13개 중 FM 9 · Agent 4)
+- 14번째 행 NATICUSdroid (2026-11-21) 도 [행 추가: NATICUSdroid](#행-추가-naticusdroid-r0f0-2026-11-20--11-21) 에 둠 (Agent 최고 0.00855 · kumo 0.01208, 승자 Agent 이지만 그 몫은 test 행 배정 (데이터 구조) → 14개 중 FM 9 · Agent 5)
 
 경향 (12개, Agent 1회째. 데이터셋이 적어 판단은 약함)
 
@@ -1450,7 +1452,7 @@ Agent 를 돌린 12개 모두의 r0f0 에서, 환경에 TFM 을 깐 Agent (`code
 
 ### 결과 (r0f0, 1회)
 
-이 표는 12개 (2026-11-19). kddcup09 의 C2 2회 (2026-11-20) 는 [행 추가: kddcup09_appetency](#행-추가-kddcup09_appetency-r0f0-2026-11-19--11-20) 의 "C2 (+fm)".
+이 표는 12개 (2026-11-19). kddcup09 의 C2 2회 (2026-11-20) 는 [행 추가: kddcup09_appetency](#행-추가-kddcup09_appetency-r0f0-2026-11-19--11-20) 의 "C2 (+fm)", NATICUSdroid 의 C2 2회 (2026-11-21) 는 [행 추가: NATICUSdroid](#행-추가-naticusdroid-r0f0-2026-11-20--11-21) 의 "C2 (+fm)".
 
 `metric_error` (낮을수록 좋음). Agent = 같은 설정의 공식 설정 (hazelnut · in_vehicle 은 2회 평균, 나머지 1회). σ = kumo (ours) 의 split 표준편차 (요약 표와 같음). 굵게 = kumo 보다 나음
 
@@ -1669,7 +1671,7 @@ MLE-bench 의 C1 ([mle-bench.md](mle-bench.md) 의 "C1"·"C1 확장") 과 같은
 
 ### 결과 (r0f0 test `metric_error`, 낮을수록 좋음)
 
-이 표는 12개 (2026-11-18). kddcup09 의 `~f2` (2026-11-20) 는 [행 추가: kddcup09_appetency](#행-추가-kddcup09_appetency-r0f0-2026-11-19--11-20) 의 "C1".
+이 표는 12개 (2026-11-18). kddcup09 의 `~f2` (2026-11-20) 는 [행 추가: kddcup09_appetency](#행-추가-kddcup09_appetency-r0f0-2026-11-19--11-20) 의 "C1", NATICUSdroid 의 `~f2` (2026-11-21) 는 [행 추가: NATICUSdroid](#행-추가-naticusdroid-r0f0-2026-11-20--11-21) 의 "C1".
 
 이진 1 − AUC, 다중 logloss, 회귀 RMSE. 괄호는 F0 대비 변화. **굵게** = 그 데이터셋에서 FM·GBDT·Agent 중 최고. * = 2026-11-18 에 `f2.py` 를 카드 기준으로 고쳐 다시 돌린 8개 (아래 "첫 판에서 바꾼 것").
 Agent 최고는 README 점수표의 값 (hazelnut 은 Codex × GPT. C1 의 출처는 AIDE × GPT).
@@ -1892,6 +1894,174 @@ r0f0 정답은 FM 이 쓴 `tas-…-r0f0` 정답과 머리 한 줄 말고 같음.
 | 타깃 이름 | `appetency` 가 CSV 머리에 그대로 보임 | r0f0 에서만 `BoughtNewProduct` 로 (사용자). 생성 split 은 Volume 의 FM 데이터와 같게 원래 이름 |
 | 결과표 사본 | `fab sync` 가 받은 `results/mlebench_runs.csv` 는 MLE-bench 행의 줄만 바뀜 (값 같음, #29 와 같은 꼴) | 이 PR 과 상관없어 되돌림 |
 
+## 행 추가: NATICUSdroid (r0f0, 2026-11-20 · 11-21)
+
+README 점수표의 둘째 행 추가 (13개 → 14개). **대조 행**: 지금까지 Agent 가 FM 을 이긴 넷 (splice · Amazon · in_vehicle · kddcup09) 은 모두 범주 열이 많고 알려진 데이터였고, kddcup09 에서도 Agent 1·2등과 C2 둘이 데이터 모양으로 데이터셋을 알아봐 "범주 덕" 과 "알려진 데이터 덕" 이 갈리지 않았음.
+NATICUSdroid 는 범주가 100% (86열, 모두 0/1, 고카디널리티 없음) 이지만 "덜 알려진" 묶음 (6) → "알려지지 않은 범주 데이터에서도 Agent 가 FM 을 이기나" 를 봄. 우리 kumo 는 TabArena 기본 GBDT 보다 −16.5% (−1.8σ, `results/tabarena_cats.csv`). 다음 행 (Bioresponse: 범주 0% · 유명 대회) 과 짝.
+
+순서는 kddcup09 와 같음: 대회 준비 · GBDT refit · Agent 5설정 × 1회, C1 = "C1 준비" · "C1" 의 규칙, C2 = "C2 (+fm)" 의 2설정 · 안내문 그대로. FM 은 51개 모든 split 결과가 있어 새로 안 돌림 (tabpfn_v2 도 범위 안).
+
+### 대회 준비
+
+- `competitions/ta-naticusdroid/` (`config.yaml`·`features.py`·`description.md`). `config.yaml` 은 `default_config` (FM 이 돈 `tas-naticusdroid-r0f0` 과 같은 범주 86열 · 지표 `auc` · `submit_proba`) + `anon_id: tabarena-p17` (p01~p16 사용 중, 저장소 · 결과표에 p17 없음을 확인)
+- **타깃 `Malware` (`Yes`/`No`) · 열 이름 (Android 권한 문자열) 은 그대로** (`target_from` 안 씀): 데이터셋 이름을 드러내지 않음 (kddcup09 의 `appetency` 와 다름)
+- `description.md` (영어): "Android 앱이 악성인지, 앱이 요청하는 권한 (0/1) 으로". 이름 · 논문 · 연도 · 수집 기관을 안 쓰고, 열은 "Android 기본 권한 + 제조사 · 런처 · 앱 스토어 · 다른 앱이 정의한 권한, 깨진 이름 하나 (`android.permission.android.permission.READ_PHONE_STATE`), 값 0/1, 결측 없음" 과 양성 비율 (약 35%) 만. 논문 제목의 "native and custom permissions" 같은 말은 피함
+- `fab ta prepare NATICUSdroid --splits all`: 9 split (train 4,994 / test 2,497, 양성 35%)
+
+로컬 확인 (학습 없이, 저장소 밖 스크립트, kddcup09 와 같은 검사): 9 split 모두 크기, train · test id 가 0..n−1 을 나눔, 열 순서, train · test · 정답이 OpenML 행과 하나하나 같음 (같은 seed 로 id 를 다시 매겨 견줌), repeat 마다 fold 3개 test 합 = 전체, 범주 86열이 설정과 같고 값이 `0`·`1` 뿐, 채점 (상수 0.5 · 정답 1, r0f0 은 뒤집기 0 · 행 섞기 · 레이블 제출 무효 · 빠진 행 무효 · 열 이름 틀림 무효) → **191개 모두 통과**.
+r0f0 정답은 FM 이 쓴 `tas-naticusdroid-r0f0` 정답과 바이트까지 같음 (타깃 이름 그대로). id–타깃 상관 |z| ≤ 1.84 (9 split).
+`leak_check`: 설명 · 데이터 파일 이름 · 익명 id · 실행 이름 · 코드 묶음 8개 통과. 더 찾아본 말 (naticus · droid (단어) · 논문 저자 Mathur · Javaid · Niyaz 등 · Toledo · "native and custom" · JISA · AndroZoo · Drebin · CICAndMal · VirusShare · UCI · OpenML · DOI · 2020 · 2021, 다른 데이터셋 50개 이름) 은 설명 · CSV 머리에 없음 (코드 묶음의 Kaggle · competition 은 지시문 · 실행기, `tabarena` 는 익명 id. 지금까지 모든 대회와 같음)
+
+### GBDT refit
+
+- 9 split × `lgbm_refit`·`catboost_refit` 을 serverless CPU 작업 하나로 (`fab ta fm NATICUSdroid --models lgbm_refit catboost_refit --splits all --note "NATICUSdroid GBDT refit"`, 2026-11-20 22:53 KST, 작업 2.5분). 모델 시간 split 중앙값 catboost 6초 · lgbm 1초
+- 9 split 평균 (1 − AUC): catboost 0.01434 ± 0.00187, lgbm 0.01483 ± 0.00192. TabArena 기본 CatBoost 0.01405 ± 0.00178 · LightGBM 0.01532 ± 0.00204 → 둘 다 표준편차 안
+
+### Agent (2026-11-20 22:55 ~ 11-21 01:06 KST)
+
+- 5설정 × 1회 (r0f0). 같은 엔드포인트는 한 번에 하나: Sonnet 줄 `aide-sonnet` → `claude-code-sonnet` → `claude-code-sonnet --continue`, GPT 줄 `codex-gpt` → `aide-gpt` 를 줄마다 차례로, 두 줄은 동시에 (저장소 밖 스크립트가 앞 작업이 끝나면 다음을 냄, 끝나면 `fab remote kick`)
+- 5회 모두 정상 종료 · 채점 (`valid_submission` 참, `run_crashed` 없음, 다시 돌린 것 · 뺀 것 없음). 처음 낸 두 줄은 `FAB_MLEBENCH` 를 빠뜨려 제출 전에 멈춤 (낸 실행 없음, 아래 "실행 메모")
+
+숫자는 `metric_error` (1 − AUC, 낮을수록 좋음). FM · GBDT 는 refit 한 번, 줄 순서는 점수 순, **굵게** = 최고. TabArena 참고 줄은 공개 결과의 같은 split (r0f0). σ = kumo 의 split 표준편차 0.00127.
+
+#### NATICUSdroid (`tabarena-p17`): 이진 · 피처 86 (모두 범주 0/1) · 오염 낮음 (덜 알려진, 알아본 실행 없음)
+
+| 방식 | 1회째 (r0f0) | 시간 | 종료 · 이어 가기 | 비고 |
+|---|---|---|---|---|
+| **Agent: Codex × GPT** | **0.00855** | 58분 | 스스로 끝냄 | test 70행을 데이터 구조로 배정 (아래 "구조 70행") |
+| Agent: AIDE × Sonnet | 0.01123 | 60분 | 시간 종료 | 꼴 타깃 인코딩 · 해밍 이웃 레이블 평균으로 같은 구조를 배움 |
+| TabArena Kumo-Tabular (참고) | 0.01206 | | | |
+| FM: kumo | 0.01208 | 9초 | | |
+| FM: tabicl | 0.01240 | 8초 | | |
+| TabArena TabICLv2 (참고) | 0.01282 | | | |
+| TabArena CatBoost (참고) | 0.01402 | | | |
+| Agent: AIDE × GPT | 0.01432 | 60분 | 시간 종료 | |
+| GBDT: catboost | 0.01488 | 6초 | | |
+| GBDT: lgbm | 0.01494 | 1초 | | |
+| FM: tabpfn_v2 | 0.01501 | 8초 | | |
+| Agent: Claude Code × Sonnet +cont | 0.01522 | 1.6분 | 스스로 끝냄 (이어 가기 8번) | |
+| Agent: Claude Code × Sonnet | 0.01579 | 10초 | 스스로 끝냄 | |
+
+- 점수로는 **Agent 최고 (Codex) 가 FM (kumo) 보다 뚜렷이 나음**: 0.00855 대 0.01208, −29.3% (−2.78σ). FM 보다 나은 Agent 2 / 5 (Codex · AIDE × Sonnet −0.67σ), 나머지 셋은 kumo 보다 1.8~2.9σ 나쁨 (Claude Code 둘은 기본 GBDT 보다도 나쁨)
+- 그러나 **그 몫은 데이터 구조에서 나옴** (바로 아래). 구조에 걸린 test 70행을 빼면 kumo 가 Agent 다섯 · GBDT · 다른 FM 보다 나음 (아래 C2 의 Codex +fm 만 kumo 보다 조금 나음)
+- 우리 kumo 는 TabArena Kumo (0.01206) 와 같음. 우리 GBDT 둘은 TabArena CatBoost 보다 조금 나쁨 (표준편차 안)
+
+#### 구조 70행: 반대 레이블 짝
+
+- 이 데이터 (TabArena 판 7,491행) 에는 (피처, 타깃) 이 같은 중복이 **하나도 없고**, 86열 꼴이 같은 행 96쌍은 **모두 타깃이 반대** 인 두 행 (최대 2행). 중복 행을 뺀 흔적으로 봄 (누가 어떻게 뺐는지는 확인 못 함)
+- 그래서 r0f0 test 중 **42행** 은 꼴이 같은 train 행이 있고 정답은 42행 모두 그 행의 반대 (양성 16 · 음성 26), **28행** 은 test 안에 같은 꼴 짝이 있고 짝끼리 타깃이 반대. 둘은 겹치지 않음
+- 보통 모델은 42행을 같은 꼴 train 행의 레이블 쪽으로 기울여 거꾸로 맞힘 (42행 안 AUC: kumo 0.36 · tabicl 0.32 · catboost 0.33 · lgbm 0.26)
+- **Codex 는 두 묶음을 후처리로 배정**: 42행 = `1 − (같은 꼴 train 행의 레이블)` (0 / 1), 28행 = 0.5 (`score.py` 의 `correct`, 최종 명령). 시작 몇 분 안 (`codex.jsonl` 11번째 줄) "conflicting duplicate patterns", 21번째 줄 "cross-match invert is almost perfect … could improve the AUC by +0.004". 28행은 test 행끼리 견준 것이라 inductive 규칙 (5) 밖, 42행은 test 행 하나와 train 행을 견준 것 (규칙 안)
+- **AIDE × Sonnet 은 같은 구조를 피처로 배움**: 꼴 타깃 인코딩 (`pte`, train-fold 레이블의 OOF) · 해밍 이웃 레이블 평균 → 42행 안 AUC 1.0 이지만 양 끝으로 밀지는 않음
+
+| 방식 | 전체 | 70행 뺀 2,427행 | Codex 의 두 배정을 적용 | 42행 안 AUC |
+|---|---|---|---|---|
+| Agent: Codex × GPT | **0.00855** | 0.00795 | 0.00855 (이미 적용) | 1.00 |
+| Agent: AIDE × Sonnet | 0.01123 | 0.00975 | 0.01030 | 1.00 |
+| FM: kumo | 0.01208 | **0.00781** | **0.00840** | 0.36 |
+| FM: tabicl | 0.01240 | 0.00805 | 0.00860 | 0.32 |
+| Agent: AIDE × GPT | 0.01432 | 0.00977 | 0.01035 | 0.39 |
+| GBDT: catboost | 0.01488 | 0.01053 | 0.01106 | 0.33 |
+| GBDT: lgbm | 0.01494 | 0.01025 | 0.01083 | 0.26 |
+| Agent: Claude Code × Sonnet +cont | 0.01522 | 0.00956 | 0.01228 | 0.34 |
+| Agent: Claude Code × Sonnet | 0.01579 | 0.01123 | 0.01176 | 0.44 |
+
+- 같은 배정을 우리 kumo 예측에 하면 0.00840 (Codex 보다 나음), 70행을 빼면 kumo 0.00781 대 Codex 0.00795 → **Codex 가 FM 보다 나은 몫은 모두 배정**. 70행 밖에서는 FM 둘이 1·3등 (kumo · Codex · tabicl), AIDE × Sonnet 은 kumo 보다 0.0019 (1.5σ) 나쁨
+- 이 구조는 데이터 만들기 (중복 빼기) 의 산물이라 피처 공학이 아님 (MLE-bench leaf × Codex 의 분할 구조 배정, [mle-bench.md](mle-bench.md) 의 P3 "결과: leaf-classification" 과 같은 꼴). TabArena 공개 결과의 방법들도 같은 42행을 거꾸로 맞혔을 것 (TabArena 의 예측은 안 받아 확인 못 함)
+
+사후 검사 (5회)
+
+- `data_source_urls` 0 · `kaggle_urls` 0. 429 는 Codex 10번, 나머지 0. `pip_added` · `tfm_runtime` 없음, `llm_errors` 0
+- 입력 토큰: Codex 3,954만, AIDE × Sonnet 44만, Claude Code +cont 43만, AIDE × GPT 38만, Claude Code 6만
+
+알아본 흔적 (kddcup09 와 같은 방식, 이 행은 해석의 중심이라 말을 넓힘: 하네스 기록과 작업 디렉터리 글 파일, pip 가 깐 파일 · `site-packages` 뺌.
+센 말: naticus · droid (단어) · 논문 저자 (Mathur · Javaid · Niyaz) · Toledo · "native and custom" · JISA · AndroZoo · Drebin · CICAndMal · MalGenome · VirusShare/VirusTotal · UCI · OpenML · Kaggle · "famous/well-known/classic/public/benchmark (malware) dataset" · paper/published · 29,332 (원래 크기를 댄 경우). 도메인 말: dangerous/risky permission · protection level · abuse · premium SMS · spyware · trojan · vendor/custom/signature permission · permission group. 걸린 것과 "looks like · likely from · original dataset · this dataset is" 꼴 글은 앞뒤를 모두 읽음)
+
+| 실행 | 분류 | 하네스 기록 | 작업 디렉터리 | 무엇을 썼나 |
+|---|---|---|---|---|
+| Codex × GPT | **도메인만 앎** (출처 짐작 1번) | UCI 1 · 도메인 말 3 | 0 | 생각 글 660줄 중 71번째 "For the UCI \"mobile malware classification,\" tree ensembles show strong performance" 한 번 (이름 · 행 수 · 논문 결과 없음). 242번째 "Android malware within specific families", "vendor permissions", "C2DM". 원본 접근 0 |
+| AIDE × Sonnet | 도메인만 앎 | 0 | 도메인 말 31 (같은 계획 글의 반복) | "dangerous-style permissions (SMS, phone, location, etc.)", "vendor permissions" → `n_sens` · `n_vendor` 피처 |
+| AIDE × GPT | 도메인만 앎 | 0 | 1 | 권한 이름으로 묶음 (messaging · telephony · contacts_accounts · location · network …) |
+| Claude Code × Sonnet · +cont | 흔적 없음 | 0 | 0 | 권한 열 위 GBDT (+cont 는 RF · ExtraTrees 와 순위 평균) |
+
+- **데이터셋 · 논문 · 출처를 댄 실행은 없음**. Codex 의 "UCI mobile malware" 한 번은 짐작 (실제 출처는 UCI) 이지만 그 뒤에 이름 · 원래 크기 · 논문 결과를 쓰지 않았고, 이 실행의 몫은 위 구조에서 나옴
+- `Kaggle` 은 모든 실행에서 지시문 · AIDE 시스템 글에서만 나옴. 작업 디렉터리의 `29,332` 꼴 1번은 로그의 숫자 (오탐)
+
+### C1
+
+"C1 준비" 의 고르는 규칙: R2 Agent 최고 = Codex × GPT (0.00855) → **R3 (a) 로 내려감** (FM 보다 나은 몫이 test 행 배정 후처리, 위 "구조 70행". MLE-bench leaf × Codex 를 뺀 것과 같음).
+다음 AIDE × Sonnet (`tabarena-p17__aide-sonnet__r1__20261120-225541`, 0.01123, Agent − FM −0.67σ): 같은 구조를 타깃 의존 피처로 배웠지만 그 블록은 규칙 3 으로 빠지고 타깃 비의존 블록 7열이 남음 (R3 (c) 해당 없음), R4 우리 GBDT (catboost 0.01488) 보다 나음.
+카드 [competitions/ta-naticusdroid/c1.md](../competitions/ta-naticusdroid/c1.md) (계보 도구 + 코드 읽기, 2026-11-21).
+
+| 데이터셋 | 출처 Agent | 옮긴 블록 | 열 | 뺀 것 (이유) | train+test fit | 동일성 확인 |
+|---|---|---|---|---|---|---|
+| NATICUSdroid | AIDE × Sonnet 0.01123 | 개수 3 (`n_perm` 권한 수 · `n_sens` 이름에 SMS · PHONE · LOCATION 등 10개 말이 든 권한 수 · `n_vendor` `android.permission.` 밖 권한 수), 꼴 빈도 `pfreq` (86열 꼴이 같은 행 수, 자기 포함), 해밍 이웃 수 `nn1`·`nn2`·`nn4` | 86 → 93 | 꼴 타깃 인코딩 `pte` 와 해밍 이웃 레이블 평균 `b2_te`·`b4_te` (규칙 3, 이 실행이 구조를 배운 곳), 그 개수 `pcnt`·`b2_c`·`b4_c` (아래 train 판과 같은 양), CatBoost · seed · base/ball 고르기 | `pfreq` · `nn` → **train 으로 fit**: `pfreq` = 자기 + train 의 같은 꼴 수 (test 행도 자기를 셈), `nn` = 거리 안의 다른 train 행 수 | train+test 판 7열 + 에이전트 식대로 다시 쓴 `pte`·`pcnt` 로 에이전트 "base" 판 CatBoost (같은 설정 · fold · seed, catboost 1.2.10) 를 우리 코드로 → OOF AUC 0.9886666 대 기록 0.9886679 (차 1.2e-6, Mac 대 Linux). train 판: 개수 3열 같음, `pfreq` 행의 1% 안팎, `nn1` 36% · `nn2` 63% · `nn4` 85% 바뀜 |
+
+결과 (r0f0 test `metric_error`, `uv run --frozen fab ta fm NATICUSdroid --models kumo_cat_refit~f2 tabicl_kv_refit~f2 lgbm_refit~f2 catboost_refit~f2 --splits r0f0 --note c1`, 2026-11-21 01:15 KST, GPU 작업 3분 · CPU 작업 1분)
+
+| 데이터셋 | kumo F0 → F2 | tabicl F0 → F2 | lgbm F0 → F2 | catboost F0 → F2 | Agent 최고 |
+|---|---|---|---|---|---|
+| NATICUSdroid | 0.01208 → 0.01146 (−5.1%) | 0.01240 → 0.01205 (−2.8%) | 0.01494 → 0.01638 (+9.6%) | 0.01488 → 0.01573 (+5.8%) | **0.00855** |
+
+| 데이터셋 | FM 최고 F0 → F2 | GBDT 최고 F0 → F2 | C1 (%p) | C1 (절대) | FM F2 − Agent |
+|---|---|---|---|---|---|
+| NATICUSdroid | −5.1% (−0.00062, kumo) | +5.8% (+0.00086, catboost) | +10.9 | +0.00148 | +34.1% (못 미침. 출처 AIDE × Sonnet 보다는 +2.1%) |
+
+- 점수로는 **FM 이 좋아지고 GBDT 는 나빠짐** (C1 지표 양수): kumo −0.49σ, catboost +0.67σ. 둘 다 1σ 안
+- 그러나 **kumo 의 향상도 구조 70행에서 나옴**: 70행을 빼면 kumo F0 0.00781 → F2 0.00844 (나빠짐), 42행 뺀 값도 0.00923 → 0.00980. 좋아진 곳은 42행 중 양성 16행 (짝 train 행이 음성): 이 행들이 걸린 순서 틀린 쌍 2,229 → 715.
+  `pfreq` = 2 · `nn1` ≥ 1 은 "꼴이 같은 짝이 train 에 있음" 을 레이블 없이 알려 주고, train 에서 그런 행은 짝과 타깃이 반대라 모델이 애매하게 둠 → test 42행에도 같은 신호 (타깃 비의존 · inductive 안이지만 데이터 구조의 신호). GBDT 는 이 피처로 42행을 더 거꾸로 맞힘 (42행 안 AUC catboost 0.33 → 0.01, lgbm 0.26 → 0.00)
+- C1 칸 (README) = F2 의 FM 최고 = kumo~f2 0.01146 (AUC 0.9885): F0 kumo 보다 낫고 Agent 최고 (Codex) 보다 나쁨. 14개 중 FM F2 가 Agent 에 못 미친 넷째 (Amazon · in_vehicle · kddcup09 에 더해)
+
+### C2 (+fm)
+
+"C2 (+fm)" 와 같은 2설정 · 1회 · r0f0 · `fm_notes.txt` 그대로 (`uv run --frozen fab ta agent run ta-naticusdroid <설정> --fm`, 2026-11-21 01:18 → 02:24 KST, 두 설정 동시).
+σ = kumo 의 split 표준편차 0.00127. 굵게 = kumo 보다 나음. "70행 뺀" 은 위 "구조 70행" 의 2,427행 (kumo 0.00781).
+
+| 데이터셋 | kumo (ours) | σ | 설정 | Agent | C2 (+fm) | C2 − Agent (÷σ) | C2 − kumo (÷σ) | 70행 뺀 C2 | 제출에 든 FM (최종 코드) |
+|---|---|---|---|---|---|---|---|---|---|
+| NATICUSdroid (`p17`) | 0.01208 | 0.00127 | AIDE × Sonnet | 0.01123 | 0.01224 | +0.79 | +0.12 | 0.00812 | **Kumo 100%** (0/1 86열 + 권한 수 1열을 `numerical`, 열 순서를 섞어 5번 돌린 순위 평균, `num_estimators=8`) |
+| | | | Codex × GPT | 0.00855 | **0.00815** | −0.32 | −3.10 | **0.00756** | **Kumo 80%** (그중 절반은 test 의사 레이블로 다시 학습한 Kumo ¹) · TabICL 10% · CatBoost 10% (logit 을 줄여 섞음), 그다음 42행 · 28행 배정 (Agent 와 같은 후처리) |
+
+- ¹ `selftrain_full.py`: Kumo 예측 (배정한 42행 포함) 의 확신이 0.95 를 넘는 test 행에 의사 레이블을 붙여 컨텍스트에 넣음 → TabArena 의 "inductive" 규칙 (5) 밖 (hazelnut · polish 의 C2 ¹ 과 같은 꼴). 28행 배정도 규칙 밖 (test 행끼리)
+- **Codex +fm 이 이 행의 r0f0 최고 (AUC 0.9919)** 이고 70행을 빼도 kumo 보다 조금 나음 (0.00756 대 0.00781, −0.20σ). 70행 안의 몫은 Agent 와 같은 배정, 밖의 몫은 Kumo 중심 섞기 + 의사 레이블 (나눠 재지 않음)
+- AIDE +fm 은 FM 을 받아 Kumo 하나로 바꿨고 점수는 우리 kumo 와 같은 수준 (+0.12σ). 공식 설정 AIDE (0.01123) 보다 나빠짐: 공식 설정이 꼴 타깃 인코딩으로 얻던 70행의 몫 (위 표, 전체 0.01123 대 70행 뺀 0.00975) 을 놓침. 70행 밖에서는 +fm 이 공식 설정보다 나음 (0.00812 대 0.00975)
+- **Kumo 에 범주를 넘긴 방식: 둘 다 `numerical`** (0/1 열). Codex 는 `categorical` stype 도 5-fold 로 견줌 (`feature_models.py` 의 `kumo_cat`, CV AUC 0.98678 대 numerical 0.98693) → numerical. 우리 kumo 도 범주판 (`kumo_cat_refit`) 0.012084 · 수치판 (`kumo_c8k_refit`) 0.012085 로 같음 → 0/1 열에서는 넘기는 방식이 점수를 가르지 않음
+- 사후 검사: 2회 모두 `valid_submission` 참, `run_crashed` 없음, `data_source_urls` 0 · `kaggle_urls` 0, `pip_added` 없음, `llm_errors` 0, 429 0. `tfm_runtime` 둘 다 kumo · tabicl · tabpfn, `tfm_at_submit` Codex kumo · tabicl, AIDE kumo (최종 코드와 맞음)
+- 알아본 흔적: 둘 다 없음 (데이터셋 · 출처 말 0, Codex 의 `Kaggle` 2 는 지시문). Codex 는 "risky permissions", "vendor badges" 정도의 도메인 말
+
+### 해석 (r0f0 한 split, 실행 1회. 판단은 약함)
+
+- **알려지지 않은 범주 데이터에서도 Agent 가 FM 을 이기나 → 점수로는 예, 피처 · 모델로는 아니오.** Agent 최고 (Codex) 0.00855 가 kumo 0.01208 보다 −2.78σ 로 14개 중 Amazon (−3.3σ) 다음으로 큰 차이지만, 그 몫은 모두 데이터 만들기의 산물 (꼴이 같은 행은 반대 레이블 짝) 을 이용한 test 행 배정. 그 70행을 빼면 kumo 0.00781 이 Agent 다섯 · GBDT 둘보다 모두 나음 (Codex 0.00795 는 kumo 보다 0.11σ 나쁜 2등, 나머지 Agent 넷은 1.3σ 이상 나쁨)
+- 알아본 실행은 없음 (5회 · C2 2회 모두 데이터셋 · 논문 이름 없음, Codex 의 "UCI mobile malware" 짐작 1번뿐). 그래서 이 행은 "기억" 이 아니라 **데이터를 살펴 구조를 찾는 몫** 을 보여 줌: Codex 는 시작 몇 분 안에 반대 레이블 짝을 찾았고 AIDE × Sonnet 은 꼴 타깃 인코딩으로 같은 구조를 배움. FM · GBDT · Claude Code 는 그 행들을 거꾸로 맞힘
+- **kddcup09 와 나란히**:
+
+  | | kddcup09 (#38) | NATICUSdroid (이 행) |
+  |---|---|---|
+  | 범주 | 38 / 212열, 고카디널리티 11열 | 86 / 86열, 모두 0/1 |
+  | 알아봄 | Agent 1·2등 · C2 둘이 데이터 모양으로 알아봄 (KDD Cup 2009 / Orange) | 없음 (짐작 1번) |
+  | Agent 최고 − kumo | −0.38σ (AIDE × Sonnet), FM 보다 나은 Agent 3 / 5 | −2.78σ (Codex), 2 / 5. 구조 70행 빼면 FM 이 이김 |
+  | Agent 의 몫이 있는 곳 | 범주의 OOF 타깃 인코딩 (읽은 풀이 셋) | test 행 배정 (Codex), 꼴 타깃 인코딩 (AIDE) — 둘 다 같은 꼴 행의 레이블을 씀 |
+  | C1 (FM + 에이전트 피처) | 빈도 38열로 kumo 나빠짐 (+15.9%) | 개수 · 꼴 빈도 · 이웃 수 7열로 kumo −5.1%, 그러나 70행 밖에서는 나빠짐 |
+  | C2 최고 | Codex +fm (Kumo 에 타깃 인코딩한 범주), −0.99σ | Codex +fm (Kumo 80% + 배정 + 의사 레이블), −3.10σ |
+
+- **"범주 대 오염" 에 더해진 것**: 범주가 많아도 (100%) 0/1 · 고카디널리티 없음 · 덜 알려진 데이터에서는 Agent 의 피처 · 모델이 FM 을 넘지 못함 (70행 밖). kddcup09 · Amazon 처럼 Agent 가 FM 을 이긴 곳의 공통점은 "범주 열이 많음" 보다 "같은 값 · 같은 꼴 행의 레이블을 쓰는 인코딩이 통하는 데이터" 쪽에 가까움 (Amazon · kddcup09 의 타깃 인코딩, 여기의 꼴 레이블). 다만 kddcup09 는 알려진 데이터라 둘이 여전히 섞여 있고, 이 행의 몫은 중복 처리라는 데이터 사정에서 나옴 → 일반화는 약함
+- 14개 중 Agent 가 FM 을 점수로 이긴 다섯 (splice · Amazon · in_vehicle · kddcup09 · NATICUSdroid) 중 넷은 알려진 데이터, 하나 (이 행) 는 데이터 구조
+- r0f0 한 split · 1회씩. 구조 70행은 split 마다 다름 (다른 split 의 수는 세지 않음)
+
+### 비용
+
+- Agent: A10 약 3.3시간 (작업 5개 63 · 4 · 4 · 62 · 63분 = 196분, 하네스 합 3.0시간). 어림 (3.5~4시간) 안
+- GBDT: serverless CPU 작업 하나 2.5분 (9 split × lgbm · catboost). C1 `~f2`: A10 작업 3분 + CPU 작업 1분
+- C2: A10 약 2.1시간 (작업 둘이 각각 64분 · 62분, 하네스 60분 · 59분 + TFM 설치 · 사전 점검 · 회수)
+
+### 실행 메모
+
+| 일 | 내용 | 처리 |
+|---|---|---|
+| `FAB_MLEBENCH` 빠뜨림 | 처음 띄운 두 줄이 지시문 (`instructions.txt`) 을 못 찾아 제출 전에 멈춤 (22:55) | 낸 실행 없음. 붙여서 바로 다시 띄움 |
+| 데이터 구조 | 꼴이 같은 행은 모두 반대 레이블 짝 (위 "구조 70행") | 점수는 그대로 두고 70행 뺀 값 · 배정을 적용한 값을 같이 적음. C1 은 R3 (a) 로 Codex 를 뺌 |
+| 결과표 사본 | `fab sync` 가 받은 `results/mlebench_runs.csv` 는 MLE-bench 행의 줄만 바뀜 (값 같음, kddcup09 와 같은 꼴) | 이 PR 과 상관없어 되돌림 |
+
 ## Elo (2026-11-16)
 
 점수를 TabArena 처럼 한 숫자로: 우리 FM·Agent 를 TabArena 공개 결과 (기본 설정 7개, 3) 와 한 풀에 넣고 **RandomForest (기본) = 1000** 인 Elo.
@@ -1933,38 +2103,38 @@ r0f0 정답은 FM 이 쓴 `tas-…-r0f0` 정답과 머리 한 줄 말고 같음.
 - kumo (ours) 는 TabArena CatBoost 기본보다 +495 (기대 승률 95%), tabicl (ours) 보다 +294 (84%)
 - tabpfn_v2 의 18개는 TabArena TabPFNv2 와 같은 데이터셋을 RandomForest 로 채움 (TabArena 와 같은 처리) → 두 줄은 같은 조건. 돌 수 있는 33개만의 Elo 는 따로 안 냄
 
-### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (13개, 2026-11-20 다시)
+### Agent 풀: Agent 를 돌린 데이터셋의 r0f0 (14개, 2026-11-21 다시)
 
-파일럿 2개 (hazelnut · in_vehicle) + #26 10개 + 행 추가 1개 (kddcup09, 2026-11-20) 의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균
-(파일럿은 2회, #26 · 행 추가는 1회 → 결과표의 `runs` 평균 1.15. TabArena 가 seed 를 평균하는 것과 같게). 실패한 회차 없음 (`imputed` 0). tabpfn_v2 는 범위 밖 5개 (QSAR-TID-11 · APSFailure · Amazon · physiochemical · kddcup09) 를 RandomForest 로 채움.
-+fm (C2) · `~f2` (C1) 는 넣지 않음 (전과 같음).
+파일럿 2개 (hazelnut · in_vehicle) + #26 10개 + 행 추가 2개 (kddcup09 2026-11-20, NATICUSdroid 2026-11-21) 의 r0f0. 위 풀의 방법 + 우리 GBDT (refit) + Agent 5설정. Agent 는 설정마다 회차 평균
+(파일럿은 2회, #26 · 행 추가는 1회 → 결과표의 `runs` 평균 1.14. TabArena 가 seed 를 평균하는 것과 같게). 실패한 회차 없음 (`imputed` 0). tabpfn_v2 는 범위 밖 5개 (QSAR-TID-11 · APSFailure · Amazon · physiochemical · kddcup09) 를 RandomForest 로 채움 (NATICUSdroid 는 범위 안).
++fm (C2) · `~f2` (C1) 는 넣지 않음 (전과 같음). NATICUSdroid 의 Agent 점수는 test 행 배정 (데이터 구조, "행 추가: NATICUSdroid" 의 "구조 70행") 이 든 그대로 씀 (결과표 값, 고치지 않음).
 
 | 방법 | Elo | 95% 구간 | 평균 순위 | 승률 |
 |---|---|---|---|---|
-| TabArena Kumo-Tabular | 2026 | +2349 / −136 | 1.92 | 0.942 |
-| kumo (ours) | 1923 | +516 / −109 | 2.62 | 0.899 |
-| **Agent: Codex × GPT** | **1697** | +210 / −247 | 4.92 | 0.755 |
-| **Agent: AIDE × Sonnet** | **1598** | +143 / −159 | 6.31 | 0.668 |
-| tabicl (ours) | 1588 | +143 / −160 | 6.46 | 0.659 |
-| TabArena TabICLv2 | 1554 | +141 / −173 | 7.00 | 0.625 |
-| **Agent: AIDE × GPT** | **1549** | +120 / −264 | 7.08 | 0.620 |
-| **Agent: Claude Code × Sonnet +cont** | **1502** | +94 / −172 | 7.85 | 0.572 |
-| TabArena CatBoost | 1381 | +109 / −229 | 9.92 | 0.442 |
-| TabArena TabICL (v1) | 1325 | +100 / −204 | 10.88 | 0.382 |
-| tabpfn_v2 (ours) | 1323 | +151 / −206 | 10.92 | 0.380 |
-| **Agent: Claude Code × Sonnet** | **1314** | +77 / −223 | 11.08 | 0.370 |
-| catboost (ours) | 1268 | +111 / −237 | 11.85 | 0.322 |
-| TabArena TabPFNv2 | 1253 | +101 / −188 | 12.08 | 0.308 |
-| TabArena LightGBM | 1194 | +64 / −189 | 13.00 | 0.250 |
-| lgbm (ours) | 1139 | +100 / −246 | 13.77 | 0.202 |
-| TabArena RandomForest | 1000 | +59 / −247 | 15.35 | 0.103 |
+| TabArena Kumo-Tabular | 2027 | +314 / −116 | 2.00 | 0.938 |
+| kumo (ours) | 1926 | +241 / −99 | 2.71 | 0.893 |
+| **Agent: Codex × GPT** | **1737** | +228 / −152 | 4.64 | 0.772 |
+| **Agent: AIDE × Sonnet** | **1636** | +157 / −106 | 6.00 | 0.688 |
+| tabicl (ours) | 1612 | +143 / −147 | 6.36 | 0.665 |
+| TabArena TabICLv2 | 1571 | +131 / −142 | 7.00 | 0.625 |
+| **Agent: AIDE × GPT** | **1557** | +114 / −113 | 7.21 | 0.612 |
+| **Agent: Claude Code × Sonnet +cont** | **1497** | +108 / −125 | 8.21 | 0.549 |
+| TabArena CatBoost | 1405 | +96 / −121 | 9.79 | 0.451 |
+| TabArena TabICL (v1) | 1361 | +124 / −143 | 10.54 | 0.404 |
+| tabpfn_v2 (ours) | 1334 | +149 / −167 | 11.00 | 0.375 |
+| **Agent: Claude Code × Sonnet** | **1312** | +81 / −179 | 11.36 | 0.353 |
+| catboost (ours) | 1291 | +99 / −115 | 11.71 | 0.330 |
+| TabArena TabPFNv2 | 1251 | +98 / −159 | 12.36 | 0.290 |
+| TabArena LightGBM | 1203 | +63 / −124 | 13.07 | 0.246 |
+| lgbm (ours) | 1168 | +87 / −189 | 13.57 | 0.214 |
+| TabArena RandomForest | 1000 | +78 / −176 | 15.46 | 0.096 |
 
-- 데이터셋 13개라 95% 구간을 냄 (10개부터). 단위가 (데이터셋, r0f0) 13개뿐이라 구간이 넓음. TabArena Kumo 의 위쪽 폭이 2,000을 넘는 것은 부트스트랩 묶음에서 Kumo 가 거의 다 이기면 최대우도가 위로 벌어지는 것으로 보임 (나눠 재지 않음, 점추정은 그대로 읽음). kumo (ours) 는 kddcup09 에서 Agent 셋에 져서 위쪽 폭이 2,204 → 516 으로 줄었음
-- 순서: kumo (ours) 1923 > **Codex 1697** > **AIDE × Sonnet 1598** > tabicl (ours) 1588 > TabICLv2 1554 ≈ AIDE × GPT 1549 > Claude Code +cont 1502 > CatBoost 기본 1381 > Claude Code 공식 1314 > 우리 GBDT (1268·1139).
-  Agent 넷이 기본 GBDT 보다 위, Codex 는 우리 FM 최고 (kumo) 보다 226 아래 (기대 승률 21%) · tabicl 보다 위. 구간이 겹쳐 Agent 끼리·tabicl 과의 순서는 단단하지 않음
-- 12개 (2026-11-17) 에서 바뀐 것: kddcup09 에서 Agent 셋이 kumo 를 이겨 kumo 1964 → 1923, Agent 는 모두 올라감 (Codex 1680 → 1697, AIDE × Sonnet 1569 → 1598 으로 tabicl 위, AIDE × GPT 1542 → 1549, Claude Code +cont 1481 → 1502, Claude Code 1297 → 1314). FM 풀 (51개) 은 그대로
-- 파일럿 2개로 낸 값 (2026-11-16, kumo 2540 · Codex 2372 · AIDE 둘 1944 · Claude Code +cont 1628 · Claude Code 1314) 보다 Agent 가 FM 에 가까움: 13개 중 Agent 가 FM 을 이긴 데이터셋이 넷 ("Agent 확장 1회째" 의 요약 + kddcup09)
-- RandomForest 가 거의 다 져서 (승률 0.10) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 1923)
+- 데이터셋 14개라 95% 구간을 냄 (10개부터). 단위가 (데이터셋, r0f0) 14개뿐이라 구간이 넓음. TabArena Kumo 의 위쪽 폭은 13개 때 2,349 → 314 로 줄었음 (NATICUSdroid 에서 Codex · AIDE × Sonnet 에 져서 부트스트랩 묶음에서 "거의 다 이김" 이 줄어든 것으로 봄, 나눠 재지 않음)
+- 순서: kumo (ours) 1926 > **Codex 1737** > **AIDE × Sonnet 1636** > tabicl (ours) 1612 > TabICLv2 1571 ≈ AIDE × GPT 1557 > Claude Code +cont 1497 > CatBoost 기본 1405 > Claude Code 공식 1312 > 우리 GBDT (1291 · 1168).
+  Agent 넷이 기본 GBDT 보다 위, Codex 는 우리 FM 최고 (kumo) 보다 189 아래 (기대 승률 25%) · tabicl 보다 위. 구간이 겹쳐 Agent 끼리 · tabicl 과의 순서는 단단하지 않음
+- 13개 (2026-11-20) 에서 바뀐 것: NATICUSdroid 에서 Codex · AIDE × Sonnet 이 kumo 를 이기고 (둘 다 구조 70행의 몫) 나머지 Agent 셋 · 우리 GBDT 는 kumo · tabicl 에 짐 → Codex 1697 → 1737, AIDE × Sonnet 1598 → 1636, tabicl 1588 → 1612, AIDE × GPT 1549 → 1557, kumo 1923 → 1926 (거의 그대로), Claude Code +cont 1502 → 1497, Claude Code 1314 → 1312, 우리 catboost 1268 → 1291 · lgbm 1139 → 1168 (RandomForest · LightGBM 기본을 이겨 올라감). FM 풀 (51개) 은 그대로
+- 파일럿 2개로 낸 값 (2026-11-16, kumo 2540 · Codex 2372 · AIDE 둘 1944 · Claude Code +cont 1628 · Claude Code 1314) 보다 Agent 가 FM 에 가까움: 14개 중 Agent 가 FM 을 점수로 이긴 데이터셋이 다섯 ("Agent 확장 1회째" 의 요약 + kddcup09 · NATICUSdroid)
+- RandomForest 가 거의 다 져서 (승률 0.10) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 1926)
 
 ## 빠르게 돌리기 (2026-11-14)
 

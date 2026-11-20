@@ -1,0 +1,54 @@
+# TabArena-v0.1 (OpenML task 363689) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 이진 · 7,491 행 · 피처 86 (모두 범주, 값은 0/1 뿐, 고카디널리티 없음) · split 9. 행 추가 2: 대조 행 (범주가 많지만 덜 알려진 데이터),
+# 우리 kumo 가 TabArena 기본 GBDT 보다 나은 셋 (−16.5%, −1.8σ). 타깃 Malware · 열 이름 (Android 권한 이름) 은 그대로 (target_from 안 씀)
+name: ta-naticusdroid
+tabarena:
+  dataset: NATICUSdroid
+  task_id: 363689
+  split: r0f0
+  anon_id: tabarena-p17
+  categorical: [android.permission.GET_ACCOUNTS, com.sonyericsson.home.permission.BROADCAST_BADGE,
+    android.permission.READ_PROFILE, android.permission.MANAGE_ACCOUNTS, android.permission.WRITE_SYNC_SETTINGS,
+    android.permission.READ_EXTERNAL_STORAGE, android.permission.RECEIVE_SMS,
+    com.android.launcher.permission.READ_SETTINGS, android.permission.WRITE_SETTINGS,
+    com.google.android.providers.gsf.permission.READ_GSERVICES, android.permission.DOWNLOAD_WITHOUT_NOTIFICATION,
+    android.permission.GET_TASKS, android.permission.WRITE_EXTERNAL_STORAGE, android.permission.RECORD_AUDIO,
+    com.huawei.android.launcher.permission.CHANGE_BADGE, com.oppo.launcher.permission.READ_SETTINGS,
+    android.permission.CHANGE_NETWORK_STATE, com.android.launcher.permission.INSTALL_SHORTCUT,
+    android.permission.android.permission.READ_PHONE_STATE, android.permission.CALL_PHONE,
+    android.permission.WRITE_CONTACTS, android.permission.READ_PHONE_STATE,
+    samsung.providers.context.WRITE_USE_APP_FEATURE_SURVEY, android.permission.MODIFY_AUDIO_SETTINGS,
+    android.permission.ACCESS_LOCATION_EXTRA_COMMANDS, android.permission.INTERNET,
+    android.permission.MOUNT_UNMOUNT_FILESYSTEMS, com.majeur.launcher.permission.UPDATE_BADGE,
+    android.permission.AUTHENTICATE_ACCOUNTS, com.htc.launcher.permission.READ_SETTINGS,
+    android.permission.ACCESS_WIFI_STATE, android.permission.FLASHLIGHT, android.permission.READ_APP_BADGE,
+    android.permission.USE_CREDENTIALS, android.permission.CHANGE_CONFIGURATION, android.permission.READ_SYNC_SETTINGS,
+    android.permission.BROADCAST_STICKY, com.anddoes.launcher.permission.UPDATE_COUNT,
+    com.android.alarm.permission.SET_ALARM, com.google.android.c2dm.permission.RECEIVE,
+    android.permission.KILL_BACKGROUND_PROCESSES, com.sonymobile.home.permission.PROVIDER_INSERT_BADGE,
+    com.sec.android.provider.badge.permission.READ, android.permission.WRITE_CALENDAR, android.permission.SEND_SMS,
+    com.huawei.android.launcher.permission.WRITE_SETTINGS, android.permission.REQUEST_INSTALL_PACKAGES,
+    android.permission.SET_WALLPAPER_HINTS, android.permission.SET_WALLPAPER,
+    com.oppo.launcher.permission.WRITE_SETTINGS, android.permission.RESTART_PACKAGES,
+    me.everything.badger.permission.BADGE_COUNT_WRITE, android.permission.ACCESS_MOCK_LOCATION,
+    android.permission.ACCESS_COARSE_LOCATION, android.permission.READ_LOGS,
+    com.google.android.gms.permission.ACTIVITY_RECOGNITION, com.amazon.device.messaging.permission.RECEIVE,
+    android.permission.SYSTEM_ALERT_WINDOW, android.permission.DISABLE_KEYGUARD, android.permission.USE_FINGERPRINT,
+    me.everything.badger.permission.BADGE_COUNT_READ, android.permission.CHANGE_WIFI_STATE,
+    android.permission.READ_CONTACTS, com.android.vending.BILLING, android.permission.READ_CALENDAR,
+    android.permission.RECEIVE_BOOT_COMPLETED, android.permission.WAKE_LOCK, android.permission.ACCESS_FINE_LOCATION,
+    android.permission.BLUETOOTH, android.permission.CAMERA, com.android.vending.CHECK_LICENSE,
+    android.permission.FOREGROUND_SERVICE, android.permission.BLUETOOTH_ADMIN, android.permission.VIBRATE,
+    android.permission.NFC, android.permission.RECEIVE_USER_PRESENT, android.permission.CLEAR_APP_CACHE,
+    com.android.launcher.permission.UNINSTALL_SHORTCUT, com.sec.android.iap.permission.BILLING,
+    com.htc.launcher.permission.UPDATE_SHORTCUT, com.sec.android.provider.badge.permission.WRITE,
+    android.permission.ACCESS_NETWORK_STATE, google.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE,
+    com.huawei.android.launcher.permission.READ_SETTINGS, android.permission.READ_SMS,
+    android.permission.PROCESS_INCOMING_CALLS]
+task: binary
+target: Malware
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}

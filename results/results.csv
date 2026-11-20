@@ -6442,3 +6442,25 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-20T00:28:40,ta-kddcup09-appetency,tabicl_kv_refit~f2,auc,,,0,21.7,,c1,databricks,,,,,True,f2,250.0,kv_cache=True
 2026-11-20T00:25:03,ta-kddcup09-appetency,lgbm_refit~f2,auc,,,0,10.6,,c1,databricks-cpu,,,,,True,f2,250.0,default
 2026-11-20T00:29:01,ta-kddcup09-appetency,catboost_refit~f2,auc,,,0,237.7,,c1,databricks-cpu,,,,,True,f2,250.0,default
+2026-11-20T13:55:32,ta-naticusdroid,lgbm_refit,auc,,,0,0.8,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:55:39,ta-naticusdroid,catboost_refit,auc,,,0,6.4,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:55:44,tas-naticusdroid-r0f1,lgbm_refit,auc,,,0,0.8,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:55:50,tas-naticusdroid-r0f1,catboost_refit,auc,,,0,6.3,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:55:54,tas-naticusdroid-r0f2,lgbm_refit,auc,,,0,0.8,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:00,tas-naticusdroid-r0f2,catboost_refit,auc,,,0,6.2,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:05,tas-naticusdroid-r1f0,lgbm_refit,auc,,,0,0.8,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:11,tas-naticusdroid-r1f0,catboost_refit,auc,,,0,6.3,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:15,tas-naticusdroid-r1f1,lgbm_refit,auc,,,0,0.7,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:22,tas-naticusdroid-r1f1,catboost_refit,auc,,,0,6.2,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:26,tas-naticusdroid-r1f2,lgbm_refit,auc,,,0,0.8,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:32,tas-naticusdroid-r1f2,catboost_refit,auc,,,0,6.2,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:36,tas-naticusdroid-r2f0,lgbm_refit,auc,,,0,0.9,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:42,tas-naticusdroid-r2f0,catboost_refit,auc,,,0,6.0,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:47,tas-naticusdroid-r2f1,lgbm_refit,auc,,,0,0.8,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:53,tas-naticusdroid-r2f1,catboost_refit,auc,,,0,6.1,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:56:57,tas-naticusdroid-r2f2,lgbm_refit,auc,,,0,0.8,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T13:57:03,tas-naticusdroid-r2f2,catboost_refit,auc,,,0,6.0,,NATICUSdroid GBDT refit,databricks-cpu,,,,,True,base,86.0,default
+2026-11-20T16:16:55,ta-naticusdroid,kumo_cat_refit~f2,auc,,,0,55.9,,c1,databricks,,,,,True,f2,93.0,cats=categorical chunk=8192 n_estimators=8
+2026-11-20T16:17:11,ta-naticusdroid,tabicl_kv_refit~f2,auc,,,0,9.4,,c1,databricks,,,,,True,f2,93.0,kv_cache=True
+2026-11-20T16:16:51,ta-naticusdroid,lgbm_refit~f2,auc,,,0,1.0,,c1,databricks-cpu,,,,,True,f2,93.0,default
+2026-11-20T16:16:59,ta-naticusdroid,catboost_refit~f2,auc,,,0,7.1,,c1,databricks-cpu,,,,,True,f2,93.0,default
