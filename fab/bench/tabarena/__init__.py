@@ -32,6 +32,7 @@ committed()·compare·elo 의 풀에는 안 들어감 (원래 데이터셋과 �
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -238,6 +239,8 @@ def split_comp(dataset: str, split: str) -> Competition:
     if base:
         cfg = yaml.safe_load((base.dir / "config.yaml").read_text())
         cfg["tabarena"] = {k: v for k, v in cfg["tabarena"].items() if k != "anon_id"}
+        if orig := cfg["tabarena"].pop("target_from", None):  # r0f0 에서만 바꾼 타깃 이름 (에이전트용) → 생성 split 은 원래 이름 (FM 이 돈 데이터 그대로)
+            cfg["target"] = orig
     else:
         cfg = default_config(dataset)
     cfg["name"], cfg["tabarena"]["split"] = name, split
@@ -294,6 +297,14 @@ def prepare(comp: Competition):
         OBF_MAPS.mkdir(parents=True, exist_ok=True)
         (OBF_MAPS / f"{comp.name}.json").write_text(json.dumps(dict(m, dataset=ta["dataset"], seed=ob["seed"]),
                                                                indent=1, ensure_ascii=False))
+    elif orig := ta.get("target_from"):  # 타깃 열 이름만 바꿈 (값·행·id 그대로): 원래 이름이 데이터셋을 알려 줄 때 (kddcup09 의 appetency)
+        if orig != y:
+            raise SystemExit(f"{comp.name}: tabarena.target_from '{orig}' 이 OpenML 타깃 '{y}' 와 다름")
+        if comp.target in (*feats, ID_COL):
+            raise SystemExit(f"{comp.name}: 설정의 target '{comp.target}' 이 피처·id 열 이름과 겹침")
+        df, y = df.rename(columns={y: comp.target}), comp.target
+    if comp.target != y:  # 설정의 target 오타 등 (바꾸려면 tabarena.target_from)
+        raise SystemExit(f"{comp.name}: 설정의 target '{comp.target}' 이 데이터의 타깃 '{y}' 와 다름")
     ids = np.random.default_rng(seed).permutation(len(df))
     train = df.iloc[tr].assign(**{ID_COL: ids[tr]}).sort_values(ID_COL)[[ID_COL, *feats, y]]
     test = df.iloc[te].assign(**{ID_COL: ids[te]}).sort_values(ID_COL)
@@ -352,6 +363,10 @@ def ensure_prepared(comp: Competition):
     """없으면 prepare. 있으면 description.md 만 대회 폴더의 것으로 맞춤 (설명을 고친 뒤 data/ 의 옛 사본이 남지 않게)."""
     if not ((comp.data_dir / "train.csv").exists() and (ANSWERS / f"{comp.name}.json").exists()):
         return prepare(comp)
+    with open(comp.data_dir / "train.csv", newline="") as f:  # 타깃 이름을 바꾼 뒤 (tabarena.target_from) 옛 data/ 가 남은 경우
+        if next(csv.reader(f))[-1] != comp.target:
+            raise SystemExit(f"{comp.name}: data/train.csv 의 타깃 열이 설정의 target '{comp.target}' 과 다름 → "
+                             f"data/ 와 Volume 의 data/{comp.name}/ 를 지우고 다시 prepare")
     src, dst = comp.dir / "description.md", comp.data_dir / "description.md"
     if src.exists() and (not dst.exists() or dst.read_bytes() != src.read_bytes()):
         shutil.copy(src, dst)

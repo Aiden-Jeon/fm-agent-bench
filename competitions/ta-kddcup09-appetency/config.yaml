@@ -1,0 +1,21 @@
+# TabArena-v0.1 (OpenML task 363683) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 이진 · 50,000 행 · 피처 212 (범주 38, 고유값 > 100 인 열 11개) · split 9. 행 추가: 고카디널리티 범주가 가장 많은 셋,
+# 우리 kumo 가 TabArena 기본 GBDT 보다 나쁜 셋 (+1.7%, 0.3σ). 변수 이름 (Var1..) 은 원래 익명
+# tfm_max_rows 없음 (train 3.3만): TabArena 의 TabICLv2·Kumo 와 같은 전체 컨텍스트
+name: ta-kddcup09-appetency
+tabarena:
+  dataset: kddcup09_appetency
+  task_id: 363683
+  split: r0f0
+  anon_id: tabarena-p16
+  target_from: appetency  # OpenML 타깃 이름. 데이터셋을 알려 주는 말이라 r0f0 에서만 target 으로 바꿈 (prepare, 생성 split 은 원래 이름)
+  categorical: [Var191, Var192, Var193, Var194, Var195, Var196, Var197, Var198, Var199, Var200, Var201, Var202, Var203,
+    Var204, Var205, Var206, Var207, Var208, Var210, Var211, Var212, Var213, Var214, Var215, Var216, Var217, Var218, Var219,
+    Var220, Var221, Var222, Var223, Var224, Var225, Var226, Var227, Var228, Var229]
+task: binary
+target: BoughtNewProduct
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}
