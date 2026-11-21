@@ -1,0 +1,18 @@
+# TabArena-v0.1 (OpenML task 363620) 의 r0f0 split. 다른 split 은 fab ta prepare --splits all 이 이 설정을 본떠
+# competitions/tas-<데이터셋>-r<r>f<f>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/tabarena.md 5 의 "익명화")
+# 이진 · 3,751 행 · 피처 1,776 (모두 수치, [0,1] 로 정규화, 0/1 834열, 범주 0) · split 9. 행 추가 3: 대조 행 (범주가 없고 유명한 대회 데이터),
+# 우리 kumo 가 TabArena 기본 GBDT 보다 나은 셋 (−9.8%, −2.0σ). 열 이름 (D1..D1776) · 값은 그대로, 타깃 이름만 바꿈 (target_from)
+name: ta-bioresponse
+tabarena:
+  dataset: Bioresponse
+  task_id: 363620
+  split: r0f0
+  anon_id: tabarena-p18
+  target_from: MoleculeElicitsResponse  # OpenML 타깃 이름. 데이터셋 이름 (biological response) 을 거의 그대로 말해서 r0f0 에서만 target 으로 바꿈 (prepare, 생성 split 은 원래 이름)
+  categorical: []
+task: binary
+target: Active
+id_col: id
+metric: auc
+submit_proba: true
+cv: {n_splits: 5, seed: 42, stratify: true}
