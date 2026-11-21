@@ -7009,3 +7009,25 @@ timestamp,comp,dataset,task_id,split,fold,model,metric,score,metric_error,run,no
 2026-11-20T16:20:38,ta-naticusdroid,NATICUSdroid,363689,r0f0,0,tabicl_kv_refit~f2,auc,0.987950316601598,0.012049683398401956,2026-11-20T16:17:11,c1,kv_cache=True
 2026-11-20T16:20:38,ta-naticusdroid,NATICUSdroid,363689,r0f0,0,lgbm_refit~f2,auc,0.9836200442438572,0.016379955756142817,2026-11-20T16:16:51,c1,default
 2026-11-20T16:20:38,ta-naticusdroid,NATICUSdroid,363689,r0f0,0,catboost_refit~f2,auc,0.9842657958889025,0.015734204111097494,2026-11-20T16:16:59,c1,default
+2026-11-20T22:42:37,ta-bioresponse,Bioresponse,363620,r0f0,0,lgbm_refit,auc,0.88869840975665,0.11130159024334996,2026-11-20T22:29:09,Bioresponse GBDT refit,default
+2026-11-20T22:42:37,ta-bioresponse,Bioresponse,363620,r0f0,0,catboost_refit,auc,0.8878129391959723,0.11218706080402774,2026-11-20T22:30:12,Bioresponse GBDT refit,default
+2026-11-20T22:42:37,tas-bioresponse-r0f1,Bioresponse,363620,r0f1,1,lgbm_refit,auc,0.8657017761000062,0.1342982238999938,2026-11-20T22:30:23,Bioresponse GBDT refit,default
+2026-11-20T22:42:37,tas-bioresponse-r0f1,Bioresponse,363620,r0f1,1,catboost_refit,auc,0.8631051839016441,0.13689481609835585,2026-11-20T22:31:24,Bioresponse GBDT refit,default
+2026-11-20T22:42:38,tas-bioresponse-r0f2,Bioresponse,363620,r0f2,2,lgbm_refit,auc,0.8751263485776759,0.1248736514223241,2026-11-20T22:31:34,Bioresponse GBDT refit,default
+2026-11-20T22:42:38,tas-bioresponse-r0f2,Bioresponse,363620,r0f2,2,catboost_refit,auc,0.8716117952843616,0.1283882047156384,2026-11-20T22:32:36,Bioresponse GBDT refit,default
+2026-11-20T22:42:38,tas-bioresponse-r1f0,Bioresponse,363620,r1f0,3,lgbm_refit,auc,0.8689065983001025,0.13109340169989747,2026-11-20T22:32:45,Bioresponse GBDT refit,default
+2026-11-20T22:42:38,tas-bioresponse-r1f0,Bioresponse,363620,r1f0,3,catboost_refit,auc,0.8639798812851678,0.13602011871483222,2026-11-20T22:33:46,Bioresponse GBDT refit,default
+2026-11-20T22:42:39,tas-bioresponse-r1f1,Bioresponse,363620,r1f1,4,lgbm_refit,auc,0.8771427687356891,0.12285723126431092,2026-11-20T22:33:55,Bioresponse GBDT refit,default
+2026-11-20T22:42:39,tas-bioresponse-r1f1,Bioresponse,363620,r1f1,4,catboost_refit,auc,0.8721120325102626,0.1278879674897374,2026-11-20T22:34:55,Bioresponse GBDT refit,default
+2026-11-20T22:42:39,tas-bioresponse-r1f2,Bioresponse,363620,r1f2,5,lgbm_refit,auc,0.8799198589021596,0.12008014109784038,2026-11-20T22:35:05,Bioresponse GBDT refit,default
+2026-11-20T22:42:39,tas-bioresponse-r1f2,Bioresponse,363620,r1f2,5,catboost_refit,auc,0.8769106999195495,0.12308930008045049,2026-11-20T22:36:04,Bioresponse GBDT refit,default
+2026-11-20T22:42:40,tas-bioresponse-r2f0,Bioresponse,363620,r2f0,6,lgbm_refit,auc,0.8745849356746822,0.1254150643253178,2026-11-20T22:36:14,Bioresponse GBDT refit,default
+2026-11-20T22:42:40,tas-bioresponse-r2f0,Bioresponse,363620,r2f0,6,catboost_refit,auc,0.8714265857387758,0.12857341426122415,2026-11-20T22:37:14,Bioresponse GBDT refit,default
+2026-11-20T22:42:40,tas-bioresponse-r2f1,Bioresponse,363620,r2f1,7,lgbm_refit,auc,0.872483342616086,0.12751665738391404,2026-11-20T22:37:23,Bioresponse GBDT refit,default
+2026-11-20T22:42:40,tas-bioresponse-r2f1,Bioresponse,363620,r2f1,7,catboost_refit,auc,0.8716865730140066,0.12831342698599335,2026-11-20T22:38:23,Bioresponse GBDT refit,default
+2026-11-20T22:42:41,tas-bioresponse-r2f2,Bioresponse,363620,r2f2,8,lgbm_refit,auc,0.8811034098644718,0.11889659013552822,2026-11-20T22:38:33,Bioresponse GBDT refit,default
+2026-11-20T22:42:41,tas-bioresponse-r2f2,Bioresponse,363620,r2f2,8,catboost_refit,auc,0.8780143160674133,0.12198568393258669,2026-11-20T22:39:33,Bioresponse GBDT refit,default
+2026-11-21T01:44:12,ta-bioresponse,Bioresponse,363620,r0f0,0,kumo_cat_refit~f2,auc,0.8950048134591526,0.10499518654084739,2026-11-21T01:39:44,c1,cats=categorical chunk=8192 n_estimators=8
+2026-11-21T01:44:12,ta-bioresponse,Bioresponse,363620,r0f0,0,tabicl_kv_refit~f2,auc,0.8696891071676783,0.13031089283232167,2026-11-21T01:40:30,c1,kv_cache=True
+2026-11-21T01:44:12,ta-bioresponse,Bioresponse,363620,r0f0,0,lgbm_refit~f2,auc,0.8888039454920797,0.11119605450792025,2026-11-21T01:40:14,c1,default
+2026-11-21T01:44:12,ta-bioresponse,Bioresponse,363620,r0f0,0,catboost_refit~f2,auc,0.8876893851642496,0.11231061483575044,2026-11-21T01:41:21,c1,default

@@ -6464,3 +6464,25 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-20T16:17:11,ta-naticusdroid,tabicl_kv_refit~f2,auc,,,0,9.4,,c1,databricks,,,,,True,f2,93.0,kv_cache=True
 2026-11-20T16:16:51,ta-naticusdroid,lgbm_refit~f2,auc,,,0,1.0,,c1,databricks-cpu,,,,,True,f2,93.0,default
 2026-11-20T16:16:59,ta-naticusdroid,catboost_refit~f2,auc,,,0,7.1,,c1,databricks-cpu,,,,,True,f2,93.0,default
+2026-11-20T22:29:09,ta-bioresponse,lgbm_refit,auc,,,0,7.0,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:30:12,ta-bioresponse,catboost_refit,auc,,,0,62.2,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:30:23,tas-bioresponse-r0f1,lgbm_refit,auc,,,0,6.4,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:31:24,tas-bioresponse-r0f1,catboost_refit,auc,,,0,61.3,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:31:34,tas-bioresponse-r0f2,lgbm_refit,auc,,,0,6.1,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:32:36,tas-bioresponse-r0f2,catboost_refit,auc,,,0,62.0,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:32:45,tas-bioresponse-r1f0,lgbm_refit,auc,,,0,5.2,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:33:46,tas-bioresponse-r1f0,catboost_refit,auc,,,0,60.6,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:33:55,tas-bioresponse-r1f1,lgbm_refit,auc,,,0,5.4,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:34:55,tas-bioresponse-r1f1,catboost_refit,auc,,,0,60.1,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:35:05,tas-bioresponse-r1f2,lgbm_refit,auc,,,0,6.1,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:36:04,tas-bioresponse-r1f2,catboost_refit,auc,,,0,59.9,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:36:14,tas-bioresponse-r2f0,lgbm_refit,auc,,,0,5.8,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:37:14,tas-bioresponse-r2f0,catboost_refit,auc,,,0,60.1,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:37:23,tas-bioresponse-r2f1,lgbm_refit,auc,,,0,5.1,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:38:23,tas-bioresponse-r2f1,catboost_refit,auc,,,0,59.6,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:38:33,tas-bioresponse-r2f2,lgbm_refit,auc,,,0,6.7,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-20T22:39:33,tas-bioresponse-r2f2,catboost_refit,auc,,,0,59.9,,Bioresponse GBDT refit,databricks-cpu,,,,,True,base,1776.0,default
+2026-11-21T01:39:44,ta-bioresponse,kumo_cat_refit~f2,auc,,,0,47.5,,c1,databricks,,,,,True,f2,1809.0,cats=categorical chunk=8192 n_estimators=8
+2026-11-21T01:40:30,ta-bioresponse,tabicl_kv_refit~f2,auc,,,0,37.9,,c1,databricks,,,,,True,f2,1809.0,kv_cache=True
+2026-11-21T01:40:14,ta-bioresponse,lgbm_refit~f2,auc,,,0,7.8,,c1,databricks-cpu,,,,,True,f2,1809.0,default
+2026-11-21T01:41:21,ta-bioresponse,catboost_refit~f2,auc,,,0,67.6,,c1,databricks-cpu,,,,,True,f2,1809.0,default
