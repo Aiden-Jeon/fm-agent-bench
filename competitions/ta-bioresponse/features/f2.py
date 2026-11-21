@@ -33,7 +33,7 @@ N_PCA = 30
 
 def binary_cols(A: np.ndarray) -> np.ndarray:
     """train 에서 값이 0·1 뿐인 열 (에이전트의 isbin, train 전체로 셈)."""
-    return np.array([set(np.unique(A[:, j])) <= {0.0, 1.0} for j in range(A.shape[1])])
+    return ((A == 0) | (A == 1)).all(axis=0)  # 에이전트의 set(np.unique(col)) <= {0, 1} 와 같음
 
 
 def blocks(A: np.ndarray, B: np.ndarray, isbin: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, list[str]]:
@@ -44,8 +44,9 @@ def blocks(A: np.ndarray, B: np.ndarray, isbin: np.ndarray | None = None) -> tup
     pca = PCA(N_PCA, random_state=0).fit(A)
 
     def f(M):
-        return np.hstack([pca.transform(M), M[:, isbin].sum(1, keepdims=True), M[:, ~isbin].mean(1, keepdims=True),
-                          M[:, ~isbin].std(1, keepdims=True)]).astype(np.float32)
+        C = M[:, ~isbin]
+        return np.hstack([pca.transform(M), M[:, isbin].sum(1, keepdims=True), C.mean(1, keepdims=True),
+                          C.std(1, keepdims=True)]).astype(np.float32)
 
     names = [f"pca_{i}" for i in range(N_PCA)] + ["bin_sum", "cont_mean", "cont_std"]
     return f(A), f(B), names

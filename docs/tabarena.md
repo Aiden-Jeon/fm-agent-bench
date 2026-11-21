@@ -2099,7 +2099,7 @@ r0f0 정답은 FM 이 쓴 `tas-bioresponse-r0f0` 정답과 머리 한 줄 (타�
 ### GBDT refit
 
 - 9 split × `lgbm_refit`·`catboost_refit` 을 serverless CPU 작업 하나로 (`fab ta fm Bioresponse --models lgbm_refit catboost_refit --splits all --note "Bioresponse GBDT refit"`, 2026-11-21 07:26 KST, 작업 11.6분). r0f0 모델 시간 catboost 62초 · lgbm 7초 (TabArena CatBoost 는 8-fold bagging 합 split 중앙값 47초)
-- 9 split 평균 (1 − AUC): lgbm 0.1240 ± 0.0069, catboost 0.1270 ± 0.0074. TabArena 기본 LightGBM 0.1279 ± 0.0082 · CatBoost 0.1277 ± 0.0081 → 둘 다 표준편차 안 (위 ± 는 ddof 0, 아래 σ 는 ddof 1)
+- 9 split 평균 (1 − AUC): lgbm 0.1240 ± 0.0069, catboost 0.1270 ± 0.0075. TabArena 기본 LightGBM 0.1279 ± 0.0082 · CatBoost 0.1277 ± 0.0081 → 둘 다 표준편차 안 (± 와 아래 σ 는 모두 ddof 1)
 
 ### Agent (2026-11-21 07:27 ~ 10:18 KST)
 
@@ -2219,20 +2219,7 @@ Codex 의 계보는 도구가 마지막 명령 #320 (`to_csv` 를 비우고 돌�
 
 - Agent: A10 작업 시간 합 4.9시간 (작업 5개 104 · 106 · 5 · 19 · 63분. 처음 둘은 노드를 44분씩 기다린 시간 포함), 하네스 합 3.2시간. 어림 (3.3~4시간) 안팎
 - GBDT: serverless CPU 작업 하나 11.6분 (9 split × lgbm · catboost). C1 `~f2`: A10 작업 3분 + CPU 작업 2분
-COST_"C2 (+fm)" 와 같은 2설정 · 1회 · r0f0 · `fm_notes.txt` 그대로 (`uv run --frozen fab ta agent run ta-bioresponse <설정> --fm`, 2026-11-21 10:38 KST 두 설정 동시. Codex 는 플랫폼 오류로 11:50 에 다시 냄, 아래).
-σ = kumo 의 split 표준편차 0.00634. 굵게 = kumo 보다 나음.
-
-| 데이터셋 | kumo (ours) | σ | 설정 | Agent | C2 (+fm) | C2 − Agent (÷σ) | C2 − kumo (÷σ) | 제출에 든 FM (최종 코드) |
-|---|---|---|---|---|---|---|---|---|
-| Bioresponse (`p18`) | 0.10995 | 0.00634 | AIDE × Sonnet | 0.10900 | **0.10650** | −0.39 | −0.54 | **Kumo 묶음 1/3** (LGB 중요도 상위 250 · 400 · 600열, `numerical`) · **TabICL 묶음 1/3** (상위 400 · 250열) · RBF SVM 1/3 (상위 400열) 의 같은 무게 순위 평균 |
-| | | | Codex × GPT | 0.10794 | **0.10270** | −0.83 | −1.14 | **Kumo 55.75%** (ExtraTrees · LGB 중요도 상위 100 · 300 · 500열 변형 6개. 그중 `cat300` 11.5% 는 0/1 열을 `categorical` 로) · **TabICL 15%** (상위 500열 둘) · XGB · LGB · ExtraTrees · SVM · MLP 29.25% (`provisional.py`) |
-
-- **두 실행 모두 같은 설정의 Agent · 우리 kumo 보다 나음** → 이 행의 r0f0 최고는 C2 (Codex × GPT +fm, AUC 0.8973). Codex +fm 은 kumo 보다 −1.14σ (1σ 밖), AIDE +fm 은 1σ 안
-- **FM 에 넘긴 방식: 둘 다 피처를 고른 뒤 넘김** (트리 중요도 상위 100~600열). 우리 kumo · tabicl 은 1,776열을 다 받음. Codex 는 그 위에 FM 이 아닌 성분 9개를 더 섞음. 둘 다 피처를 새로 만들지는 않음 (C1 의 PCA · 행 요약 같은 블록 없음)
-- C1 (kumo~f2 0.10500, PCA 30 + 행 요약 3 을 더함) 과 C2 Codex (0.10270, 열을 고르고 섞음) 가 모두 kumo F0 보다 나음 → 이 데이터에서 Kumo 는 1,776열을 그대로 받을 때보다 **요약 · 고른 열을 받을 때 좋아짐** (방향은 같고, 나눠 재지 않음)
-- 사후 검사: 2회 모두 `valid_submission` 참, `run_crashed` 없음, `data_source_urls` 0 · `kaggle_urls` 0, `pip_added` 없음, `llm_errors` 0. 429 는 Codex 35번. `tfm_runtime` 둘 다 kumo · tabicl · tabpfn, `tfm_at_submit` AIDE kumo · tabicl, Codex 는 빈칸 (최종 섞기 `provisional.py` 가 npz 만 읽어 검사가 못 따라감, 위 표는 코드로 확인)
-- test 정답 · 의사 레이블은 없음. Codex `cat300` 의 "0/1 열" 판정은 train+test 값으로 셈 (라벨 없음)
-- 알아본 흔적: AIDE +fm 없음. 다시 낸 Codex +fm 은 생각 글 "the Kaggle challenge's dataset" 1번 (지시문의 "Kaggle competitions" 를 따른 말로 보임, 이름 · 크기 없음). **플랫폼 오류로 뺀 첫 Codex +fm 은 시작 직후 (`codex.jsonl` 8번째 줄) "the Kaggle bioresponse dataset, which probably has 3,751 rows. It's a classic biological response competition with 1,776 descriptors"** — 이름과 원래 크기 (3,751 = train+test) 를 댐. 같은 설정도 실행마다 알아보기가 다름
+- C2: A10 작업 시간 합 약 3.1시간 (AIDE +fm 63분, Codex +fm 첫 실행 57분 (플랫폼 오류) + 다시 낸 것 63분. 하네스 60분 · 41분 · 59분)
 
 ### 실행 메모
 
@@ -2240,7 +2227,7 @@ COST_"C2 (+fm)" 와 같은 2설정 · 1회 · r0f0 · `fm_notes.txt` 그대로 (
 |---|---|---|
 | 노드 대기 · 작업 시간 상한 | 07:27 에 낸 두 작업 (Codex · AIDE × Sonnet) 이 노드를 44분 기다림 (실행기 시작 08:11). 작업 시간 상한 105분 (하네스 60 + 여유 45) 이 대기를 포함해서 AIDE × Sonnet 은 하네스 끝 (00:12:52Z) 바로 뒤 회수 중에 `TIMEDOUT` (00:13:32Z), Codex 는 103분째에 끝남. 뒤에 낸 셋은 대기 없음 | AIDE × Sonnet 은 진행 사본 채점 (`run_crashed`) 그대로 씀 (C2 배치 2 의 ² 선례: 하네스 58분 · 제출을 끝까지 씀). 마지막 최고 노드 (00:08:31Z) 뒤의 제출 사본 (00:09:12Z) 이라 최종 제출은 같음. 잃은 것: 마지막 진행 사본 (00:11:13Z) 뒤 1.7분 안에 바뀌었을 수 있는 제출 (그때 돌던 노드 `89b2cc1c`), 작업 디렉터리의 마지막 8분 (최종 노드 코드는 verbose 로그에 있음). 다시 내지 않음 (사용자: 중간 확인 없이 진행) |
 | 계보 도구 | Codex 의 마지막 명령 #320 이 `pd.DataFrame.to_csv` 를 비워 `blend.py` 를 돌림 → 도구가 제출 생산자로 짚음. AIDE × Sonnet 은 사본 뒤의 최종 노드를 못 봄 ("회수한 제출과 다름" 으로 알려 줌) | 카드에서 손으로 #296 · `0e7a8d44` 로 이음. 도구는 안 고침 |
-| C2 Codex +fm 플랫폼 오류 | 첫 실행 (`…-103820`) 이 하네스 41분째 AI Runtime `INTERNAL_ERROR` ("Databricks platform issue", 작업 57분). 죽을 때 GPU 메모리 4.7GB (그 앞 한 프로세스가 19GB / 23GB), 원인 확인 못 함. 진행 사본 채점 0.10369 (`run_crashed`) | 1시간 조건이 아니라 `fab ta agent exclude` 로 빼고 같은 설정 rep 1 로 다시 냄 (`…-115027`, 정상 종료 0.10270). 파일럿 · C2 배치 2 의 APS × AIDE 선례와 같음 (사용자: 중간 확인 없이 진행). 뺀 행이 로컬 결과표에 남아 `fab sync --force` 로 받음 |
+| C2 Codex +fm 플랫폼 오류 | 첫 실행 (`tabarena-p18__codex-gpt-fm__r1__20261121-103820`. AIDE +fm 도 같은 초에 내서 끝이 같음) 이 하네스 41분째 AI Runtime `INTERNAL_ERROR` ("Databricks platform issue", 작업 57분). 죽을 때 GPU 메모리 4.7GB (그 앞 한 프로세스가 19GB / 23GB), 원인 확인 못 함. 진행 사본 채점 0.10369 (`run_crashed`) | 1시간 조건이 아니라 `fab ta agent exclude` 로 빼고 같은 설정 rep 1 로 다시 냄 (`tabarena-p18__codex-gpt-fm__r1__20261121-115027`, 정상 종료 0.10270). 파일럿 · C2 배치 2 의 APS × AIDE 선례와 같음 (사용자: 중간 확인 없이 진행). 뺀 행이 로컬 결과표에 남아 `fab sync --force` 로 받음 |
 | 결과표 사본 | `fab sync` 가 받은 `results/mlebench_runs.csv` 는 MLE-bench 행의 줄만 바뀜 (값 같음, 두 행과 같은 꼴) | 이 PR 과 상관없어 되돌림 |
 
 ## Elo (2026-11-16)
@@ -2312,7 +2299,7 @@ COST_"C2 (+fm)" 와 같은 2설정 · 1회 · r0f0 · `fm_notes.txt` 그대로 (
 
 - 데이터셋 15개라 95% 구간을 냄 (10개부터). 단위가 (데이터셋, r0f0) 15개뿐이라 구간이 넓음
 - 순서: kumo (ours) 1876 > **Codex 1721** > **AIDE × Sonnet 1616** > **AIDE × GPT 1547** ≈ tabicl (ours) 1538 > TabICLv2 1506 > Claude Code +cont 1478 > CatBoost 기본 1379 > Claude Code 공식 1300 > 우리 GBDT (1272 · 1176).
-  Agent 넷이 기본 GBDT 보다 위, Codex 는 우리 FM 최고 (kumo) 보다 155 아래 (기대 승률 29%) · tabicl 보다 위. 구간이 겹쳐 Agent 끼리 · tabicl 과의 순서는 단단하지 않음
+  Agent 넷이 기본 GBDT 보다 위, Codex 는 우리 FM 최고 (kumo) 보다 156 아래 (기대 승률 29%) · tabicl 보다 위. 구간이 겹쳐 Agent 끼리 · tabicl 과의 순서는 단단하지 않음
 - 14개 (2026-11-21 NATICUSdroid) 에서 바뀐 것: Bioresponse 에서 Agent 셋 (Codex · AIDE 둘) 이 kumo 를 이기고, tabicl · TabICLv2 는 GBDT · Agent 다섯 · RandomForest 에 모두 짐 → tabicl 1612 → 1538 (AIDE × GPT 아래로), TabICLv2 1571 → 1506, kumo 1926 → 1876, TabArena Kumo 2027 → 2006, Codex 1737 → 1721, AIDE × Sonnet 1636 → 1616, AIDE × GPT 1557 → 1547, Claude Code +cont 1497 → 1478, Claude Code 1312 → 1300, 우리 catboost 1291 → 1272 · lgbm 1168 → 1176, TabArena LightGBM 1203 → 1211 (RandomForest 기본을 이긴 몫이 늘어 올라감). FM 풀 (51개) 은 그대로
 - 파일럿 2개로 낸 값 (2026-11-16, kumo 2540 · Codex 2372 · AIDE 둘 1944 · Claude Code +cont 1628 · Claude Code 1314) 보다 Agent 가 FM 에 가까움: 15개 중 Agent 가 FM 을 점수로 이긴 데이터셋이 여섯 ("Agent 확장 1회째" 의 요약 + kddcup09 · NATICUSdroid · Bioresponse)
 - RandomForest 가 거의 다 져서 (승률 0.10) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 1876)
