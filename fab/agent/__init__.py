@@ -25,7 +25,7 @@ databricks.local.yaml 의 mleb_agent 블록 (git 제외):
     mleb_agent:
       run_as: <SP application id>
       volume: /Volumes/<catalog>/<schema>/<volume>     # SP 가 읽고 쓰는 scratch Volume
-      experiment: <MLflow experiment 이름>             # 선택. 기본 fab-mleb-agent
+      experiment: <MLflow experiment 이름>             # 선택. 기본 fab-mleb-agent. 상대 이름은 /Users/<run_as>/ 아래 (제출 전 check_experiment)
       traces_table: <catalog>.<schema>.<prefix>_otel_spans  # 선택. LLM 호출·하네스 trace 를 이 UC 표로 (README 'trace')
       gateway: true          # 선택. LLM 요청을 FM API 대신 Unity Gateway 로 → system.ai_gateway.usage 에 남음
   gateway 는 실행 조건(분당 한도·경로)이 바뀔 수 있어 run.json·runs.json·결과 표(llm_route)에 남김. 자세한 건 runner.py 의
@@ -140,6 +140,82 @@ def dbx(cfg, *args, capture=True, check=True, timeout=1200):
     return res
 
 
+# workspace get-status 의 실패 메시지: 경로 없음 ("Path (…) doesn't exist.") / 권한 없음 (관리자가 아닌 사용자)
+PATH_MISSING = re.compile(r"doesn't exist|does not exist|RESOURCE_DOES_NOT_EXIST", re.I)
+NO_PERMISSION = re.compile(r"PERMISSION_DENIED|permission|not authorized|forbidden|\b403\b", re.I)
+_EXPERIMENT_OK: set[tuple[str, str]] = set()  # 이 프로세스에서 이미 본 (profile, experiment 경로): 있음·경고로 넘김
+
+
+def experiment_path(cfg) -> str:
+    """ai_runtime_task 의 experiment 가 가리키는 워크스페이스 경로. 상대 이름은 작업 신원 (run_as SP) 의 홈 폴더 아래."""
+    name = cfg["experiment"]
+    return name if name.startswith("/") else f"/Users/{cfg['run_as']}/{name}"
+
+
+def _sp_acl(cfg) -> str:
+    return shlex.quote(json.dumps({"access_control_list": [
+        {"service_principal_name": cfg["run_as"], "permission_level": "CAN_MANAGE"}]}))
+
+
+def check_experiment(cfg):
+    """제출 전 점검: SP 의 MLflow experiment 경로가 있는지 (README "에이전트 SP 설정").
+    SP 홈 폴더 /Users/<application id> 가 없으면 AI Runtime 작업이 상대 이름 experiment 를 만들지 못하고, 오류 없이
+    "In run" 으로 작업 시간 상한 (하네스 + 45분, --fm 은 + 120분) 까지 있다가 INTERNAL_ERROR/TIMEDOUT 로 끝남
+    (실행기 출력 없음, 2026-11-23). 없으면 멈추고 고치는 명령을 보여 줌. 조회가 권한 문제 등으로 실패하면 경고만.
+    같은 프로세스에서는 한 번만 봄 (main 이 제출 준비 전에, submit 은 캐시로)."""
+    path = experiment_path(cfg)
+    if (cfg["profile"], path) in _EXPERIMENT_OK:
+        return
+    _EXPERIMENT_OK.add((cfg["profile"], path))  # 아래에서 멈추면 프로세스가 끝나므로 미리 넣어도 됨
+
+    def status(p):
+        """(정보, 실패 메시지). 정보가 None 이고 메시지가 None 이면 경로 없음."""
+        try:
+            res = dbx(cfg, "workspace", "get-status", p, "-o", "json", check=False, timeout=120)
+        except subprocess.TimeoutExpired:
+            return None, "시간 초과"
+        if not res.returncode:
+            try:  # 다른 CLI 호출처럼 JSON 앞의 안내 글은 건너뜀
+                return json.loads(res.stdout[res.stdout.index("{"):]), None
+            except ValueError:
+                return None, f"응답을 읽지 못함: {res.stdout.strip()[:200] or '(빈 출력)'}"
+        err = (res.stderr or res.stdout or "").strip()
+        return None, None if PATH_MISSING.search(err) and not NO_PERMISSION.search(err) else (err or f"exit {res.returncode}")
+
+    def warn(err):
+        print(f"[경고] experiment {path} 확인 못 함 (관리자가 아니면 SP 폴더를 못 볼 수 있음) → 점검 없이 제출: {err.splitlines()[-1]}")
+
+    info, err = status(path)
+    if err:
+        return warn(err)
+    if info is not None:
+        if info.get("object_type") != "MLFLOW_EXPERIMENT":
+            raise SystemExit(f"mleb_agent.experiment 경로 {path} 가 MLflow experiment 가 아님 ({info.get('object_type')}) → 제출 안 함")
+        return
+    parent = posixpath.dirname(path)
+    pinfo, perr = status(parent)
+    if perr:
+        return warn(perr)
+    home = parent == f"/Users/{cfg['run_as']}"  # SP 홈 폴더: SP 가 그 아래를 쓸 수 있게 폴더 권한도
+    p, qparent, qpath = shlex.quote(cfg["profile"]), shlex.quote(parent), shlex.quote(path)
+    steps = []
+    if pinfo is None:
+        steps.append(f"databricks workspace mkdirs {qparent} -p {p}")
+    if home:
+        oid = pinfo["object_id"] if pinfo else "<object_id>"
+        if pinfo is None:
+            steps.append(f"databricks workspace get-status {qparent} -p {p} -o json   # → object_id")
+        steps.append(f"databricks permissions update directories {oid} -p {p} --json {_sp_acl(cfg)}")
+    steps += [f"databricks experiments create-experiment {qpath} -p {p}   # → experiment_id",
+              f"databricks experiments update-permissions <experiment_id> -p {p} --json {_sp_acl(cfg)}"]
+    raise SystemExit(
+        f"MLflow experiment {path} 없음 → 제출 안 함.\n"
+        f"SP 신원의 작업은 이 experiment 를 만들지 못하고, 오류 없이 \"In run\" 으로 작업 시간 상한 (하네스 + 45분, --fm 은 + 120분) "
+        f"까지 있다가 INTERNAL_ERROR 로 끝남.\n"
+        f"{('SP 홈 폴더 ' if home else '폴더 ') + parent + ' 도 없음. ' if pinfo is None else ''}"
+        f"워크스페이스 관리자가 한 번 (README \"에이전트 SP 설정\"):\n  " + "\n  ".join(steps))
+
+
 def content_hash(folder: Path) -> str:
     """폴더 파일 (이름 · 내용, _ 로 시작하는 로컬 캐시 제외) 의 sha256 앞 12자리. tar 의 시각과 무관."""
     h = hashlib.sha256()
@@ -247,6 +323,7 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
     harness, model, alias = CONFIGS[config]
     check_continue([config], cont)
     cfg, main_cfg = settings(), remote_settings()
+    check_experiment(cfg)  # main 이 이미 봤으면 캐시 (다른 곳에서 부를 때도 jobs submit 전에)
     label = (f"{config}{CONTINUE_SUFFIX if cont else ''}{FM_SUFFIX if fm else ''}"
              f"{GATEWAY_SUFFIX if cfg['gateway'] else ''}")
     if comp is not None:  # 올리기 전에 데이터 파일 이름·설명 확인
@@ -765,7 +842,7 @@ def main(argv: list[str], bench: str | None = None):
         from fab.bench.tabarena.remote import upload_answers
 
         check_continue(args.configs, args.cont)
-        settings()
+        check_experiment(settings())  # 대회 준비·정답 업로드 전에 (SP experiment 경로, README "에이전트 SP 설정")
         comp, anon = ta_target(args.cid)
         ensure_prepared(comp)
         upload_answers(remote_settings(), [comp.name])  # 채점용 정답 (내 Volume)
@@ -775,7 +852,7 @@ def main(argv: list[str], bench: str | None = None):
         from fab.bench.mlebench.remote import prepare_grading
 
         check_continue(args.configs, args.cont)
-        settings()  # 제출 전에 설정 확인 (SP·scratch Volume)
+        check_experiment(settings())  # 제출 전에 설정 확인 (SP·scratch Volume·SP experiment 경로)
         prepare_grading(remote_settings(), [args.cid])  # 끝난 뒤 원격에서 채점할 재료 (리더보드·정답·채점 코드), 설정 수와 무관하게 한 번
         for c in args.configs:
             submit(args.cid, c, args.rep, args.hours, args.cont, args.fm)

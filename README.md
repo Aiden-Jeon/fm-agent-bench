@@ -159,10 +159,54 @@ image: <catalog>.<schema>.<image>:<tag>         # 선택. docker/air 로 만든 
 mleb_agent:
   run_as: <서비스 프린시펄 application id>      # 에이전트는 전용 SP 로 실행
   volume: /Volumes/<catalog>/<schema>/<volume>  # SP 가 읽고 쓰는 scratch Volume
-  experiment: <MLflow experiment 이름>          # 선택. 기본 fab-mleb-agent
+  experiment: <MLflow experiment 이름>          # 선택. 기본 fab-mleb-agent. 상대 이름은 /Users/<run_as>/<이름> (아래 "에이전트 SP 설정")
   traces_table: <catalog>.<schema>.<prefix>_otel_spans  # 선택. 에이전트 trace (아래 "에이전트 trace")
   gateway: true                                 # 선택. LLM 요청을 FM API 대신 Unity Gateway 로
 ```
+
+### 에이전트 SP 설정 (한 번)
+
+새 워크스페이스나 새 SP 를 쓸 때 워크스페이스 관리자가 한 번 한다. 2026-11-22 워크스페이스를 옮긴 뒤 첫 에이전트 실행이 2~4 에서 막혔음.
+`<app_id>` 는 SP 의 application id (`mleb_agent.run_as`), `<me>` 는 제출하는 사용자 (이메일), `<profile>` 은 CLI 프로필.
+
+1. SP 만들기: Settings → Identity and access → Service principals → Add (또는 `databricks service-principals create --display-name <이름>`).
+   코드는 application id 만 씀 (표시 이름은 워크스페이스 SCIM 으로 바꿔도 반영 안 됐음, 계정 수준 SP 로 보임)
+2. SP 에 `workspace-access` entitlement (처음엔 하나도 없음). SCIM id 는 `databricks service-principals list --filter "applicationId eq <app_id>"`
+   ```bash
+   databricks service-principals patch <scim_id> -p <profile> --json '{"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+     "Operations": [{"op": "add", "path": "entitlements", "value": [{"value": "workspace-access"}]}]}'
+   ```
+3. 제출하는 사용자에게 SP 의 `servicePrincipal.user` 역할. SP 를 만든 사용자는 `servicePrincipal.manager` 만 받는데 manager 로는
+   `run_as` 를 못 씀 (`jobs submit` 이 "Cannot bind the service principal provided in 'run_as' field … must have 'servicePrincipal.user' role" 로 거부).
+   UI 는 Service principals → SP → Permissions. API 는 rule set 을 읽어 etag 와 기존 규칙을 받고, 기존 manager 규칙까지 같이 넣어 씀
+   ```bash
+   N=accounts/<account_id>/servicePrincipals/<app_id>/ruleSets/default
+   databricks api get "/api/2.0/preview/accounts/access-control/rule-sets?name=$N&etag=" -p <profile>   # → etag, grant_rules
+   databricks api put /api/2.0/preview/accounts/access-control/rule-sets -p <profile> --json '{"name": "'$N'", "rule_set": {"name": "'$N'",
+     "etag": "<etag>", "grant_rules": [{"role": "roles/servicePrincipal.manager", "principals": ["users/<me>"]},
+                                       {"role": "roles/servicePrincipal.user", "principals": ["users/<me>"]}]}}'
+   ```
+4. SP 홈 폴더와 experiment 를 만들고 SP 에 `CAN_MANAGE`. **없으면 작업이 오류 없이 "In run" 으로 작업 시간 상한 (하네스 + 45분, 기본 1시간이면 105분.
+   `--fm` 은 75분 더) 까지 있다가 `INTERNAL_ERROR`/`TIMEDOUT` 로 끝남** (실행기 출력 없음. 사용자 신원으로는 `/Users/<me>/<이름>` 이 자동으로 생겨 안 드러남).
+   `fab … agent run` 이 제출 전에 experiment 경로를 보고, 없으면 아래 명령을 (자리표시를 채워) 보여 주고 멈춤
+   ```bash
+   databricks workspace mkdirs /Users/<app_id> -p <profile>
+   databricks workspace get-status /Users/<app_id> -p <profile> -o json   # → object_id
+   databricks permissions update directories <object_id> -p <profile> \
+     --json '{"access_control_list": [{"service_principal_name": "<app_id>", "permission_level": "CAN_MANAGE"}]}'
+   databricks experiments create-experiment /Users/<app_id>/<experiment> -p <profile>   # → experiment_id
+   databricks experiments update-permissions <experiment_id> -p <profile> \
+     --json '{"access_control_list": [{"service_principal_name": "<app_id>", "permission_level": "CAN_MANAGE"}]}'
+   ```
+5. UC 권한 (원칙은 [docs/mle-bench.md](docs/mle-bench.md) 의 "정답 격리와 권한"). **정답이 있는 스키마 (`volume` 의 스키마) 에는 주지 않음**
+   ```sql
+   GRANT USE CATALOG ON CATALOG <catalog> TO `<app_id>`;
+   GRANT USE SCHEMA ON SCHEMA <catalog>.<agent_schema> TO `<app_id>`;                       -- mleb_agent.volume 의 스키마
+   GRANT READ VOLUME, WRITE VOLUME ON VOLUME <catalog>.<agent_schema>.<scratch> TO `<app_id>`;
+   GRANT USE SCHEMA ON SCHEMA <catalog>.<trace_schema> TO `<app_id>`;                       -- traces_table 을 쓸 때 (아래)
+   GRANT MODIFY, SELECT ON TABLE <catalog>.<trace_schema>.<prefix>_otel_spans TO `<app_id>`;
+   ```
+   확인: `databricks grants get-effective schema <catalog>.<정답 스키마> --principal <app_id>` 에 `USE_SCHEMA`·`READ_VOLUME` 이 없어야 함
 
 ### 에이전트 trace (선택)
 
