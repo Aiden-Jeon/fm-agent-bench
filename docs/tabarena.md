@@ -30,6 +30,7 @@ TabArena 를 이 저장소의 두 번째 벤치마크로 붙임. 1~8 은 연동 
 - [행 추가: kddcup09_appetency (r0f0, 2026-11-19 · 11-20)](#행-추가-kddcup09_appetency-r0f0-2026-11-19--11-20)
 - [행 추가: NATICUSdroid (r0f0, 2026-11-20 · 11-21)](#행-추가-naticusdroid-r0f0-2026-11-20--11-21)
 - [행 추가: Bioresponse (r0f0, 2026-11-21)](#행-추가-bioresponse-r0f0-2026-11-21)
+- [C1 · C2 의 피처: 얼마나 바뀌었고 FM 에 영향을 줬나 (15개 r0f0, 2026-11-23)](#c1--c2-의-피처-얼마나-바뀌었고-fm-에-영향을-줬나-15개-r0f0-2026-11-23)
 - [Elo (2026-11-16)](#elo-2026-11-16)
 - [빠르게 돌리기 (2026-11-14)](#빠르게-돌리기-2026-11-14)
 - [결정 (2026-11-13)](#결정-2026-11-13)
@@ -2229,6 +2230,91 @@ Codex 의 계보는 도구가 마지막 명령 #320 (`to_csv` 를 비우고 돌�
 | 계보 도구 | Codex 의 마지막 명령 #320 이 `pd.DataFrame.to_csv` 를 비워 `blend.py` 를 돌림 → 도구가 제출 생산자로 짚음. AIDE × Sonnet 은 사본 뒤의 최종 노드를 못 봄 ("회수한 제출과 다름" 으로 알려 줌) | 카드에서 손으로 #296 · `0e7a8d44` 로 이음. 도구는 안 고침 |
 | C2 Codex +fm 플랫폼 오류 | 첫 실행 (`tabarena-p18__codex-gpt-fm__r1__20261121-103820`. AIDE +fm 도 같은 초에 내서 끝이 같음) 이 하네스 41분째 AI Runtime `INTERNAL_ERROR` ("Databricks platform issue", 작업 57분). 죽을 때 GPU 메모리 4.7GB (그 앞 한 프로세스가 19GB / 23GB), 원인 확인 못 함. 진행 사본 채점 0.10369 (`run_crashed`) | 1시간 조건이 아니라 `fab ta agent exclude` 로 빼고 같은 설정 rep 1 로 다시 냄 (`tabarena-p18__codex-gpt-fm__r1__20261121-115027`, 정상 종료 0.10270). 파일럿 · C2 배치 2 의 APS × AIDE 선례와 같음 (사용자: 중간 확인 없이 진행). 뺀 행이 로컬 결과표에 남아 `fab sync --force` 로 받음 |
 | 결과표 사본 | `fab sync` 가 받은 `results/mlebench_runs.csv` 는 MLE-bench 행의 줄만 바뀜 (값 같음, 두 행과 같은 꼴) | 이 PR 과 상관없어 되돌림 |
+
+## C1 · C2 의 피처: 얼마나 바뀌었고 FM 에 영향을 줬나 (15개 r0f0, 2026-11-23)
+
+질문: C1 (에이전트 피처 → FM) 과 C2 (+fm) 에서 FM 이 받은 입력이 원본과 얼마나 달랐고, 그 피처 엔지니어링 (FE) 이 FM 점수를 바꿨나. 새 실행 없이 지금 있는 결과표 · 코드 · 로그로만 봄.
+
+- 수치는 ÷σ (σ = kumo (ours) 의 split 표준편차, 요약 표와 같음). 음수 = 나아짐
+- C1 은 같은 r0f0 에서 피처만 F0 → F2 로 바꾼 짝 비교라 FE 의 효과를 바로 읽음 (`results/tabarena.csv` 의 `~f2` 행과 F0 refit 행)
+- C2 는 FE · 섞기 · 컨텍스트 고르기가 한 실행에 같이 있어 점수만으로는 FE 몫을 못 가름. 그래서 **실행 안에서 에이전트가 같은 FM 에 입력만 바꿔 견준 기록** (같은 holdout · CV) 을 따로 모음. test 점수가 아니고 실행마다 평가 방식이 다름
+- **C2 작업 디렉터리는 10회만 남음**: 2026-11-22 워크스페이스 이전으로 Volume 의 `outputs/` 가 사라짐. 배치 2 (2026-11-19) 10회 (in_vehicle · Amazon · physiochemical · QSAR-TID · APS × 두 설정) 는 저장소 밖 로컬 사본이 있어 코드 · 로그로 다시 봄. 나머지 20회는 위 "C2 (+fm)" · 행 추가 절의 서술 (그때 코드를 읽은 기록) 만 씀
+- 집계는 저장소 밖 일회성 스크립트. 1회씩 · r0f0 한 split 이라 판단은 약함
+
+### C1: 열 수 대 점수 변화 (같은 split, 피처만 바꿈)
+
+F2 − F0 (÷σ). 원래 열 수 (F0) 로 나눔.
+
+| 데이터셋 | 열 F0 → F2 | 옮긴 블록 | kumo | tabicl | catboost | lgbm |
+|---|---|---|---|---|---|---|
+| **F0 60열 이상** | | | | | | |
+| Bioresponse | 1,776 → 1,809 | PCA 30 · 행 요약 3 | **−0.78** | −0.27 | +0.02 | −0.02 |
+| QSAR-TID-11 | 1,024 → 1,155 | 비트 요약 · PCA 128 | −0.32 | −0.58 | +0.31 | +0.65 |
+| kddcup09 | 212 → 250 | 범주 38열 빈도 | **+2.80** | −1.23 | +0.25 | −1.70 |
+| APSFailure | 170 → 248 | 결측 수 · 무리 합 · 무리 안 비율 | −0.08 | +0.18 | +0.41 | −0.01 |
+| MIC | 111 → 128 | 결측 지시 | −0.70 | −0.37 | −0.32 | +0.25 |
+| NATICUSdroid | 86 → 93 | 개수 · 꼴 빈도 · 이웃 수 | −0.49 | −0.27 | +0.67 | +1.13 |
+| polish | 64 → 512 | 항등식 · 접미사 차 · 쌍 | **−1.23** | −6.63 | −16.56 | −18.99 |
+| splice | 60 → 1,121 | 창별 개수 · n-gram · 위치 쌍 | −0.46 | −0.64 | −1.35 | +0.22 |
+| **F0 36열 이하** | | | | | | |
+| students | 36 → 60 | 학업 비율 · 범주 빈도 | +0.14 | +0.09 | −0.97 | +1.20 |
+| hazelnut | 30 → 60 | 백색화 (원본 30열의 선형 변환) | **+2.04** | +0.75 | −6.14 | −5.52 |
+| in_vehicle | 24 → 75 | 응답자 키 · 교차 · 설문 묶음 | **−1.09** | +2.10 | −5.44 | −2.02 |
+| Is-this | 13 → 16 | 금액 비율 3 | −0.08 | +0.07 | −0.05 | −0.08 |
+| Amazon | 9 → 126 | 원본 · 쌍의 빈도 · 고유 수 | +0.35 | +4.50 | +1.19 | −3.16 |
+| physiochemical | 9 → 45 | 쌍 비율 36 | +0.44 | +0.51 | −5.77 | −5.92 |
+| QSAR_fish | 6 → 38 | 무작위 사영 32 | +0.19 | +0.35 | −0.22 | −0.30 |
+
+- **열이 늘어난 정도는 FM 변화와 관계 없음**: 1.02 ~ 18.7배인데 늘어난 비율과 kumo 변화 (%) 의 Spearman 0.09. kumo 는 중앙값 −0.08σ, 1σ 넘게 나아진 곳 polish · in_vehicle 둘, 1σ 넘게 나빠진 곳 kddcup09 · hazelnut 둘
+- **FE 몫은 GBDT 가 가져감**: catboost 중앙값 −0.22σ, polish · hazelnut · physiochemical · in_vehicle 에서 −5 ~ −17σ. 그래도 polish 의 catboost~f2 (0.00626) 는 kumo F0 (0.00342) 보다 나쁨 → 열 사이 산술 관계처럼 FM 이 원본에서 이미 잡는 정보를 트리에 풀어 준 것으로 봄 (GBDT 가 FM 과의 격차를 줄임)
+- **원래 너비로는 갈림**: F0 60열 이상 8개 중 7개에서 kumo 가 나아짐 (예외 kddcup09), 36열 이하 7개 중 2개 (in_vehicle · Is-this −0.08σ). 다만 원래 열 수와 kumo 변화의 Spearman −0.41 (p 0.12) 이라 약함
+- **블록 종류**: 넓은 데이터를 요약 · 압축하는 블록 (PCA · 비트 요약 · 결측 지시 · 개수) 은 FM 에 조금 도움. 이미 있는 정보를 다시 쓴 블록 (hazelnut 백색화, kddcup09 범주 빈도 = kumo 가 값 50개 이상 범주에 스스로 만드는 것) 은 kumo 를 크게 나쁘게 함. 좁은 수치 데이터의 산술 관계 (physiochemical 쌍 비율 · students 비율 · QSAR_fish 사영) 는 GBDT 만 도움
+- **C1 규칙 3 으로 빠진 블록이 있음**: 타깃 인코딩 · OOF 스태킹 · 응답자별 타깃 집계 · 교차 열 자체. Amazon (교차 · TE) · kddcup09 (범주 38열 TE) · NATICUSdroid (꼴 TE) · in_vehicle (`add_stats`) 에서는 이것이 에이전트 풀이의 주 입력이었음 → C1 은 "타깃 비의존 FE" 의 효과만 잰 것
+
+### C2: 코드로 다시 본 10회 (배치 2)
+
+| 실행 | FM 입력 (최종 코드) | 같은 FM 에 입력만 바꾼 실행 안 비교 (작업 디렉터리의 로그) | C2 − kumo |
+|---|---|---|---|
+| Amazon × Codex | 원래 범주 열을 버리고 빈도 · 쌍 개수 · 고유 수 · train 라벨 이웃 통계 중 LGB 중요도 상위 80열 → Kumo · TabICL · TabPFN (FM 약 48%) | 없음. FM 은 모두 FE 위 (`tabpfn_features.log` FE 154열에서 고른 80 ~ 120열 0.8862 ~ 0.8897, `tabicl_selectors.log` 50 ~ 120열 0.890 ~ 0.893, holdout AUC). 원래 범주로 돌린 판 없음 | **−3.94** |
+| Amazon × AIDE | 정수 코드 + 개수 + nested OOF TE → TabICL 50% · TabPFN 30% | 없음. 첫 FM 노드 (TabICL, 같은 입력) CV 0.8862, 그 전 노드 LGB (TE) 0.8818 · CatBoost (원래 범주) 0.8802 | **−2.91** |
+| in_vehicle × Codex | 응답자별 타깃 집계 (`add_stats`, fold 안) + 정수 코드 → TabPFN · TabICL, Kumo 는 정수 코드 (FM 직접 약 5%) | **TabPFN 원본 32열 0.7839 → `add_stats` 42열 0.8255** (`tabpfn_plain_0.log` · `tabpfn_stats_0.log`, 같은 3-fold 의 fold 0 AUC). 고른 33열 0.8259 | −1.23 |
+| in_vehicle × AIDE | 응답자 키 · 개수 (train+test) · 순서 숫자 · 상황 교차 + 응답자 키 5개의 OOF TE → TabICL 70% | **TabICL 정수 코드만 0.8331 (1번 노드) → 응답자 TE 0.8378 → TE 키를 더해 0.8433 (10번 노드 계획 글), TabPFN 0.797 → 응답자 TE 0.834 (7번 노드 계획 글)** (`journal.json` · `aide.verbose.log`, 노드마다 5-fold CV). Kumo 도 견줘 무게 0 | +0.30 |
+| QSAR-TID × Codex | ExtraTrees 상위 200 ~ 800비트 · PCA · F-test + PCA 변형 여럿 → Kumo 약 86% | TabPFN 1,024열 0.8188 → 상위 500열 0.7998 · 300열 0.8091 (`foundation.log`, holdout RMSE). Kumo 는 입력 변형마다 0.66 ~ 0.72 (`kumo.log` · `kumo_pca.log` · `kumo_more.log`). 원본 1,024열 Kumo 는 안 돌림 | −0.47 |
+| QSAR-TID × AIDE | PCA 100 (train+test fit) → TabPFN 32% | 없음 | +0.46 |
+| APS × AIDE | 원본 170열 + 결측 수 1 · 무리 합 7 · 무리 안 비율 70 · 무리 평균 7 (중앙값 채움) → TabICL 25%, 컨텍스트 음성 9,000행 표본 | 없음. TabICL OOF 0.99104, LGB 0.99095 와 같은 수준 | +1.42 |
+| physiochemical × Codex | **원본 9열** → Kumo 중심 (타깃 변환 · 섞기만) | **TabICL 원본 3.027 · 3.021 → 비율 3.088 · 3.083, 원본 + 비율 3.033 · 3.034, 확장 3.035** (`icl_explore.log`, seed 42 · 123, holdout RMSE) → 원본을 고름 | −0.32 |
+| physiochemical × AIDE | **원본 9열** → Kumo 100% | – | −0.09 |
+| APS × Codex | **원본 170열** (NaN 그대로) → TabICL 약 35% | **TabPFN 원본 0.99249 → FE 0.99018** (`pfn_holdout.log` · `pfn_engineered_holdout.log`, 같은 holdout AUC) → 원본을 고름 | +0.90 |
+
+- 10회 중 FM 에 FE 를 넣은 것 7회 (kumo 보다 나음 4회), 원본을 넣은 것 3회. FE 를 넣고 kumo 보다 나쁜 둘 중 APS × AIDE 는 C1 에서 거의 같은 블록을 kumo 에 넣으면 −0.08σ 라 FE 보다 컨텍스트 표본 · GBDT 와 같은 무게 섞기 탓으로 봄 (나눠 재지 않음)
+- **FM 을 도운 FE = 범주 · 응답자 키의 타깃 의존 통계**: in_vehicle 에서 같은 FM 에 `add_stats` · TE 를 넣으면 AUC +0.01 ~ +0.04 (Codex TabPFN +0.042 · AIDE TabPFN +0.037 · AIDE TabICL +0.010, 평가 방식은 실행마다 다름). Amazon 의 큰 차 (−2.9 · −3.9σ) 도 TE · 빈도 위 FM. C1 규칙 3 이 뺀 블록과 같은 종류
+- **FM 에 손해인 FE = 좁은 수치 데이터의 관계 피처**: physiochemical (비율) · APS (결측 · 무리 피처) 에서 Codex 는 직접 견주고 FM 에는 원본을 넣음. C1 의 같은 데이터 (physiochemical kumo +0.44σ, APS −0.08σ, GBDT 만 나아짐) 와 같은 방향. C2 가 FM 보다 크게 무너지지 않는 까닭의 하나로 봄 (에이전트가 CV 로 FM 입력을 고름)
+- **넓은 데이터의 열 고르기는 조금 도움**: QSAR-TID 의 TabPFN 1,024 → 300 ~ 500열
+
+### C2: 나머지 20회 (문서 서술만)
+
+위 "C2 (+fm)" 표 · 행 추가 절의 "제출에 든 FM" 으로 나눔. 코드로 다시 볼 수 없음.
+
+| FM 입력 | 실행 (C2 − kumo) |
+|---|---|
+| FE · 열 고르기 · TE | kddcup09 × Codex (빈도 · 정수 코드 · OOF TE 중 상위 65열) −0.99 · × AIDE (빈도 · 결측 수 · OOF TE 중 상위 60열) −0.73, Bioresponse × Codex (중요도 상위 100 ~ 500열) −1.14 · × AIDE (상위 250 ~ 600열) −0.54, polish × Codex (비율 열 쌍) −1.54, splice × AIDE (원-핫) +0.39 |
+| 원본에 가까움 (서술상) | hazelnut × AIDE −0.07 · × Codex +0.10 (둘 다 test 의사 레이블), students × AIDE +0.18 · × Codex +0.04, QSAR_fish × AIDE +0.07 · × Codex +0.06, NATICUSdroid × AIDE (0/1 86열 + 권한 수 1) +0.12 |
+| FM 몫이 작음 | Is-this × AIDE (TabPFN 27%) +1.09 · × Codex (0%) +1.12 |
+| 따로 볼 것 | MIC 둘 (입력 서술 없음) −0.52 · +0.57, splice × Codex (kNN 보정) −0.07, polish × AIDE (의사 레이블) +0.19, NATICUSdroid × Codex (구조 배정 · 의사 레이블) −3.10 |
+
+- "원본에 가까움" 7회는 모두 kumo 와 ±0.2σ 안: FM 에 원본을 넣은 C2 는 FM 한 번과 같은 점수 (배치 2 의 physiochemical 둘도 같음)
+- kddcup09 · Amazon 은 C1 과 C2 가 갈린 곳: C1 (빈도만, kumo +2.80 · +0.35σ) 대 C2 (TE 포함, −0.7 ~ −3.9σ). 같은 종류의 FE 를 쓴 곳은 C1 과 C2 가 같은 방향: polish (항등식 · 비율, C1 −1.23 · C2 −1.54), QSAR-TID (비트 고르기 · PCA, −0.32 · −0.47), Bioresponse (PCA · 열 고르기, −0.78 · −1.14 · −0.54)
+
+### 읽은 것 (15개, 1회씩이라 판단은 약함)
+
+| 데이터 | FM 에 넣은 FE | FM 에 |
+|---|---|---|
+| 고카디널리티 범주 · 응답자 키 | TE · 빈도 · 키별 타깃 집계 | **도움** (C2 가 FM 을 크게 넘은 곳 대부분. C1 은 규칙 3 으로 못 씀) |
+| 넓은 수치 · 비트 | 열 고르기 · PCA · 요약 | 조금 도움 (C1 · C2 같은 방향) |
+| 좁은 수치 | 비율 · 백색화 · 결측 묶음 · 같은 정보의 다시 쓰기 | **손해** (GBDT 만 나아짐. C2 의 Codex 는 견주고 원본을 고름) |
+
+- 질문 2 (C1) 의 "FM 이 GBDT 보다 더 좋아지는가" 가 대개 아니오인 것은 옮긴 FE 의 대부분이 셋째 줄 (FM 이 원본에서 이미 잡는 관계) 이기 때문으로 봄. FM 을 돕는 첫째 줄은 C1 규칙 3 밖
+- 가르려면 (FM 만, Agent 없이): ① C2 배치 2 의 FM 입력만 떼어 우리 kumo 한 번에 넣기 (섞기 몫을 빼고 FE 몫만), ② Amazon · kddcup09 · in_vehicle 에 fold 안 OOF TE · 키별 타깃 집계를 허용한 C1 변형
 
 ## Elo (2026-11-16)
 
