@@ -2268,8 +2268,8 @@ F2 − F0 (÷σ). 원래 열 수 (F0) 로 나눔.
 - **열이 늘어난 정도는 FM 변화와 관계 없음**: 1.02 ~ 18.7배인데 늘어난 비율과 kumo 변화 (%) 의 Spearman 0.09. kumo 는 중앙값 −0.08σ, 1σ 넘게 나아진 곳 polish · in_vehicle 둘, 1σ 넘게 나빠진 곳 kddcup09 · hazelnut 둘
 - **FE 몫은 GBDT 가 가져감**: catboost 중앙값 −0.22σ, polish · hazelnut · physiochemical · in_vehicle 에서 −5 ~ −17σ. 그래도 polish 의 catboost~f2 (0.00626) 는 kumo F0 (0.00342) 보다 나쁨 → 열 사이 산술 관계처럼 FM 이 원본에서 이미 잡는 정보를 트리에 풀어 준 것으로 봄 (GBDT 가 FM 과의 격차를 줄임)
 - **원래 너비로는 갈림**: F0 60열 이상 8개 중 7개에서 kumo 가 나아짐 (예외 kddcup09), 36열 이하 7개 중 2개 (in_vehicle · Is-this −0.08σ). 다만 원래 열 수와 kumo 변화의 Spearman −0.41 (p 0.12) 이라 약함
-- **블록 종류**: 넓은 데이터를 요약 · 압축하는 블록 (PCA · 비트 요약 · 결측 지시 · 개수) 은 FM 에 조금 도움. 이미 있는 정보를 다시 쓴 블록 (hazelnut 백색화, kddcup09 범주 빈도 = kumo 가 값 50개 이상 범주에 스스로 만드는 것) 은 kumo 를 크게 나쁘게 함. 좁은 수치 데이터의 산술 관계 (physiochemical 쌍 비율 · students 비율 · QSAR_fish 사영) 는 GBDT 만 도움
-- **C1 규칙 3 으로 빠진 블록이 있음**: 타깃 인코딩 · OOF 스태킹 · 응답자별 타깃 집계 · 교차 열 자체. Amazon (교차 · TE) · kddcup09 (범주 38열 TE) · NATICUSdroid (꼴 TE) · in_vehicle (`add_stats`) 에서는 이것이 에이전트 풀이의 주 입력이었음 → C1 은 "타깃 비의존 FE" 의 효과만 잰 것
+- **블록 종류**: 넓은 데이터를 요약 · 압축하는 블록 (PCA · 비트 요약 · 결측 지시 · 개수) 은 FM 에 조금 도움. 이미 있는 정보를 다시 쓴 블록 (hazelnut 백색화, kddcup09 범주 빈도 = kumo 가 값 50개 이상 범주에 스스로 만드는 것) 은 kumo 를 크게 나쁘게 함. 좁은 수치 데이터의 산술 관계 (physiochemical 쌍 비율 · students 비율 · QSAR_fish 사영) 는 kumo 를 그대로 두거나 조금 나쁘게 하고 GBDT 쪽이 나아짐 (physiochemical 은 둘 다 −5.8σ 안팎, students 는 catboost −0.97σ 이지만 lgbm +1.20σ, QSAR_fish 는 1σ 안)
+- **C1 에서 빠진 블록이 있음**: 규칙 3 으로 타깃 인코딩 · OOF 스태킹 · 응답자별 타깃 집계, 카드 판단으로 Amazon 의 교차 열 자체 (최종 풀이에서 TE 키 · one-hot LR 입력으로만 쓰임. in_vehicle 의 교차 20열은 F2 에 남음). Amazon (교차 · TE) · kddcup09 (범주 38열 TE) · NATICUSdroid (꼴 TE) · in_vehicle (`add_stats`) 에서는 이것이 에이전트 풀이의 주 입력이었음 → C1 은 "타깃 비의존 FE" 의 효과만 잰 것
 
 ### C2: 코드로 다시 본 10회 (배치 2)
 
@@ -2286,9 +2286,11 @@ F2 − F0 (÷σ). 원래 열 수 (F0) 로 나눔.
 | physiochemical × AIDE | **원본 9열** → Kumo 100% | – | −0.09 |
 | APS × Codex | **원본 170열** (NaN 그대로) → TabICL 약 35% | **TabPFN 원본 0.99249 → FE 0.99018** (`pfn_holdout.log` · `pfn_engineered_holdout.log`, 같은 holdout AUC) → 원본을 고름 | +0.90 |
 
-- 10회 중 FM 에 FE 를 넣은 것 7회 (kumo 보다 나음 4회), 원본을 넣은 것 3회. FE 를 넣고 kumo 보다 나쁜 둘 중 APS × AIDE 는 C1 에서 거의 같은 블록을 kumo 에 넣으면 −0.08σ 라 FE 보다 컨텍스트 표본 · GBDT 와 같은 무게 섞기 탓으로 봄 (나눠 재지 않음)
+- 10회 중 FM 에 FE 를 넣은 것 7회 (kumo 보다 나음 4회), 원본을 넣은 것 3회. FE 를 넣고 kumo 보다 나쁜 셋 (in_vehicle × AIDE +0.30 · QSAR-TID × AIDE +0.46 · APS × AIDE +1.42) 중 APS × AIDE 는 C1 에서 거의 같은 블록을 kumo 에 넣으면 −0.08σ 라 FE 보다 컨텍스트 표본 · GBDT 와 같은 무게 섞기 탓으로 봄 (나눠 재지 않음). in_vehicle × AIDE 는 TE 를 넣어 TabICL 이 나아졌는데도 (아래) kumo 에 못 미침 (같은 데이터의 F0 tabicl 0.1489 가 kumo 0.1371 보다 크게 나쁨)
 - **FM 을 도운 FE = 범주 · 응답자 키의 타깃 의존 통계**: in_vehicle 에서 같은 FM 에 `add_stats` · TE 를 넣으면 AUC +0.01 ~ +0.04 (Codex TabPFN +0.042 · AIDE TabPFN +0.037 · AIDE TabICL +0.010, 평가 방식은 실행마다 다름). Amazon 의 큰 차 (−2.9 · −3.9σ) 도 TE · 빈도 위 FM. C1 규칙 3 이 뺀 블록과 같은 종류
-- **FM 에 손해인 FE = 좁은 수치 데이터의 관계 피처**: physiochemical (비율) · APS (결측 · 무리 피처) 에서 Codex 는 직접 견주고 FM 에는 원본을 넣음. C1 의 같은 데이터 (physiochemical kumo +0.44σ, APS −0.08σ, GBDT 만 나아짐) 와 같은 방향. C2 가 FM 보다 크게 무너지지 않는 까닭의 하나로 봄 (에이전트가 CV 로 FM 입력을 고름)
+- **FM 에 손해인 FE = 좁은 수치 데이터의 관계 피처**: physiochemical (비율) 에서 Codex 는 직접 견주고 FM 에는 원본을 넣음. C1 의 같은 데이터 (kumo +0.44σ, GBDT −5.8σ 안팎) 와 같은 방향
+- **APS (넓은 수치 170열) 의 결측 · 무리 피처는 C1 과 C2 가 갈림**: C2 × Codex holdout 에서는 TabPFN 을 나쁘게 해 원본을 골랐지만, C1 에서는 kumo −0.08σ (조금 나음) · catboost +0.41σ · lgbm −0.01σ 로 거의 그대로
+- 두 곳 모두 에이전트가 CV 로 FM 입력을 고름 → C2 가 FM 보다 크게 무너지지 않는 까닭의 하나로 봄
 - **넓은 데이터의 열 고르기는 조금 도움**: QSAR-TID 의 TabPFN 1,024 → 300 ~ 500열
 
 ### C2: 나머지 20회 (문서 서술만)
@@ -2302,16 +2304,16 @@ F2 − F0 (÷σ). 원래 열 수 (F0) 로 나눔.
 | FM 몫이 작음 | Is-this × AIDE (TabPFN 27%) +1.09 · × Codex (0%) +1.12 |
 | 따로 볼 것 | MIC 둘 (입력 서술 없음) −0.52 · +0.57, splice × Codex (kNN 보정) −0.07, polish × AIDE (의사 레이블) +0.19, NATICUSdroid × Codex (구조 배정 · 의사 레이블) −3.10 |
 
-- "원본에 가까움" 7회는 모두 kumo 와 ±0.2σ 안: FM 에 원본을 넣은 C2 는 FM 한 번과 같은 점수 (배치 2 의 physiochemical 둘도 같음)
-- kddcup09 · Amazon 은 C1 과 C2 가 갈린 곳: C1 (빈도만, kumo +2.80 · +0.35σ) 대 C2 (TE 포함, −0.7 ~ −3.9σ). 같은 종류의 FE 를 쓴 곳은 C1 과 C2 가 같은 방향: polish (항등식 · 비율, C1 −1.23 · C2 −1.54), QSAR-TID (비트 고르기 · PCA, −0.32 · −0.47), Bioresponse (PCA · 열 고르기, −0.78 · −1.14 · −0.54)
+- "원본에 가까움" 7회는 모두 kumo 와 ±0.2σ 안. 배치 2 의 원본 3회를 더하면 10회 중 9회가 ±0.4σ 안 (physiochemical −0.09 · −0.32): FM 에 원본을 넣은 C2 는 대개 FM 한 번 근처. 예외 APS × Codex (+0.90) 는 원본 TabICL 35% 를 GBDT · MLP 와 섞은 것
+- kddcup09 · Amazon 은 C1 과 C2 가 갈린 곳: C1 (빈도만, kumo +2.80 · +0.35σ) 대 C2 (TE 포함, −0.7 ~ −3.9σ). 같은 종류의 FE 를 쓴 곳은 대개 같은 방향: polish (항등식 · 비율, C1 −1.23 · C2 Codex −1.54), Bioresponse (PCA · 열 고르기, C1 −0.78 · C2 −1.14 · −0.54). QSAR-TID 는 갈림 (C1 −0.32 · C2 Codex 비트 고르기 · PCA −0.47 · C2 AIDE PCA 100 → TabPFN +0.46)
 
 ### 읽은 것 (15개, 1회씩이라 판단은 약함)
 
 | 데이터 | FM 에 넣은 FE | FM 에 |
 |---|---|---|
-| 고카디널리티 범주 · 응답자 키 | TE · 빈도 · 키별 타깃 집계 | **도움** (C2 가 FM 을 크게 넘은 곳 대부분. C1 은 규칙 3 으로 못 씀) |
-| 넓은 수치 · 비트 | 열 고르기 · PCA · 요약 | 조금 도움 (C1 · C2 같은 방향) |
-| 좁은 수치 | 비율 · 백색화 · 결측 묶음 · 같은 정보의 다시 쓰기 | **손해** (GBDT 만 나아짐. C2 의 Codex 는 견주고 원본을 고름) |
+| 고카디널리티 범주 · 응답자 키 | TE · 빈도 · 키별 타깃 집계 | **도움**. C2 가 kumo 를 1σ 넘게 넘은 6회 중 3회 (Amazon 둘 · in_vehicle × Codex, in_vehicle 은 FM 몫 5% 라 키 위 GBDT 몫이 큼). 나머지 셋은 polish 비율 쌍 · Bioresponse 열 고르기 · NATICUSdroid 구조 배정. C1 은 규칙 3 으로 못 씀 |
+| 넓은 수치 · 비트 | 열 고르기 · PCA · 요약 · 결측 지시 · 개수 | 조금 도움. C1 kumo 5개 모두 나아짐 (Bioresponse · MIC · NATICUSdroid · QSAR-TID · APS, −0.08 ~ −0.78σ), C2 열 고르기 · PCA 4회 중 3회 kumo 보다 나음 (QSAR-TID × AIDE 만 나쁨) |
+| 좁은 수치, 그리고 같은 정보를 다시 쓴 블록 (너비와 무관) | 비율 · 사영 · 백색화, kddcup09 의 범주 빈도 | **그대로이거나 손해** (C1 kumo: physiochemical +0.44 · QSAR_fish +0.19 · students +0.14 · hazelnut +2.04 · kddcup09 +2.80σ). GBDT 는 대개 나아짐 (students lgbm 은 나빠짐). C2 의 Codex 는 physiochemical 에서 견주고 원본을 고름 |
 
 - 질문 2 (C1) 의 "FM 이 GBDT 보다 더 좋아지는가" 가 대개 아니오인 것은 옮긴 FE 의 대부분이 셋째 줄 (FM 이 원본에서 이미 잡는 관계) 이기 때문으로 봄. FM 을 돕는 첫째 줄은 C1 규칙 3 밖
 - 가르려면 (FM 만, Agent 없이): ① C2 배치 2 의 FM 입력만 떼어 우리 kumo 한 번에 넣기 (섞기 몫을 빼고 FE 몫만), ② Amazon · kddcup09 · in_vehicle 에 fold 안 OOF TE · 키별 타깃 집계를 허용한 C1 변형
