@@ -944,7 +944,8 @@ MLE-bench test, 괄호는 원래 리더보드 순위. ↑·↓ 는 지표 방향
 - 2026-11-10 채점을 원격 정리 작업 (`fab/remote/reconcile.py`, 내 신원) 으로 옮기면서 정답이 워크스페이스에 올라감
   → 격리는 SP 권한에 기댐. SP 는 정답 Volume 스키마에 `USE_SCHEMA`·`READ_VOLUME` 이 없음
   (`databricks grants get-effective` 로 확인, 그룹에서 받은 `READ_METADATA` 만). **SP 권한을 넓힐 때 이 스키마는 빼야 함**
-- SP 권한: USE CATALOG·USE SCHEMA·READ/WRITE VOLUME 만. TFM 실행용 Volume 은 메타데이터만 보임 (위치는 `databricks.local.yaml` 의 `mleb_agent`)
+- SP 권한: USE CATALOG·USE SCHEMA·READ/WRITE VOLUME 만. TFM 실행용 Volume 은 메타데이터만 보임 (위치는 `databricks.local.yaml` 의 `mleb_agent`).
+  새 워크스페이스·새 SP 의 설정 순서 (entitlement · `servicePrincipal.user` · SP 홈 폴더와 experiment · UC 권한) 는 README "에이전트 SP 설정 (한 번)"
 - 작업 제출은 `jobs submit` + `run_as` + `ai_runtime_task`
 
 ### 구현
