@@ -186,8 +186,8 @@ mleb_agent:
      "etag": "<etag>", "grant_rules": [{"role": "roles/servicePrincipal.manager", "principals": ["users/<me>"]},
                                        {"role": "roles/servicePrincipal.user", "principals": ["users/<me>"]}]}}'
    ```
-4. SP 홈 폴더와 experiment 를 만들고 SP 에 `CAN_MANAGE`. **없으면 작업이 오류 없이 "In run" 으로 작업 시간 상한 (하네스 + 45분 = 105분)
-   까지 있다가 `INTERNAL_ERROR`/`TIMEDOUT` 로 끝남** (실행기 출력 없음. 사용자 신원으로는 `/Users/<me>/<이름>` 이 자동으로 생겨 안 드러남).
+4. SP 홈 폴더와 experiment 를 만들고 SP 에 `CAN_MANAGE`. **없으면 작업이 오류 없이 "In run" 으로 작업 시간 상한 (하네스 + 45분, 기본 1시간이면 105분.
+   `--fm` 은 75분 더) 까지 있다가 `INTERNAL_ERROR`/`TIMEDOUT` 로 끝남** (실행기 출력 없음. 사용자 신원으로는 `/Users/<me>/<이름>` 이 자동으로 생겨 안 드러남).
    `fab … agent run` 이 제출 전에 experiment 경로를 보고, 없으면 아래 명령을 (자리표시를 채워) 보여 주고 멈춤
    ```bash
    databricks workspace mkdirs /Users/<app_id> -p <profile>

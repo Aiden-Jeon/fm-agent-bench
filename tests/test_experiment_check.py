@@ -85,7 +85,24 @@ class CheckExperiment(unittest.TestCase):
         out = self.run_check(FakeDbx(denied=True), cfg())
         self.assertIn("[경고]", out)
         self.assertIn("PERMISSION_DENIED", out)
-        self.assertNotIn((cfg()["profile"], f"{HOME}/fab-agent"), A._EXPERIMENT_OK)
+
+    def test_warning_is_not_repeated(self):
+        fake = FakeDbx(denied=True)
+        self.run_check(fake, cfg())
+        self.assertEqual(self.run_check(fake, cfg()), "")  # 두 번째 설정: 조회·경고 없이
+        self.assertEqual(len(fake.calls), 1)
+
+    def test_unreadable_json_warns(self):
+        def junk(c, *args, **kw):
+            return subprocess.CompletedProcess(args, 0, "not json", "")
+
+        self.assertIn("응답을 읽지 못함", self.run_check(junk, cfg()))
+
+    def test_json_after_notice(self):
+        def noisy(c, *args, **kw):
+            return subprocess.CompletedProcess(args, 0, 'notice\n{"object_type": "MLFLOW_EXPERIMENT"}', "")
+
+        self.assertEqual(self.run_check(noisy, cfg()), "")
 
     def test_timeout_warns_and_passes(self):
         def slow(*a, **kw):
@@ -106,6 +123,16 @@ class CheckExperiment(unittest.TestCase):
         self.assertIn("create-experiment /Shared/fab/agent-exp", msg)
         self.assertNotIn("mkdirs", msg)
         self.assertNotIn("permissions update directories", msg)
+
+    def test_absolute_missing_parent_is_not_called_sp_home(self):
+        msg = self.stop_message(FakeDbx(), cfg("/Shared/fab/agent-exp"))
+        self.assertIn("폴더 /Shared/fab 도 없음", msg)
+        self.assertNotIn("SP 홈 폴더", msg)
+        self.assertIn("mkdirs /Shared/fab -p", msg)
+
+    def test_paths_with_spaces_are_quoted(self):
+        msg = self.stop_message(FakeDbx({HOME: "DIRECTORY"}), cfg("fab agent"))
+        self.assertIn(f"create-experiment '{HOME}/fab agent' -p", msg)
 
     def test_path_is_not_experiment(self):
         msg = self.stop_message(FakeDbx({f"{HOME}/fab-agent": "DIRECTORY"}), cfg())

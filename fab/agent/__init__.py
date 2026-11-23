@@ -143,7 +143,7 @@ def dbx(cfg, *args, capture=True, check=True, timeout=1200):
 # workspace get-status 의 실패 메시지: 경로 없음 ("Path (…) doesn't exist.") / 권한 없음 (관리자가 아닌 사용자)
 PATH_MISSING = re.compile(r"doesn't exist|does not exist|RESOURCE_DOES_NOT_EXIST", re.I)
 NO_PERMISSION = re.compile(r"PERMISSION_DENIED|permission|not authorized|forbidden|\b403\b", re.I)
-_EXPERIMENT_OK: set[tuple[str, str]] = set()  # 이 프로세스에서 이미 본 (profile, experiment 경로)
+_EXPERIMENT_OK: set[tuple[str, str]] = set()  # 이 프로세스에서 이미 본 (profile, experiment 경로): 있음·경고로 넘김
 
 
 def experiment_path(cfg) -> str:
@@ -160,11 +160,13 @@ def _sp_acl(cfg) -> str:
 def check_experiment(cfg):
     """제출 전 점검: SP 의 MLflow experiment 경로가 있는지 (README "에이전트 SP 설정").
     SP 홈 폴더 /Users/<application id> 가 없으면 AI Runtime 작업이 상대 이름 experiment 를 만들지 못하고, 오류 없이
-    "In run" 으로 작업 시간 상한 (하네스 + 45분) 까지 있다가 INTERNAL_ERROR/TIMEDOUT 로 끝남 (실행기 출력 없음, 2026-11-23).
-    없으면 멈추고 고치는 명령을 보여 줌. 조회가 권한 문제 등으로 실패하면 경고만. 같은 프로세스에서는 한 번만 봄."""
+    "In run" 으로 작업 시간 상한 (하네스 + 45분, --fm 은 + 120분) 까지 있다가 INTERNAL_ERROR/TIMEDOUT 로 끝남
+    (실행기 출력 없음, 2026-11-23). 없으면 멈추고 고치는 명령을 보여 줌. 조회가 권한 문제 등으로 실패하면 경고만.
+    같은 프로세스에서는 한 번만 봄 (main 이 제출 준비 전에, submit 은 캐시로)."""
     path = experiment_path(cfg)
     if (cfg["profile"], path) in _EXPERIMENT_OK:
         return
+    _EXPERIMENT_OK.add((cfg["profile"], path))  # 아래에서 멈추면 프로세스가 끝나므로 미리 넣어도 됨
 
     def status(p):
         """(정보, 실패 메시지). 정보가 None 이고 메시지가 None 이면 경로 없음."""
@@ -173,7 +175,10 @@ def check_experiment(cfg):
         except subprocess.TimeoutExpired:
             return None, "시간 초과"
         if not res.returncode:
-            return json.loads(res.stdout), None
+            try:  # 다른 CLI 호출처럼 JSON 앞의 안내 글은 건너뜀
+                return json.loads(res.stdout[res.stdout.index("{"):]), None
+            except ValueError:
+                return None, f"응답을 읽지 못함: {res.stdout.strip()[:200] or '(빈 출력)'}"
         err = (res.stderr or res.stdout or "").strip()
         return None, None if PATH_MISSING.search(err) and not NO_PERMISSION.search(err) else (err or f"exit {res.returncode}")
 
@@ -186,28 +191,28 @@ def check_experiment(cfg):
     if info is not None:
         if info.get("object_type") != "MLFLOW_EXPERIMENT":
             raise SystemExit(f"mleb_agent.experiment 경로 {path} 가 MLflow experiment 가 아님 ({info.get('object_type')}) → 제출 안 함")
-        _EXPERIMENT_OK.add((cfg["profile"], path))
         return
     parent = posixpath.dirname(path)
     pinfo, perr = status(parent)
     if perr:
         return warn(perr)
-    p = shlex.quote(cfg["profile"])
+    home = parent == f"/Users/{cfg['run_as']}"  # SP 홈 폴더: SP 가 그 아래를 쓸 수 있게 폴더 권한도
+    p, qparent, qpath = shlex.quote(cfg["profile"]), shlex.quote(parent), shlex.quote(path)
     steps = []
     if pinfo is None:
-        steps.append(f"databricks workspace mkdirs {parent} -p {p}")
-    if parent == f"/Users/{cfg['run_as']}":  # SP 홈 폴더: SP 가 그 아래를 쓸 수 있게
+        steps.append(f"databricks workspace mkdirs {qparent} -p {p}")
+    if home:
         oid = pinfo["object_id"] if pinfo else "<object_id>"
         if pinfo is None:
-            steps.append(f"databricks workspace get-status {parent} -p {p} -o json   # → object_id")
+            steps.append(f"databricks workspace get-status {qparent} -p {p} -o json   # → object_id")
         steps.append(f"databricks permissions update directories {oid} -p {p} --json {_sp_acl(cfg)}")
-    steps += [f"databricks experiments create-experiment {path} -p {p}   # → experiment_id",
+    steps += [f"databricks experiments create-experiment {qpath} -p {p}   # → experiment_id",
               f"databricks experiments update-permissions <experiment_id> -p {p} --json {_sp_acl(cfg)}"]
     raise SystemExit(
         f"MLflow experiment {path} 없음 → 제출 안 함.\n"
-        f"SP 신원의 작업은 이 experiment 를 만들지 못하고, 오류 없이 \"In run\" 으로 작업 시간 상한 (하네스 + 45분) 까지 있다가 "
-        f"INTERNAL_ERROR 로 끝남.\n"
-        f"{'SP 홈 폴더 ' + parent + ' 도 없음. ' if pinfo is None else ''}"
+        f"SP 신원의 작업은 이 experiment 를 만들지 못하고, 오류 없이 \"In run\" 으로 작업 시간 상한 (하네스 + 45분, --fm 은 + 120분) "
+        f"까지 있다가 INTERNAL_ERROR 로 끝남.\n"
+        f"{('SP 홈 폴더 ' if home else '폴더 ') + parent + ' 도 없음. ' if pinfo is None else ''}"
         f"워크스페이스 관리자가 한 번 (README \"에이전트 SP 설정\"):\n  " + "\n  ".join(steps))
 
 
@@ -318,8 +323,8 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
     harness, model, alias = CONFIGS[config]
     check_continue([config], cont)
     cfg, main_cfg = settings(), remote_settings()
-    check_experiment(cfg)  # 데이터를 올리기 전에 (여러 설정을 내면 처음 한 번만 조회)
-    label =(f"{config}{CONTINUE_SUFFIX if cont else ''}{FM_SUFFIX if fm else ''}"
+    check_experiment(cfg)  # main 이 이미 봤으면 캐시 (다른 곳에서 부를 때도 jobs submit 전에)
+    label = (f"{config}{CONTINUE_SUFFIX if cont else ''}{FM_SUFFIX if fm else ''}"
              f"{GATEWAY_SUFFIX if cfg['gateway'] else ''}")
     if comp is not None:  # 올리기 전에 데이터 파일 이름·설명 확인
         leak_check(comp, [comp.data_dir / "description.md"],
@@ -837,7 +842,7 @@ def main(argv: list[str], bench: str | None = None):
         from fab.bench.tabarena.remote import upload_answers
 
         check_continue(args.configs, args.cont)
-        settings()
+        check_experiment(settings())  # 대회 준비·정답 업로드 전에 (SP experiment 경로, README "에이전트 SP 설정")
         comp, anon = ta_target(args.cid)
         ensure_prepared(comp)
         upload_answers(remote_settings(), [comp.name])  # 채점용 정답 (내 Volume)
@@ -847,7 +852,7 @@ def main(argv: list[str], bench: str | None = None):
         from fab.bench.mlebench.remote import prepare_grading
 
         check_continue(args.configs, args.cont)
-        settings()  # 제출 전에 설정 확인 (SP·scratch Volume)
+        check_experiment(settings())  # 제출 전에 설정 확인 (SP·scratch Volume·SP experiment 경로)
         prepare_grading(remote_settings(), [args.cid])  # 끝난 뒤 원격에서 채점할 재료 (리더보드·정답·채점 코드), 설정 수와 무관하게 한 번
         for c in args.configs:
             submit(args.cid, c, args.rep, args.hours, args.cont, args.fm)
