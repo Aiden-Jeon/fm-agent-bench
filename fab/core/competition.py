@@ -38,6 +38,8 @@ class Competition:
     mlebench: str | None = None  # MLE-bench 대회 id. 있으면 fab download 가 MLE-bench 분할(public)을 받고 fab mleb grade 로 채점
     # TabArena split 대회: {dataset, task_id, split (r<r>f<f>), categorical, anon_id (r0f0 에이전트용)}. fab/bench/tabarena
     tabarena: dict | None = None
+    # forecast 대회 (fev-bench task 의 window 하나): {task, window, anon_id}. fab/bench/forecast
+    forecast: dict | None = None
 
     @property
     def dir(self) -> Path:

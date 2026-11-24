@@ -1,0 +1,11 @@
+# fev-bench task epf_be 의 마지막 window (19 / 20 의 0 부터 센 번호). anon_id = 에이전트에게 보이는 이름 (docs/forecast.md 8)
+name: fc-epf-be
+forecast:
+  task: epf_be
+  window: 19
+  anon_id: forecast-p04
+task: forecast
+target: target
+id_col: id
+metric: sql
+cv: {}

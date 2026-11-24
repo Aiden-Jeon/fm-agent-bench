@@ -49,8 +49,10 @@ def _fit(err: np.ndarray, weight: np.ndarray) -> np.ndarray:
     return SCALE * lr.coef_[0] + INIT
 
 
-def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int = MIN_CI_DATASETS) -> pd.DataFrame:
+def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int = MIN_CI_DATASETS,
+        anchor: str = ANCHOR) -> pd.DataFrame:
     """long: method · dataset · split · metric_error (+ imputed: 단위마다 채운 비율 0~1). 빈칸은 미리 채워 둘 것 →
+    anchor (기준점, 1000 으로 옮기는 방법. TabArena 는 RandomForest, forecast 는 Seasonal Naive) 가 long 에 있어야 함.
     방법마다 elo · elo+ · elo- · imputed (채운 비율) · 데이터셋 수 · 평균 순위·승률 (TabArena 와 같은 단위 가중치).
     데이터셋이 min_ci 개 미만이거나 rounds <= 0 이면 부트스트랩을 안 하고 elo+·elo- 는 NaN."""
     key = ["method", "dataset", "split"]
@@ -59,7 +61,9 @@ def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int 
     long = long.assign(imputed=long.imputed.astype(float)) if "imputed" in long else long.assign(imputed=0.0)
     wide = long.pivot(index="method", columns=["dataset", "split"], values="metric_error")
     if wide.isna().any().any():
-        raise ValueError(f"빈칸 {int(wide.isna().sum().sum())}개: 먼저 {ANCHOR} 로 채울 것")
+        raise ValueError(f"빈칸 {int(wide.isna().sum().sum())}개: 먼저 {anchor} 로 채울 것")
+    if anchor not in wide.index:
+        raise ValueError(f"기준점 {anchor!r} 가 풀에 없음")
     imp = long.pivot(index="method", columns=["dataset", "split"], values="imputed").reindex_like(wide)
     ds = wide.columns.get_level_values("dataset").to_numpy()
     names, ds_idx = np.unique(ds, return_inverse=True)
@@ -80,11 +84,11 @@ def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int 
     else:  # 데이터셋 2개를 복원 추출하면 뽑을 수 있는 묶음이 3가지뿐 → 구간이 수천~수만이라 뜻이 없음
         lo = hi = np.full_like(raw, np.nan)
 
-    anchor = list(wide.index).index(ANCHOR)
+    a = list(wide.index).index(anchor)
     rank = wide.rank(axis=0, method="average").to_numpy()
     m = len(wide)
     out = pd.DataFrame(dict(
-        elo=raw - raw[anchor] + INIT,
+        elo=raw - raw[a] + INIT,
         **{"elo+": np.clip(hi - raw, 0, None), "elo-": np.clip(raw - lo, 0, None)},
         rank=(rank * weight).sum(1) / weight.sum(),
         winrate=((m - rank) / (m - 1) * weight).sum(1) / weight.sum(),
@@ -94,11 +98,11 @@ def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int 
     return out.sort_values("elo", ascending=False)
 
 
-def fill(long: pd.DataFrame, methods: list[str]) -> pd.DataFrame:
-    """methods 마다 RandomForest 가 있는 모든 (데이터셋, split) 을 채움. 없는 곳은 RandomForest 값, imputed=1.
+def fill(long: pd.DataFrame, methods: list[str], anchor: str = ANCHOR) -> pd.DataFrame:
+    """methods 마다 anchor (기본 RandomForest) 가 있는 모든 (데이터셋, split) 을 채움. 없는 곳은 anchor 값, imputed=1.
     long 에 imputed (0~1, Agent 의 실패 회차 비율) 가 있으면 있는 곳은 그 값 그대로."""
     long = long if "imputed" in long else long.assign(imputed=0.0)
-    rf = long[long.method == ANCHOR][["dataset", "split", "metric_error"]]
+    rf = long[long.method == anchor][["dataset", "split", "metric_error"]]
     parts = []
     for m in methods:
         g = rf.merge(long[long.method == m][["dataset", "split", "metric_error", "imputed"]], on=["dataset", "split"],
