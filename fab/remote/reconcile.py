@@ -6,7 +6,8 @@
   3. batch    --split-folds 묶음의 fold 실행이 다 끝나면 합침 (merge_folds, 메모리는 fold 수에 비례하지 않음)
   4. agent    끝난 에이전트 실행 → SP Volume 의 결과를 outputs/_mlebench/agents/<key>/ 로 복사 → 채점 → 사후 검사
   5. grade    FM 채점 요청 → 요청한 모델의 학습이 아직 돌고 있으면 기다림 → 제출 파일 → 채점 → mlebench.csv
-              (bench=tabarena 요청은 split 대회마다 fab 지표로 → tabarena.csv, fab/bench/tabarena)
+              (bench=tabarena 요청은 split 대회마다 fab 지표로 → tabarena.csv, fab/bench/tabarena.
+               bench=anomaly 는 AUROC 로 → anomaly.csv, fab/bench/anomaly)
   6. recheck  mlebench_runs.csv 의 사후 검사 열 다시 계산
   7. timing   TabArena 채점 시간 재기 (결과표는 안 바뀜, fab/bench/tabarena/timing.py)
 항목마다 결과표를 Volume 의 tables/ 에 쓴 뒤 <key>.done.json 을 남김 (중간에 죽으면 그 항목만 다음에 다시).
@@ -133,8 +134,10 @@ def step(name: str, items: dict, fn, state: State, tables: Tables, kind: str):
 def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
     from databricks.sdk import WorkspaceClient
 
-    from fab.agent import AGENT_RUNS, TA_TABLE, TABLE as AGENT_TABLE, grade_run, recheck_table, recover_from_progress, \
-        run_table
+    from fab.agent import AD_TABLE, AGENT_RUNS, TA_TABLE, TABLE as AGENT_TABLE, grade_run, recheck_table, \
+        recover_from_progress, run_table
+    from fab.bench.anomaly import grade as grade_ad
+    from fab.bench.anomaly.remote import Grader as AdGrader
     from fab.bench.mlebench import bench_comps, grade as grade_fm
     from fab.bench.mlebench.remote import Grader
     from fab.bench.tabarena import grade as grade_ta
@@ -143,13 +146,13 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
 
     V = Path(volume)
     w = WorkspaceClient()
-    state, tables, grader, ta_grader = State(V), Tables(V), Grader(V), TaGrader(V)
+    state, tables, grader, ta_grader, ad_grader = State(V), Tables(V), Grader(V), TaGrader(V), AdGrader(V)
     link_data(V)
 
     def exclude(key, m):
         for k in m["keys"]:
             state.done("agent", k, excluded=m["reason"])
-        for table in (AGENT_TABLE, TA_TABLE):
+        for table in (AGENT_TABLE, TA_TABLE, AD_TABLE):
             if table.exists():
                 t = read_table(table)
                 t[~t.key.isin(m["keys"])].to_csv(table, index=False)
@@ -227,9 +230,9 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             print(f"  {key}: 실행기가 끝까지 못 감 ({st['message'][:200]}) → progress/ 사본으로 회수"
                   + (" (제출 있음)" if (d / "submission.csv").exists() else " (제출 사본 없음)"))
         report = None
-        if (d / "submission.csv").exists() and m.get("bench") == "tabarena":
-            # TabArena: 대회 이름은 제출 기록에만 (cid = 익명 id). 형식이 틀린 제출은 오류가 아니라 무효 (valid_submission)
-            report = ta_grader.grade(m["comp"], d / "submission.csv")
+        if (d / "submission.csv").exists() and m.get("bench") in ("tabarena", "anomaly"):
+            # TabArena · 이상탐지: 대회 이름은 제출 기록에만 (cid = 익명 id). 형식이 틀린 제출은 오류가 아니라 무효 (valid_submission)
+            report = (ta_grader if m["bench"] == "tabarena" else ad_grader).grade(m["comp"], d / "submission.csv")
             if str(report.get("error", "")).startswith("정답 없음"):
                 raise RuntimeError(report["error"])
         elif (d / "submission.csv").exists():
@@ -261,6 +264,8 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
     def grade(key, m):
         if m.get("bench") == "tabarena":
             return grade_tabarena(key, m)
+        if m.get("bench") == "anomaly":
+            return grade_tabarena(key, m, grade_ad, ad_grader)
         need = {(c.name, x) for c in bench_comps(m["cid"]) for g in m["groups"] for x in g}
         if waiting := need & unfinished():
             print(f"  {key}: 처리가 안 끝난 모델 기다림 {sorted(waiting)}")
@@ -288,11 +293,12 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             raise RuntimeError("채점 못 한 묶음:\n" + "\n".join(f"{k}: {v}" for k, v in failed.items()))
         state.done("grade", key, graded=graded)
 
-    def grade_tabarena(key, m):
+    def grade_tabarena(key, m, grade_fn=grade_ta, g=ta_grader):
         """split 대회 × 모델을 한 번에 채점하고 표는 끝에 한 번 씀 (#20: 대회마다 쓰면 split 수백 개에 정리 작업이 약 1시간).
         예측이 없는 (학습 실패) 것·채점에 실패한 것 (무효 제출, test.npy 의 NaN 등) 은 같은 입력이면 다시 해도 같으므로 그
         (대회, 모델) 만 빼고 나머지는 씀 (done 의 missing · failed). 그 밖의 예외 (Volume 읽기 등) 는 요청째 되돌리고 다시 시도
-        (step 의 rollback, MAX_ATTEMPTS). 예전 코드가 남긴 진행 기록 (대회마다 채점한 것) 이 있으면 그 대회는 건너뜀."""
+        (step 의 rollback, MAX_ATTEMPTS). 예전 코드가 남긴 진행 기록 (대회마다 채점한 것) 이 있으면 그 대회는 건너뜀.
+        이상탐지 (bench=anomaly) 도 같은 흐름: grade_fn · g 만 그쪽 것 (fab/bench/anomaly 의 grade · Grader)."""
         need = {(c, x) for c in m["comps"] for x in m["models"]}
         if waiting := need & unfinished():
             print(f"  {key}: 처리가 안 끝난 모델 기다림 {len(waiting)}개 (예: {sorted(waiting)[:3]})")
@@ -301,7 +307,7 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
         graded = json.loads(prog.read_text()) if prog.exists() else []
         comps = [c for c in m["comps"] if c not in graded]
         timer, t0 = {}, time.perf_counter()
-        rows, errors = grade_ta(comps, m["models"], m.get("note", ""), ta_grader, timer=timer)
+        rows, errors = grade_fn(comps, m["models"], m.get("note", ""), g, timer=timer)
         t1 = time.perf_counter()
         tables.flush()
         timer["flush"] = time.perf_counter() - t1

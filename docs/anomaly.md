@@ -1,0 +1,268 @@
+# 표 이상탐지 (ADBench): tabular FM 대 Agent, 기존 방법 = Elo 기준점
+
+질문: tabular FM 의 비지도 확장 (공식 tabpfn-extensions `TabPFNUnsupervisedModel.outliers()`) 이 표 이상탐지에서 실제로 먹히는지.
+같은 데이터에서 LLM 코딩 에이전트 (기존 5설정 × 1시간) · 기존 이상탐지 방법과 한 풀에 넣고 Elo 로 답한다.
+배경은 minipfn issue #117 (tabular FM 을 회귀·분류 밖 문제에 쓰는 방법과 벤치 목록). 여기서 하는 것은 minipfn 구현이 아니라
+**공개된 tabular FM 이 이 문제에서 먹히는지를 이 저장소의 FM 대 Agent 틀로 검증**하는 것 (minipfn 코드·가중치는 안 씀).
+
+- 2026-11-25 설계 초안 (사용자 확인 전). 순서·규칙은 TabArena 트랙 ([tabarena.md](tabarena.md), P4) 을 따름
+- 확인 못 한 것은 "확인 못 함" 으로 적음. 추측으로 채우지 않음
+- 계획·단계: [plans/roadmap.md](plans/roadmap.md)
+
+목차
+
+- [요약](#요약)
+- [출처](#출처)
+- [1. 데이터셋](#1-데이터셋)
+- [2. 분할·평가 프로토콜](#2-분할평가-프로토콜)
+- [3. 기존 방법 풀과 기준점](#3-기존-방법-풀과-기준점)
+- [4. FM: TabPFN 비지도 확장](#4-fm-tabpfn-비지도-확장)
+- [5. Elo](#5-elo)
+- [6. Agent 형식 · 정답 격리 · 익명화](#6-agent-형식--정답-격리--익명화)
+- [7. 오염과 사후 검사](#7-오염과-사후-검사)
+- [8. 연동 설계](#8-연동-설계)
+- [9. 비용 어림](#9-비용-어림)
+- [결정 (2026-11-25)](#결정-2026-11-25)
+- [확인 못 한 것](#확인-못-한-것)
+
+## 요약
+
+| 항목 | 정한 것 (초안) |
+|---|---|
+| 벤치 | ADBench (`Minqi824/ADBench`, BSD-2) 의 Classical 47개 중 규칙으로 고른 **12개** (1) |
+| 설정 | 비지도: 라벨 없는 train (이상점이 원래 비율로 섞임) 으로 fit → test 행마다 이상 점수. ADBench 의 분할 그대로 (seed 1·2·3 = split `s1`·`s2`·`s3`, 1만 행 넘으면 1만으로 표본, 층화 70/30, train 으로 fit 한 MinMax) (2) |
+| 지표 | AUROC (주), AUPRC (보조). Elo 오차 = 1 − AUROC |
+| 기준점 | **IsolationForest (pyod 기본) = 1000** (3). 같은 풀: pyod 기본 설정 10개 (CPU, 우리가 돌림) |
+| 맞춤 확인 | 우리 분할 + pyod 로 ADBench 논문 Table D4 의 IForest·KNN AUROC 가 12개 × 3 seed 평균에서 **소수 둘째 자리까지 같음** (2, 로컬) |
+| FM | `TabPFNUnsupervisedModel.outliers(n_permutations=10)` 기본, 점수 = −log 밀도. 가중치는 결정 2 (TabPFN v2 추천) (4) |
+| Agent | 기존 5설정 × 1시간 · A10, 라벨 없는 train · test + 설명 → `id,score`. 파일럿 2개 (`s1`) (6) |
+| 격리 | 정답 (test 라벨) 은 로컬 캐시와 채점용 내 Volume 에만. 데이터셋 이름·출처는 안 알림 (익명 id `anomaly-p01`…). 공개 데이터라 알아본 흔적은 사후 검사 (7) |
+| 범위 밖 | C1·C2 (Agent 결과를 보고 정함), 결측값·생성·밀도, kumo·tabicl 로 chain rule 래퍼 새로 만들기 (후속) |
+
+## 출처
+
+| 출처 | 쓴 곳 |
+|---|---|
+| ADBench 저장소 [`Minqi824/ADBench` @ 3dac822](https://github.com/Minqi824/ADBench/tree/3dac8221081e190f157d78e93bfa8867f90d0965) (2026-01-08 커밋, BSD-2) | `adbench/datasets/data_generator.py` (분할), `adbench/run.py` (seed·비지도 설정), `adbench/baseline/PyOD.py` (기본 설정), `adbench/myutils.py` (지표), `adbench/datasets/Classical/*.npz` (데이터) |
+| ADBench 논문: Han et al., "ADBench: Anomaly Detection Benchmark", NeurIPS 2022 D&B, [arXiv:2206.09426](https://arxiv.org/abs/2206.09426) | Table B1 (데이터셋·분야), Table D4 (비지도 14개 AUROC, seed 3개 평균) |
+| tabpfn-extensions [`PriorLabs/tabpfn-extensions` @ a049fd7](https://github.com/PriorLabs/tabpfn-extensions/tree/a049fd76afa0593a616156e1008b5482e9c905da) (v0.6.3, Apache-2.0) | `src/tabpfn_extensions/unsupervised/unsupervised.py` (`outliers`), `utils.py` (`infer_categorical_features`) |
+| TabPFN 가중치 라이선스 (HF 모델 카드) | v2 (`Prior-Labs/TabPFN-v2-clf`·`-reg`): Prior Labs License 1.1 (Apache-2.0 + 표시 조항), 동의 없이 받음. 3.5 (`Prior-Labs/tabpfn_3_5`): TABPFN-3.5 Non-Commercial License, 받을 때 동의 (브라우저 또는 `TABPFN_TOKEN`) |
+| TACTIC, [arXiv:2603.14171](https://arxiv.org/abs/2603.14171) | 학습 context 에 이상점이 섞이면 TabPFN 식 이상탐지가 "불안정" 하다는 것까지만 원문 확인 (그 밖의 내용은 확인 못 함) |
+
+## 1. 데이터셋
+
+### 고르는 규칙 (ADBench Classical 47개에 차례로)
+
+| # | 규칙 | 까닭 | 남음 |
+|---|---|---|---|
+| a | ADBench Table B1 의 분야가 Image 인 것 뺌 (ALOI · celeba · InternetAds · letter · mnist · optdigits · pendigits · skin). CV·NLP embedding 10개는 처음부터 안 봄 | 고전 tabular 위주 (이미지 화소·임베딩에서 뽑은 피처는 따로 판단) | 39 |
+| b | 행 1,000 미만 뺌 (12개) | ADBench 는 1,000 행 미만을 복원 추출로 1,000 행까지 불림 (`generate_duplicates`) → 같은 행이 train·test 양쪽에 들어가 점수가 부풂 | 27 |
+| c | 피처 5~40 개만 (넓은 6개 · 3열 2개 뺌) | FM 비용이 순열 × 피처 수 (4). 3열 (http · smtp) 은 너무 쉬움 · 이상 0.03% | 19 |
+| d | ADBench 분할의 test 이상 행이 20개 미만이면 뺌 (fraud 5 · vowels 15) | AUROC 가 이상 몇 개로 갈림 | 17 |
+| e | 완전히 같은 행이 절반 넘으면 뺌 (donors 94%) | 같은 행이 train·test 에 걸침 | 16 |
+| f | 같은 원본에서 이상 정의만 다른 묶음은 ADBench 번호가 앞선 하나: {annthyroid, thyroid}, {cardio, Cardiotocography}, {landsat, satellite, satimage-2} | 같은 표가 여러 번 들어가 Elo 를 기울이지 않게 | **12** |
+
+### 12개
+
+행·피처·이상 비율은 원본 (ADBench npz). train·test 는 ADBench 분할 (1만 행 넘으면 1만으로 표본 → 7,000 / 3,000). 범주 열 = tabpfn-extensions 가 classifier 로 보는 열 (4).
+IForest·최고 = ADBench Table D4 (비지도 14개, seed 3개 평균 AUROC ×100).
+
+| ADBench | 분야 | 행 | 피처 | 이상 % | train / test | test 이상 | 범주 열 | IForest | 최고 (방법) |
+|---|---|---|---|---|---|---|---|---|---|
+| 2_annthyroid | Healthcare | 7,200 | 6 | 7.42 | 5,040 / 2,160 | 160 | 0 | 82.01 | 82.01 (IForest) |
+| 6_cardio | Healthcare | 1,831 | 21 | 9.61 | 1,281 / 550 | 53 | 4 | 93.19 | 95.55 (PCA) |
+| 10_cover | Botany | 286,048 | 10 | 0.96 | 7,000 / 3,000 | 28 | 0 | 86.74 | 93.73 (PCA) |
+| 12_fault | Physical | 1,941 | 27 | 34.67 | 1,358 / 583 | 202 | 4 | 57.02 | 72.98 (KNN) |
+| 19_landsat | Astronautics | 6,435 | 36 | 20.71 | 4,504 / 1,931 | 400 | 0 | 47.64 | 63.61 (DeepSVDD) |
+| 22_magic.gamma | Physical | 19,020 | 10 | 35.16 | 7,000 / 3,000 | 1,050 | 0 | 73.25 | 82.38 (KNN) |
+| 23_mammography | Healthcare | 11,183 | 6 | 2.32 | 7,000 / 3,000 | 68 | 0 | 86.39 | 90.75 (ECOD) |
+| 27_PageBlocks | Document | 5,393 | 10 | 9.46 | 3,775 / 1,618 | 153 | 0 | 89.57 | 90.92 (ECOD) |
+| 32_shuttle | Astronautics | 49,097 | 9 | 7.15 | 7,000 / 3,000 | 214 | 0 | 99.56 | 99.56 (IForest) |
+| 41_Waveform | Physics | 3,443 | 21 | 2.90 | 2,410 / 1,033 | 30 | 0 | 71.47 | 75.03 (COPOD) |
+| 44_Wilt | Botany | 4,819 | 5 | 5.33 | 3,373 / 1,446 | 77 | 0 | 41.94 | 53.25 (SOD) |
+| 47_yeast | Biology | 1,484 | 8 | 34.16 | 1,038 / 446 | 152 | 2 | 37.76 | 47.92 (DeepSVDD) |
+
+- landsat · Wilt · yeast 는 ADBench 의 비지도 14개가 모두 AUROC 0.5 근처 이하: 라벨의 "이상" 이 밀도상 드문 행이 아님 (분류 데이터의 소수 클래스를 이상으로 둔 것).
+  여기서 0.5 아래로 크게 내려간 방법은 "드문 행일수록 정상" 을 잡은 것 → 라벨 없이 점수 방향을 뒤집을 근거는 없음. Agent 가 데이터셋을 알아보고 방향을 뒤집는지는 사후 검사로 봄 (7)
+- cover 는 test 이상이 28개라 split 사이 흔들림이 큼 (IForest 표준편차 2.5점, 2)
+- 데이터셋 이름은 ADBench 번호를 뗀 것 (`annthyroid` 등), 대회 폴더는 `ad-<이름>` (8)
+
+## 2. 분할·평가 프로토콜
+
+ADBench 원문 (`data_generator.py` 의 `DataGenerator.generator`, `run.py` 의 `RunPipeline`, `parallel='unsupervise'`)
+
+| 단계 | ADBench | 우리 |
+|---|---|---|
+| seed | `seed_list = [1, 2, 3]`, 데이터마다 `Utils.set_seed(seed)` (numpy · random · torch · tf 전역) | 같음. split 이름 `s1`·`s2`·`s3` |
+| 작은 데이터 | 1,000 행 미만이면 복원 추출로 1,000 행 | 해당 데이터셋을 뺌 (1 의 b) |
+| 큰 데이터 | 1만 행 넘으면 `set_seed(seed)` 다시 → `np.random.choice(n, 10000, replace=False)` | 같음 |
+| 나누기 | `train_test_split(X, y, test_size=0.3, shuffle=True, stratify=y)` (random_state 없음 → numpy 전역 상태) | 같은 호출 |
+| 척도 | `MinMaxScaler().fit(X_train)` → train·test 변환 | 같음. **모든 방법 (기존 · FM · Agent) 이 같은 척도의 표를 받음** (Agent 의 train.csv · test.csv 가 이 값) |
+| 비지도 라벨 | 라벨 비율 `la = 0` → `y_train` 은 모두 0 (이상점은 라벨 없이 train 에 원래 비율로 섞임 = 오염) | 같음: train 에 라벨을 안 줌 |
+| 학습 · 점수 | `clf.fit(X_train)` → `predict_score(X_test)` (pyod `decision_function`, 클수록 이상) | 같음 |
+| 지표 | `roc_auc_score`, `average_precision_score` (test) | 같음. Elo 오차 = 1 − AUROC |
+| 합치기 | seed 3개 평균 | split 마다 따로 채점, Elo 는 데이터셋마다 가중치 합 1 (5) |
+
+재현 확인 (2026-11-25, 로컬, pyod 3.6.8 · scikit-learn 1.9.1 · numpy 2.5.5). 위 분할로 seed 마다 전역 seed 를 다시 놓고 pyod 기본 설정을 fit:
+
+| 방법 | 12개 중 Table D4 와 차이 0.01 이하 | 가장 큰 차이 |
+|---|---|---|
+| IForest | 12 | 0.00 |
+| KNN | 12 | 0.00 |
+| ECOD | 1 (mammography) | landsat −20.5, Waveform −10.9 (나머지 ±4.2 안) |
+
+- IForest·KNN 이 같다는 것은 분할 (표본 · 층화 70/30 · 척도) 이 ADBench 와 행 단위로 같다는 뜻 (seed 마다 같은 행을 써야 평균이 소수 둘째 자리까지 같음)
+- ECOD 차이는 pyod 버전 (ADBench `requirements.txt` 는 `pyod==1.0.0`) 의 ECOD 구현 변화로 봄 (어디가 바뀌었는지는 확인 못 함). 우리는 지금 pyod 를 쓰고 차이를 적음.
+  맞춤 판정은 기준점 IForest 로 함
+- pyod 의 `random_state` 기본값은 None 이라 ADBench 는 전역 seed 로 정해짐 → 우리도 fit 직전에 전역 seed 를 같은 값으로 놓음
+- 파일의 행 순서는 ADBench 분할이 내놓은 순서 그대로 (`train_test_split` 이 섞은 무작위 순서라 라벨 정보 없음). TabArena 처럼 id 순으로 다시 놓으면
+  행 순서로 표본을 뽑는 IForest 가 ADBench 와 달라지고 (cardio 0.9315 대 0.9319), pyod PCA 가 cardio s2 · s3 에서 NaN 을 냄 (성분 분산 0 으로 나눔) →
+  ADBench 순서로 두니 둘 다 Table D4 와 같음 ("로컬 확인")
+
+## 3. 기존 방법 풀과 기준점
+
+pyod 기본 설정 (인자 없이), CPU. ADBench 의 비지도 14개 중:
+
+| 넣음 (10) | 뺌 |
+|---|---|
+| **IForest (기준점)**, PCA, OCSVM, LOF, CBLOF, HBOS, KNN, COPOD, ECOD, LODA | COF · SOD (행 수의 제곱 · 느림, ADBench 에서 최고인 곳이 적음), DeepSVDD · DAGMM (torch · tensorflow 학습, 기본 설정이 버전마다 다름) |
+
+- 기준점 IsolationForest = 1000: ADBench 에서 비지도 평균 순위가 높은 편이고 설정이 단순 (TabArena 의 RandomForest 처럼 "잘 알려진 기본 기준선")
+- ADBench 공개값 (Table D4) 은 맞춤 확인에만 씀 (2). 풀의 점수는 모두 우리 실행 (같은 split 의 test)
+- 결과 표 `results/anomaly_reference.csv` 에 Table D4 의 12개 행 (14개 방법) 을 옮겨 둠 (구현 때)
+
+## 4. FM: TabPFN 비지도 확장
+
+`TabPFNUnsupervisedModel(tabpfn_clf=TabPFNClassifier(...), tabpfn_reg=TabPFNRegressor(...)).fit(X_train).outliers(X_test, n_permutations=10)`
+
+| 항목 | 원문 (tabpfn-extensions a049fd7) | 우리 |
+|---|---|---|
+| 계산 | 피처 순서를 무작위로 10개 (`efficient_random_permutation`, Python `random`). 순열마다 chain rule: 피처 j 를 앞 피처들로 TabPFN 이 예측한 조건부 밀도 (회귀: bar 분포의 −NLL, 범주: 클래스 확률) 의 log 를 더함. 첫 피처는 정규 잡음 한 열을 입력으로. 10개를 log-sum-exp 로 산술 평균 | 그대로. 점수 = −`outliers()` (낮은 밀도 = 이상) |
+| context | `fit(X_train)` 의 행 전부 (라벨 없음 → **이상점이 섞인 context**) | train 전부 (≤ 7,000 행, TabPFN v2 의 1만 행 한도 안) |
+| 범주 열 | `infer_categorical_features`: 값 40개 이하 · 값마다 평균 10행 넘는 열 → classifier. 그 열의 값은 `astype(int)` 로 클래스 번호가 됨 | 그대로. 주의: 입력이 MinMax 된 [0, 1] 이라 값이 셋 이상인 범주 열은 `astype(int)` 에서 0 과 1 로 뭉개짐 (cardio 3열 · fault 2열 · yeast 1열). 기본 동작의 한계로 적고 고치지 않음 |
+| seed | 순열은 전역 `random` | split seed 로 `random`·numpy·torch 를 놓음. TabPFN 의 `random_state` 는 기본 |
+| 가중치 | 패키지 기본 = 최신 (tabpfn 9.2.0 은 v3.5, 비상업 · 받을 때 동의) | **결정 2**: v2 추천 (`create_default_for_version(ModelVersion.V2)`, 동의 없이 받음, 우리 `tabpfn_v2` 와 같은 가중치). v3.5 는 원격에서 토큰이 필요 (토큰을 원격에 안 보내는 규칙과 부딪힘) |
+| 원격 | | GPU (H100 1장), 실행마다 `pip install tabpfn-extensions==0.6.3` (이미지에 tabpfn 9.2.0 있음), 원격 telemetry 끔 (`tabpfn_common_utils` 의 설정, 구현 때 확인) |
+
+이름: `tabpfn_unsup` (v2, 순열 10). 결과표의 `opts` 에 가중치 버전 · 순열 수를 남김.
+
+학습 context 오염의 영향 (질문의 일부). TACTIC 은 "불안정" 까지만 원문 확인 → 결과에서 직접 봄:
+
+1. 데이터셋 사이: 이상 비율 (1% ~ 35%) 과 `tabpfn_unsup − IForest` (AUROC) 의 관계 (12개라 판단은 약함)
+2. (결정 6, 추천) 깨끗한 context 진단: train 의 정상 행만 context 로 쓴 `tabpfn_unsup+clean` 과 `iforest+clean` (train 라벨을 씀 → 비지도가 아님, **Elo 에 안 넣는 진단**). 오염된 것과의 차이 = 오염 몫.
+   train 라벨은 FM 작업만 읽는 내 Volume 자리에 두고 Agent 데이터 묶음에는 넣지 않음
+
+## 5. Elo
+
+`fab/bench/tabarena/elo.py` 의 `elo()` 를 그대로 씀. 기준점만 인자로: `elo(long, ..., anchor="RandomForest")` (`fill` 도 같은 인자). TabArena 쪽은 기본값 그대로라
+`results/tabarena_elo.csv` 가 비트 단위로 같아야 함 (구현 뒤 `fab ta elo` 로 확인). forecasting 트랙과 같은 시그니처.
+
+| 풀 | 단위 | 참가자 |
+|---|---|---|
+| `fm` | 12개 × split 3개 (36), 짝 가중치 1/3 → 데이터셋마다 합 1 | 기존 10개 + `tabpfn_unsup` |
+| `agent` | Agent 를 돌린 데이터셋의 `s1` (파일럿 2개) | 위 + Agent 5설정 (회차 평균, 실패 회차는 IForest 값으로 채움 = TabArena 와 같은 처리) |
+
+- `agent` 풀은 데이터셋이 10개 미만이라 95% 구간을 비움 (`MIN_CI_DATASETS`, TabArena 와 같음). `fm` 풀 12개는 부트스트랩 200번
+- 오차가 같으면 비김 반 (AUROC 가 같은 값은 드묾)
+
+## 6. Agent 형식 · 정답 격리 · 익명화
+
+대회 하나 = (데이터셋, split). Agent 는 `s1` 만 (TabArena 의 r0f0 와 같은 자리).
+
+| 파일 | 내용 |
+|---|---|
+| `train.csv` | `id`, `f0` … `f{d−1}` (MinMax 된 값, 2). 라벨 없음. 이상 행이 섞여 있다는 것만 알림 (비율은 안 알림) |
+| `test.csv` | 같은 열. 점수를 낼 행 |
+| `sample_submission.csv` | `id,score` (모두 0). score 는 클수록 이상, 순위만 봄 (AUROC) |
+| `description.md` | 과제 · 파일 · 제출 형식 · 지표. 열 뜻 · 분야 · 출처는 없음 (ADBench npz 에 열 이름이 없고, 분야를 주면 알아보기 쉬워짐, 결정 5) |
+| 정답 | test 행의 라벨 (0/1). 로컬 `FAB_ANOMALY/data/answers/` 와 채점용 내 Volume 의 `anomaly/answers/` 에만 |
+
+- 행 id 는 split 마다 고정 seed 의 무작위 순열 (TabArena 와 같음), 파일은 id 순
+- 검증 서버 (`fab/agent/runner.py` 의 `check_submission`) 는 그대로 씀: 열 · 행 수 · id · 빈칸 (점수 값 범위는 안 봄)
+- 지시문: 공식 지시문 + 추가 안내 + 대회 설명 (TabArena 와 같음). test 행의 피처를 쓰는 것 (train+test 로 fit) 은 막지 않음 (라벨이 없는 데이터라). 썼는지는 사후 검사로 기록 (결정 4)
+- 익명 id `anomaly-p01` … (원격 실행 이름 · scratch Volume 의 데이터 묶음 · run.json). 대회 이름은 내 Volume 의 제출 기록에만. 제출 전 누출 검사:
+  데이터셋 이름 (원래 · 소문자 · 구분자 바꾼 것), ADBench 번호 이름 (`6_cardio`), `ADBench`·`ODDS` 가 설명 · 파일 이름 · 코드 묶음에 없는지 (TabArena 의 `leak_check` 를 같이 씀)
+- 채점: 원격 정리 작업이 내 신원으로 (TabArena 의 Grader 와 같은 꼴) → `results/anomaly_runs.csv`
+
+파일럿 2개 (결정 3, 추천): **cardio** (1,831 행 · 21 피처 · 밀도 방법이 잘 됨: IForest 93) 와 **fault** (1,941 행 · 27 피처 · 밀도 방법이 약함: IForest 57, KNN 73).
+둘 다 작아 1시간 안에 여러 번 돌려 볼 수 있고, "FM 이 이기는 곳 / Agent 가 방향을 찾을 여지가 있는 곳" 을 하나씩. 나머지는 파일럿 결과를 보고.
+
+## 7. 오염과 사후 검사
+
+ADBench 데이터 다수는 유명한 공개 데이터 (UCI · ODDS: thyroid · cardiotocography · forest cover · MAGIC gamma telescope · mammography · page blocks · shuttle · yeast 등).
+행 수 · 피처 수 · 이상 비율만으로도 알아볼 수 있음. 원래 라벨을 다른 데서 가져오면 test 라벨을 맞출 수 있으므로 사후 검사로 기록 (TabArena 와 같음).
+
+| 검사 | 찾는 것 |
+|---|---|
+| 데이터 출처 접근 (기존 `DATA_SOURCE_PATTERN` + 더할 것) | `github.com/Minqi824/ADBench`, `adbench` 패키지, `odds.cs.stonybrook.edu`, `pyod.utils.data`, `sklearn.datasets.fetch_*` (`fetch_covtype`·`fetch_kddcup99`), UCI · OpenML · Kaggle (기존) |
+| 알아본 흔적 | LLM 글 · 코드에 12개 데이터셋 이름이나 원래 이름 (예: "MAGIC gamma", "Statlog", "cardiotocography") |
+| 점수 방향 | 0.5 아래 데이터 (landsat · Wilt · yeast) 에서 점수를 뒤집었는지, 그 근거 (데이터셋 지식 대 데이터에서 본 것) |
+| test 사용 | test 행의 피처로 fit 했는지 (transductive) |
+| TFM | 기존 열 (`tfm_in_code` · `tfm_runtime` 등). 공식 설정 Agent 가 스스로 tabpfn 을 깔아 쓰면 Agent 결과로 셈 (TabArena 결정 11) |
+
+## 8. 연동 설계
+
+TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` 준비 · 채점 · 비교 · Elo · 명령, `methods.py` 방법, `run.py` 원격 실행, `remote.py` Volume · 채점기, `posthoc.py` 사후 검사). 2026-11-25 구현.
+
+| 자리 | 내용 |
+|---|---|
+| 데이터 위치 | `FAB_ANOMALY` (절대경로, 기본 `<저장소>/../anomaly`): `src/adbench/` (ADBench 저장소, Classical npz), `data/answers/<대회>.{csv,json}` (정답), `.venv/` (로컬 확인용 pyod · tabpfn-extensions, uv.lock 은 안 바꿈) |
+| 대회 | `competitions/ad-<이름>/` (s1, git 추적: `config.yaml` 의 `anomaly: {dataset, adbench, split, seed, anon_id}` + `description.md`), 다른 split 은 `competitions/ads-<이름>-s<k>/` (생성, git 제외) |
+| 명령 | `fab ad prepare|fm|grade|compare|elo|agent` (`fab/cli.py` 에 `ad` 한 줄) |
+| 실행 | 기존 `fab databricks` 실행기 (`RUNNER`) 를 그대로: CPU 작업 (pyod) · GPU 작업 (TabPFN). 실행기가 부르는 `fab run` 이 `anomaly` 설정이 있는 대회는 `fab.bench.anomaly.run` 으로 넘김 (`fab/runner/run.py` 에 몇 줄), 설치는 `pip_args` 가 이 대회의 방법을 보고 (pyod · tabpfn-extensions). 출력은 FM 과 같은 자리 (`<대회>/<방법>/test.npy` + `test.json`, `results.csv` 행) → 정리 작업의 `fm` 단계가 그대로 합침 |
+| 채점 | 정리 작업의 `grade` 에 `bench=anomaly` (TabArena 의 `grade_tabarena` 꼴), Agent 는 `agent` 단계에서 `bench=anomaly` → `results/anomaly.csv` · `results/anomaly_runs.csv` (`fab sync` 표에 추가) |
+| Agent | `fab/agent` 의 `main(bench=...)` 에 `anomaly` (대회 · 익명 id · 누출 검사 · 정답 올리기). 실행기 (`runner.py`) 는 안 바꿈 (지시문 · 검증 서버가 이미 일반적) |
+| Elo | `elo.py` 에 `anchor` 인자 (5) |
+
+운영 주의: 정리 작업 코드는 로컬 명령을 낸 체크아웃의 것으로 다시 올라감 (docs/known-issues.md). 이 브랜치가 머지되기 전에 다른 worktree 에서
+`fab remote kick` 하면 옛 코드가 `bench=anomaly` 항목 (채점 요청 · Agent 실행) 을 MLE-bench 쪽으로 처리하다 3번 실패해 오류로 닫음 →
+이 트랙의 항목이 남아 있는 동안 kick 은 이 worktree 에서. 채점 요청은 작업이 끝난 뒤 내도 됨 (`fab ad fm --no-grade` → `fab ad grade`).
+
+같이 도는 forecasting 트랙과 겹치는 곳: `fab/cli.py`, `fab/core/competition.py` (설정 키 하나), `fab/runner/run.py`·`common.py` (넘기는 몇 줄), `fab/agent/__init__.py`, `fab/remote/{__init__,reconcile,sync}.py`, `elo.py`, README, roadmap. 나중에 머지되는 쪽이 rebase.
+
+## 9. 비용 어림
+
+| 실행 | 어림 | 근거 |
+|---|---|---|
+| 기존 10개 | serverless CPU 작업 하나, 수 분 ~ 30분 (12개 × 3 split × 10개) | 로컬 M 시리즈에서 IForest · ECOD · KNN 은 데이터셋 하나 (3 split) 1초 안팎. OCSVM · LOF 가 가장 느림 (재 보지 않음) |
+| `tabpfn_unsup` | TabPFN fit + 예측이 split 마다 순열 10 × 피처 수 번 → 12개 합 1,690번 / split, 3 split 5,070번. H100 1장에서 번당 1~3초로 어림하면 **1.5 ~ 4 GPU 시간** (재 보지 않음). 먼저 `s1` 만 내서 재고 나머지 | 4 의 계산, context ≤ 7,000 행 · 질의 ≤ 3,000 행 |
+| `+clean` 진단 (결정 6) | `tabpfn_unsup` 의 약 0.9배 (context 가 정상 행만) + IForest 몇 초 | |
+| Agent 파일럿 | 2개 × 5설정 × 1회 = **10회 × 1시간** (A10, 노드 대기 포함 상한) + 토큰 | TabArena 와 같음. 같은 엔드포인트 줄은 하나씩 |
+
+## 로컬 확인 (2026-11-25)
+
+원격에 내기 전 형식 확인. 저장소를 임시 폴더에 복사해 (`results/` 를 건드리지 않게) `FAB_REMOTE=1 fab run <대회> <방법...>` → `grade` → `compare` 를 옆 가상환경
+(pyod 3.6.8 · scikit-learn 1.9.1 · numpy 2.5.5 · tabpfn 9.2.0 · tabpfn-extensions 0.6.3) 에서. 점수는 결과표에 안 넣음 (결과는 원격 실행으로).
+
+| 확인 | 결과 |
+|---|---|
+| 분할 재현 (12개 × 3 seed, 분할 함수만) | IForest · KNN 의 seed 평균이 Table D4 와 12/12 같음 (2) |
+| 실행 경로 (cardio · fault · yeast × s1~s3 × 기존 10개) | 99행 채점. Table D4 와 차이 0.005 이하 21/30: IForest · KNN · LOF · OCSVM · HBOS · COPOD 는 3/3 같음, PCA 2/3 (yeast −0.020), CBLOF 1/3, ECOD · LODA 0/3 (pyod 버전 · 무작위 투영) |
+| 깨끗한 context (`iforest+clean`, 같은 9개) | seed 평균 AUROC: cardio 0.932 → 0.951, fault 0.570 → 0.643, yeast 0.378 → 0.403 (train 라벨이 FM 작업 경로로 제대로 들어감) |
+| TabPFN 경로 (`tabpfn_unsup`, 합성 150 × 3, 순열 2, **v2 가중치** 로 · CPU) | 점수 모양 · 유한 · 같은 seed 같은 점수, 평균 4 옮긴 가짜 이상 AUROC 1.0. v3.5 는 토큰이 있어야 해 로컬에서는 못 봄 → 원격 첫 실행이 확인 |
+| Elo (`fab ad elo`, 위 9개 + 가짜 Agent 표) | fm · agent 풀 계산, `+fm` 설정 · `+clean` 은 빠짐, 실패 회차는 IForest 값 (imputed 0.5) |
+| TabArena Elo 그대로인지 | `elo()`·`fill()` 에 `anchor` 를 더한 뒤 `fab ta elo` → `results/tabarena_elo.csv` 차이 없음 (바이트 단위) |
+| 누출 검사 (12개) | 에이전트에게 가는 설명 · 파일 이름 · 익명 id · 코드 묶음 (runner.py 등 + MLE-bench 지시문) 에 데이터셋 · ADBench 이름 없음 |
+| 설치 · 묶음 | `pip_args` 가 CPU 작업에 `pyod==3.6.8`, GPU 작업에 `tabpfn==9.2.0` · `tabpfn-extensions==0.6.3` 을 넣음. 기존 테스트 29개 통과 · ruff 통과 |
+
+## 결정 (2026-11-25)
+
+7·8 의 틀 (벤치 · 설정 · 지표 · 기준점) 은 작업 지시에서, 1~6 은 2026-11-25 설계 초안을 보고 사용자가 정함.
+
+| # | 정할 것 | 정한 것 (추천) | 까닭 |
+|---|---|---|---|
+| 1 | 데이터셋 | **ADBench Classical 중 규칙 (1) 로 고른 12개** (사용자) | 고전 tabular · FM 비용 · 분할이 깨끗한 것. 규칙이 정해져 있어 바꾸려면 규칙을 고침 |
+| 2 | TabPFN 가중치 | **패키지 기본 v3.5** (사용자. 추천안은 v2 였음) | "기본 설정" 그대로. 비상업 라이선스 (연구용 벤치로만), 받을 때 동의 토큰 → Databricks secret 에서 원격 작업이 읽음 (4 의 "토큰"). v2 (Prior Labs License 1.1, 동의 없음) 는 안 돌림 |
+| 3 | Agent 파일럿 | **cardio · fault 의 s1** × 5설정 × 1회 (사용자) | 6 |
+| 4 | Agent 의 test 피처 사용 | **train 으로만 fit (설명의 Rules), 지켰는지 사후 검사** (사용자. 추천안은 "막지 않고 기록") | FM · 기존 방법 (train 만 fit) 과 같은 조건 |
+| 5 | 설명에 분야 | **안 줌** (사용자) | ADBench 에 열 뜻이 없고, 분야를 주면 알아보기 쉬워짐 ("모델링 실력" 비교, TabArena 결정 3 과 같은 뜻) |
+| 6 | 깨끗한 context 진단 | **넣음 (Elo 밖)** (사용자): `tabpfn_unsup+clean` · `iforest+clean` | 질문 "context 의 이상점이 얼마나 해치나" 에 직접 답함. train 라벨은 FM 작업만 읽는 자리에 |
+| 7 | 기준점 · 지표 | IsolationForest (pyod 기본) = 1000, AUROC (주) · AUPRC (보조), 오차 1 − AUROC | 작업 지시 |
+| 8 | split | ADBench seed 1·2·3 그대로 (FM · 기존 방법 모두), Agent 는 s1 | ADBench 규약. 재현 확인 (2) |
+
+## 확인 못 한 것
+
+- pyod 1.0.0 → 3.6.8 사이 ECOD 가 어떻게 바뀌었는지 (landsat 에서 20점 차)
+- TabPFN 비지도 확장의 GPU 시간 (9 의 어림은 재 보지 않은 값), v3.5 에서 회귀의 `output_type="full"` (logits · criterion) 이 v2 와 같은지 (원격 첫 실행이 확인)
+- ADBench 데이터의 원래 출처별 라이선스 (ADBench 저장소는 BSD-2, 데이터는 각 출처를 따름)
+- TACTIC 의 실험 설정 · 결과 (원문에서 "불안정" 까지만 확인)

@@ -1,0 +1,14 @@
+# ADBench 22_magic.gamma 의 s1 split (seed 1). 다른 split 은 fab ad prepare --splits all 이 이 설정을 본떠
+# competitions/ads-<이름>-s<k>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/anomaly.md 6)
+name: ad-magic-gamma
+anomaly:
+  dataset: magic.gamma
+  adbench: 22_magic.gamma
+  split: s1
+  seed: 1
+  anon_id: anomaly-p06
+task: anomaly
+target: label
+id_col: id
+metric: auroc
+cv: {}
