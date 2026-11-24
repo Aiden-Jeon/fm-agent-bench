@@ -2381,7 +2381,7 @@ TabArena 가 `patient_nbr` 로 중복 환자를 빼서 (OpenML 설명의 선별 
 
 ### 비용
 
-- Agent: A10 작업 시간 합 3.3시간 (작업 5개 63 · 60 · 3 · 11 · 63분, 하네스 합 2.5시간). 뺀 두 작업은 노드를 못 받은 채 112분 · 46분 (노드가 붙은 것은 뒤 작업의 마지막 1분뿐)
+- Agent: A10 작업 시간 합 3.3시간 (작업 5개 63 · 60 · 3 · 11 · 63분, 하네스 합 3.1시간). 뺀 두 작업은 노드를 못 받은 채 112분 · 46분 (노드가 붙은 것은 뒤 작업의 마지막 1분뿐)
 - GBDT: serverless CPU 작업 하나 37.5분 (9 split × lgbm · catboost). C1 `~f2`: H100 작업 23분 + CPU 작업 6.5분
 - C2: A10 작업 시간 합 약 2.9시간 (Codex +fm 85분 · AIDE +fm 91분, 둘 다 노드 대기 33분 포함. 하네스 55분 · 60분)
 
@@ -2469,7 +2469,7 @@ TabArena 가 `patient_nbr` 로 중복 환자를 빼서 (OpenML 설명의 선별 
 - 데이터셋 16개라 95% 구간을 냄 (10개부터). 단위가 (데이터셋, r0f0) 16개뿐이라 구간이 넓음
 - 순서: kumo (ours) 1899 > **Codex 1729** > **AIDE × Sonnet 1633** > **AIDE × GPT 1557** ≈ tabicl (ours) 1530 > TabICLv2 1503 > Claude Code +cont 1481 > CatBoost 기본 1394 > Claude Code 공식 1300 > 우리 GBDT (1289 · 1158).
   Agent 넷이 기본 GBDT 보다 위, Codex 는 우리 FM 최고 (kumo) 보다 170 아래 (기대 승률 27%) · tabicl 보다 위. 구간이 겹쳐 Agent 끼리 · tabicl 과의 순서는 단단하지 않음
-- 15개 (2026-11-21 Bioresponse) 에서 바뀐 것: Diabetes130US 에서 kumo 가 Agent 다섯 · GBDT 를 모두 이기고, Agent 셋 (AIDE 둘 · Codex) 이 우리 catboost · TabArena CatBoost 를 이김, tabicl 은 Agent 넷 · catboost 에 짐 → kumo 1876 → 1899, TabArena Kumo 2006 → 2015, Codex 1721 → 1729, AIDE × Sonnet 1616 → 1633, AIDE × GPT 1547 → 1557, Claude Code +cont 1478 → 1481, Claude Code 1300 → 1300, tabicl 1538 → 1530, TabICLv2 1506 → 1503, TabArena CatBoost 1379 → 1394, 우리 catboost 1272 → 1289 · lgbm 1176 → 1158 (Diabetes130US 의 lgbm 이 RandomForest 기본보다도 나쁨), tabpfn_v2 1301 → 1287 (범위 밖이라 RandomForest 값). 순서는 그대로. FM 풀 (51개) 은 그대로
+- 15개 (2026-11-21 Bioresponse) 에서 바뀐 것: Diabetes130US 에서 kumo 가 Agent 다섯 · GBDT 를 모두 이기고, Agent 셋 (AIDE 둘 · Codex) 이 우리 catboost · TabArena CatBoost 를 이김, tabicl 은 Agent 넷 · catboost 에 짐 → kumo 1876 → 1899, TabArena Kumo 2006 → 2015, Codex 1721 → 1729, AIDE × Sonnet 1616 → 1633, AIDE × GPT 1547 → 1557, Claude Code +cont 1478 → 1481, Claude Code 1300 → 1300, tabicl 1538 → 1530, TabICLv2 1506 → 1503, TabArena CatBoost 1379 → 1394, 우리 catboost 1272 → 1289 · lgbm 1176 → 1158 (Diabetes130US 의 lgbm 이 RandomForest 기본보다도 나쁨), tabpfn_v2 1301 → 1287 (범위 밖이라 RandomForest 값). 순서는 tabpfn_v2 (ours) 가 Claude Code 공식 · 우리 catboost 아래로 내려간 것 말고 그대로. FM 풀 (51개) 은 그대로
 - 파일럿 2개로 낸 값 (2026-11-16, kumo 2540 · Codex 2372 · AIDE 둘 1944 · Claude Code +cont 1628 · Claude Code 1314) 보다 Agent 가 FM 에 가까움: 16개 중 Agent 가 FM 을 점수로 이긴 데이터셋이 여섯 ("Agent 확장 1회째" 의 요약 + kddcup09 · NATICUSdroid · Bioresponse)
 - RandomForest 가 거의 다 져서 (승률 0.11) 숫자 폭이 FM 풀보다 넓음. FM 풀과 숫자를 나란히 놓지 말 것 (같은 방법도 kumo 1829 대 1899)
 

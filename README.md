@@ -121,7 +121,7 @@ leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. �
   같은 풀의 공개 결과: Kumo-Tabular 2015 · TabICLv2 1503 · CatBoost 1394 · TabICL v1 1318 · TabPFNv2 1214 · LightGBM 1212 · RandomForest 1000
 - Agent 는 설정마다 회차 평균 (위 점수표는 회차 중 최고). 위 표의 칸별 최고를 묶어 Elo 를 매기지 않는 것은 고른 결과라 부풀고, Agent 가 GBDT 를 16개 모두 이겨 값이 안 정해져서
 - Agent 넷이 기본 GBDT 보다 위. Codex 는 kumo 보다 170 아래 (기대 승률 27%), AIDE 둘과 함께 tabicl 보다 위. 데이터셋이 16개뿐이라 구간이 넓고, Agent 끼리·tabicl 과의 순서는 단단하지 않음.
-  Diabetes130US 를 더해 (15개 → 16개) kumo 1876 → 1899 (Agent 다섯 · GBDT 를 모두 이김), Codex 1721 → 1729, AIDE × Sonnet 1616 → 1633, tabicl 1538 → 1530, 우리 lgbm 1176 → 1158 (RandomForest 기본보다도 나쁨). 순서는 그대로 (모든 값이 조금씩 바뀜, 같은 풀 정의)
+  Diabetes130US 를 더해 (15개 → 16개) kumo 1876 → 1899 (Agent 다섯 · GBDT 를 모두 이김), Codex 1721 → 1729, AIDE × Sonnet 1616 → 1633, tabicl 1538 → 1530, 우리 lgbm 1176 → 1158 (Diabetes130US 에서는 RandomForest 기본보다도 나쁜 점수). tabpfn_v2 (ours) 1301 → 1287 로 Claude Code 공식 · 우리 catboost 아래가 된 것 말고 순서는 그대로 (모든 값이 조금씩 바뀜, 같은 풀 정의)
 - 모든 방법·평균 순위·승률은 [docs/tabarena.md 의 "Elo"](docs/tabarena.md#elo-2026-11-16). `uv run --frozen fab ta elo` → `results/tabarena_elo.csv`
 
 ## 구조

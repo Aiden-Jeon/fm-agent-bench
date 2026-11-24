@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from fab.bench.tabarena.features import as_category
 from fab.core.competition import load_module
 
 _f0 = load_module(Path(__file__).parents[1] / "features.py", "features_ta_diabetes130us_f0")
@@ -78,10 +79,9 @@ def blocks(train: pd.DataFrame, test: pd.DataFrame, with_test: bool = False) -> 
 def build(train: pd.DataFrame, test: pd.DataFrame):
     X, X_test, cats = _f0.build(train, test)
     a, b = blocks(train, test)
-    for c in NEW_CATS:  # 범주 5열: F0 과 같은 category dtype (train+test 값의 합집합, 값 집합만 맞춤)
-        levels = sorted(set(a[c]) | set(b[c]))
-        a[c] = pd.Categorical(a[c], categories=levels)
-        b[c] = pd.Categorical(b[c], categories=levels)
     a.index, b.index = X.index, X_test.index
+    for c in NEW_CATS:  # 범주 5열: F0 과 같은 변환 (as_category, train+test 값의 합집합을 범주 값으로)
+        both = as_category(pd.concat([a[c], b[c]], keys=["train", "test"]))
+        a[c], b[c] = both.loc["train"].values, both.loc["test"].values  # Categorical (같은 범주 값)
     return pd.concat([X, a], axis=1), pd.concat([X_test, b], axis=1), [*cats, *NEW_CATS]
 
