@@ -6486,3 +6486,25 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-21T01:40:30,ta-bioresponse,tabicl_kv_refit~f2,auc,,,0,37.9,,c1,databricks,,,,,True,f2,1809.0,kv_cache=True
 2026-11-21T01:40:14,ta-bioresponse,lgbm_refit~f2,auc,,,0,7.8,,c1,databricks-cpu,,,,,True,f2,1809.0,default
 2026-11-21T01:41:21,ta-bioresponse,catboost_refit~f2,auc,,,0,67.6,,c1,databricks-cpu,,,,,True,f2,1809.0,default
+2026-11-22T12:23:34,ta-diabetes130us,lgbm_refit,auc,,,0,6.6,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:27:54,ta-diabetes130us,catboost_refit,auc,,,0,259.9,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:28:04,tas-diabetes130us-r0f1,lgbm_refit,auc,,,0,5.1,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:32:00,tas-diabetes130us-r0f1,catboost_refit,auc,,,0,236.5,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:32:09,tas-diabetes130us-r0f2,lgbm_refit,auc,,,0,5.4,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:36:05,tas-diabetes130us-r0f2,catboost_refit,auc,,,0,235.8,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:36:14,tas-diabetes130us-r1f0,lgbm_refit,auc,,,0,4.7,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:40:03,tas-diabetes130us-r1f0,catboost_refit,auc,,,0,229.0,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:40:12,tas-diabetes130us-r1f1,lgbm_refit,auc,,,0,5.1,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:44:07,tas-diabetes130us-r1f1,catboost_refit,auc,,,0,235.6,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:44:16,tas-diabetes130us-r1f2,lgbm_refit,auc,,,0,5.3,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:48:09,tas-diabetes130us-r1f2,catboost_refit,auc,,,0,232.9,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:48:18,tas-diabetes130us-r2f0,lgbm_refit,auc,,,0,5.0,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:52:12,tas-diabetes130us-r2f0,catboost_refit,auc,,,0,233.3,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:52:21,tas-diabetes130us-r2f1,lgbm_refit,auc,,,0,5.2,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:56:14,tas-diabetes130us-r2f1,catboost_refit,auc,,,0,232.6,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:56:22,tas-diabetes130us-r2f2,lgbm_refit,auc,,,0,5.1,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-22T12:59:56,tas-diabetes130us-r2f2,catboost_refit,auc,,,0,214.2,,Diabetes130US GBDT refit,databricks-cpu,,,,,True,base,47.0,default
+2026-11-23T22:28:30,ta-diabetes130us,kumo_cat_refit~f2,auc,,,0,96.3,,c1,databricks,,,,,True,f2,70.0,cats=categorical chunk=8192 n_estimators=8
+2026-11-23T22:28:53,ta-diabetes130us,tabicl_kv_refit~f2,auc,,,0,16.9,,c1,databricks,,,,,True,f2,70.0,kv_cache=True
+2026-11-23T22:08:20,ta-diabetes130us,lgbm_refit~f2,auc,,,0,13.6,,c1,databricks-cpu,,,,,True,f2,70.0,default
+2026-11-23T22:13:41,ta-diabetes130us,catboost_refit~f2,auc,,,0,320.6,,c1,databricks-cpu,,,,,True,f2,70.0,default
