@@ -245,6 +245,15 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 | 누출 검사 (12개) | 에이전트에게 가는 설명 · 파일 이름 · 익명 id · 코드 묶음 (runner.py 등 + MLE-bench 지시문) 에 데이터셋 · ADBench 이름 없음 |
 | 설치 · 묶음 | `pip_args` 가 CPU 작업에 `pyod==3.6.8`, GPU 작업에 `tabpfn==9.2.0` · `tabpfn-extensions==0.6.3` 을 넣음. 기존 테스트 29개 통과 · ruff 통과 |
 
+## 실행 기록
+
+| 때 (UTC) | 무엇 | 대상 | 상태 |
+|---|---|---|---|
+| 2026-11-25 07:59 | A: 기존 10개 + `iforest+clean` (`--note ad-base`) | 12개 × s1~s3 (36), serverless CPU 작업 하나 (`ad-12datasets-36splits-cpu-20261125-075904`) + 채점 요청 `anomaly__20261125-080029-017778` | 제출됨 |
+| 2026-11-25 08:14 | Agent 파일럿 1: cardio (`anomaly-p02`, s1) × 5설정 (aide-sonnet · claude-code-sonnet · aide-gpt · codex-gpt · claude-code-sonnet+cont), 한 번에 (TabArena #26 과 같은 방식). 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 제출됨 |
+| – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1) | H100 1장, 어림 1~2.7 시간 | 보류: 워크스페이스에 TabPFN 토큰 secret 이 없음 (`databricks secrets list-scopes` 가 비어 있음), `databricks.local.yaml` 에 `tabpfn_token_secret` 없음 |
+| – | Agent 파일럿 2: fault (`anomaly-p04`) × 5설정 | | cardio 를 kick · sync 한 뒤 |
+
 ## 결정 (2026-11-25)
 
 7·8 의 틀 (벤치 · 설정 · 지표 · 기준점) 은 작업 지시에서, 1~6 은 2026-11-25 설계 초안을 보고 사용자가 정함.
