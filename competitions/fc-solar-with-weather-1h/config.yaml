@@ -1,0 +1,11 @@
+# fev-bench task solar_with_weather_1H 의 마지막 window (19 / 20 의 0 부터 센 번호). anon_id = 에이전트에게 보이는 이름 (docs/forecast.md 8)
+name: fc-solar-with-weather-1h
+forecast:
+  task: solar_with_weather_1H
+  window: 19
+  anon_id: forecast-p02
+task: forecast
+target: target
+id_col: id
+metric: sql
+cv: {}

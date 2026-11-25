@@ -23,6 +23,9 @@
   FM (tabicl·kumo 51개, tabpfn_v2 33개) 은 모든 split, Agent 는 1회 1시간이라 16개 (파일럿 2개 × 2회 + #26 10개 × 1회 + 행 추가 kddcup09 · NATICUSdroid · Bioresponse · Diabetes130US 1회씩) 의 r0f0 × 5설정만 ([docs/tabarena.md](docs/tabarena.md))
 - **이상탐지 · ADBench** (`Minqi824/ADBench`, Classical 47개 중 12개): 회귀 · 분류 밖 문제. 비지도 (라벨 없는 train → test 행마다 이상 점수), AUROC.
   FM 은 TabPFN 비지도 확장, 기존 이상탐지 방법 (pyod 기본 10개, IForest = Elo 1000) 과 한 풀. FM · 기존 방법은 12개 × seed 3개, Agent 는 3개의 seed 1 × 5설정 ([docs/anomaly.md](docs/anomaly.md))
+- **fev-bench** (`autogluon/fev`, 시계열 예측 100 task 중 단변량 10개): 표 형식 밖 문제에서 tabular FM (TabPFN-TS · TabICL forecaster) 을
+  시계열 FM (Chronos-2 · TimesFM-2.5 등) · 통계 방법 · Agent 와 비교. 지표 SQL (분위수) · MASE, Elo 기준점 Seasonal Naive = 1000.
+  FM · 기존 방법은 모든 window, Agent 는 마지막 window 하나 ([docs/forecast.md](docs/forecast.md))
 
 계획과 단계 (P0~P6, C1·C2 규칙) 는 [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
@@ -160,6 +163,24 @@ FM = tabpfn-extensions `TabPFNUnsupervisedModel.outliers()` (TabPFN v2 가중치
 - ¹ Codex 가 데이터 모양 (행 · 열 · 이상 비율) 으로 데이터셋을 알아본 실행 (cardio · Wilt, 원본 받기는 없음). 알아보지 못한 fault 에서는 기존 KNN 보다 낮음
 - `uv run --frozen fab ad elo` → `results/anomaly_elo.csv`, 채점 `results/anomaly.csv` · `results/anomaly_runs.csv`, ADBench 공개값 비교 `fab ad compare` (기준점 IForest 는 12개 모두 공개값과 같음)
 
+### Forecast (fev-bench, 시계열 예측)
+
+10 task (단변량) 의 SQL (분위수 손실, 낮을수록 좋음) Elo, Seasonal Naive = 1000. 전체 표 · 해석은 [docs/forecast.md](docs/forecast.md).
+
+| 방식 | 방법 | Elo (마지막 window, 10 task) | Elo (task 평균, 공개 결과와 한 풀) |
+|---|---|---|---|
+| 시계열 FM (기존 방법) | Chronos-2 | **1698** | **1812** |
+| 시계열 FM (기존 방법) | TimesFM-2.5 | 1567 | 1690 |
+| FM (tabular) | TabPFN-TS (v2) | 1402 | 1574 |
+| 시계열 FM (기존 방법) | Chronos-Bolt | 1307 | 1442 |
+| FM (tabular) | TabICL-TS | 1266 | 1431 |
+| 통계 (기존 방법) | AutoETS | 1122 | 1210 |
+| 통계 (기준점) | Seasonal Naive | 1000 | 1000 |
+
+- task 평균 풀에는 공개 결과의 TabPFN-TS-3 1715 · AutoARIMA 1315 도 있음. 우리 실행은 공개 결과와 60칸 모두 0.24% 안
+- Agent 는 파일럿 1 task (redset_1H, 마지막 window, 5설정 × 1회) 만: Codex × GPT 가 1등 (SQL 2.024) 이지만 Chronos · TimesFM 을 스스로 깔아 앙상블한 것. FM 최고 TabPFN-TS 2.123, 나머지 Agent 넷은 2.138 ~ 2.409. task 하나라 Agent Elo 는 안 냄
+- 읽는 법: tabular FM 둘은 통계 방법보다 확실히 낫지만 시계열 FM (Chronos-2 · TimesFM-2.5) 보다 아래. TabPFN-TS 가 1등인 task 는 redset_1H 하나
+
 ## 구조
 
 ```
@@ -173,12 +194,13 @@ fab/
   submission.py                   # test.npy → 제출 파일 (여러 모델이면 평균, 원격 정리 작업 안에서)
   bench/mlebench/                 # MLE-bench 분할 준비 (로컬 mle-bench 가상환경), 채점 재료 업로드·원격 채점 (remote.py), 공개 에이전트 점수
   bench/anomaly/                  # 이상탐지 (ADBench): 분할 재현·대회 준비, pyod·TabPFN 비지도 원격 실행 (run.py), AUROC 채점, Elo (IForest = 1000)
+  bench/forecast/                 # fev-bench 시계열 예측: 마지막 window 대회 (fab fc), fev 식 채점 (metrics.py), 원격 실행기 (run_fev.py)
   agent/                          # 에이전트 실행: 로컬 런처 (__init__.py) + 원격 실행기 (runner.py: LLM 프록시·형식 검사 서버)
                                   #   C2 (--fm): fm_notes.txt (지시문의 TFM 안내), fm_warmup.py (사전 점검), fm_audit.py (TFM import 기록)
   remote/                         # 원격 상태(Volume 의 state/)·정리 작업 (reconcile.py: 결과 합치기·채점, `fab remote kick` 으로 실행)·fab sync
 docker/air/                       # Databricks 실행 이미지 (FM 패키지 미리 설치)
-results/                          # git 추적 결과 표 (성능 대시보드 아래 설명, TabArena 는 tabarena*.csv, 이상탐지는 anomaly*.csv). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
-docs/                             # mle-bench.md · tabarena.md · anomaly.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
+results/                          # git 추적 결과 표 (성능 대시보드 아래 설명, TabArena 는 tabarena*.csv, 이상탐지는 anomaly*.csv, forecast 는 forecast*.csv). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
+docs/                             # mle-bench.md · tabarena.md · anomaly.md · forecast.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
 ```
 
 ## 준비

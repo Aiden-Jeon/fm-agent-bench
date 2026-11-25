@@ -915,7 +915,21 @@ def check_submission(path: Path) -> tuple[bool, str]:
     id_col = sample.columns[0]
     if set(sub[id_col].astype(str)) != set(sample[id_col].astype(str)):
         return False, f"The {id_col} values do not match the test set ids"
-    if sub.drop(columns=id_col).isna().any().any():
+    keys = [id_col]
+    if "timestamp" in sample.columns:  # 시계열 예측 (forecast): 한 행 = (id, timestamp). 시각으로 비교 (글자 꼴은 달라도 됨)
+        keys.append("timestamp")
+        ts = pd.to_datetime(sub["timestamp"].astype(str).str.strip(), errors="coerce", format="mixed")
+        if ts.isna().any():
+            return False, f"{int(ts.isna().sum())} timestamp values could not be parsed as dates/times"
+        want = pd.to_datetime(sample["timestamp"].astype(str), format="mixed")
+        got = set(zip(sub[id_col].astype(str), ts))
+        if len(got) != len(sub) or got != set(zip(sample[id_col].astype(str), want)):
+            return False, "The (id, timestamp) pairs do not match test.csv (missing, extra or duplicated rows)"
+        try:
+            sub.drop(columns=keys).astype(float)
+        except (TypeError, ValueError):
+            return False, "All forecast columns must be numeric"
+    if sub.drop(columns=keys).isna().any().any():
         return False, "Submission contains missing predictions"
     return True, "Submission is valid."
 

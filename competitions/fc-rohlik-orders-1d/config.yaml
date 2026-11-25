@@ -1,0 +1,11 @@
+# fev-bench task rohlik_orders_1D 의 마지막 window (4 / 5 의 0 부터 센 번호). anon_id = 에이전트에게 보이는 이름 (docs/forecast.md 8)
+name: fc-rohlik-orders-1d
+forecast:
+  task: rohlik_orders_1D
+  window: 4
+  anon_id: forecast-p05
+task: forecast
+target: target
+id_col: id
+metric: sql
+cv: {}

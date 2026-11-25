@@ -10,6 +10,7 @@
                bench=anomaly 는 AUROC 로 → anomaly.csv, fab/bench/anomaly)
   6. recheck  mlebench_runs.csv 의 사후 검사 열 다시 계산
   7. timing   TabArena 채점 시간 재기 (결과표는 안 바뀜, fab/bench/tabarena/timing.py)
+  8. forecast fab fc fm 의 원격 작업 → 회수 · 마지막 window 채점 → forecast.csv (fab/bench/forecast)
 항목마다 결과표를 Volume 의 tables/ 에 쓴 뒤 <key>.done.json 을 남김 (중간에 죽으면 그 항목만 다음에 다시).
 항목 처리 중 예외(SystemExit 포함)가 나면 그 항목이 결과표에 쓴 행을 되돌리고 (다시 처리할 때 행이 겹치지 않게),
 <key>.attempts.json 에 세어 MAX_ATTEMPTS 번 실패하면 오류로 처리 끝냄 (같은 오류로 계속 돌지 않게).
@@ -134,10 +135,11 @@ def step(name: str, items: dict, fn, state: State, tables: Tables, kind: str):
 def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
     from databricks.sdk import WorkspaceClient
 
-    from fab.agent import AD_TABLE, AGENT_RUNS, TA_TABLE, TABLE as AGENT_TABLE, grade_run, recheck_table, \
+    from fab.agent import AGENT_RUNS, BENCH_TABLES, TABLE as AGENT_TABLE, grade_run, recheck_table, \
         recover_from_progress, run_table
     from fab.bench.anomaly import grade as grade_ad
     from fab.bench.anomaly.remote import Grader as AdGrader
+    from fab.bench.forecast.remote import Grader as FcGrader
     from fab.bench.mlebench import bench_comps, grade as grade_fm
     from fab.bench.mlebench.remote import Grader
     from fab.bench.tabarena import grade as grade_ta
@@ -147,12 +149,14 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
     V = Path(volume)
     w = WorkspaceClient()
     state, tables, grader, ta_grader, ad_grader = State(V), Tables(V), Grader(V), TaGrader(V), AdGrader(V)
+    # 제출 기록의 bench → 채점기 (대회 이름은 제출 기록에만)
+    bench_graders = {"tabarena": ta_grader, "anomaly": ad_grader, "forecast": FcGrader(V)}
     link_data(V)
 
     def exclude(key, m):
         for k in m["keys"]:
             state.done("agent", k, excluded=m["reason"])
-        for table in (AGENT_TABLE, TA_TABLE, AD_TABLE):
+        for table in (AGENT_TABLE, *BENCH_TABLES.values()):
             if table.exists():
                 t = read_table(table)
                 t[~t.key.isin(m["keys"])].to_csv(table, index=False)
@@ -230,9 +234,9 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             print(f"  {key}: 실행기가 끝까지 못 감 ({st['message'][:200]}) → progress/ 사본으로 회수"
                   + (" (제출 있음)" if (d / "submission.csv").exists() else " (제출 사본 없음)"))
         report = None
-        if (d / "submission.csv").exists() and m.get("bench") in ("tabarena", "anomaly"):
-            # TabArena · 이상탐지: 대회 이름은 제출 기록에만 (cid = 익명 id). 형식이 틀린 제출은 오류가 아니라 무효 (valid_submission)
-            report = (ta_grader if m["bench"] == "tabarena" else ad_grader).grade(m["comp"], d / "submission.csv")
+        if (d / "submission.csv").exists() and m.get("bench") in bench_graders:
+            # TabArena · 이상탐지 · forecast: 대회 이름은 제출 기록에만 (cid = 익명 id). 형식이 틀린 제출은 오류가 아니라 무효 (valid_submission)
+            report = bench_graders[m["bench"]].grade(m["comp"], d / "submission.csv")
             if str(report.get("error", "")).startswith("정답 없음"):
                 raise RuntimeError(report["error"])
         elif (d / "submission.csv").exists():
@@ -323,6 +327,23 @@ def main(volume: str, *_):  # 예전 entry.py 는 job id 도 넘김 → 무시
             print(f"    {k}: {v}")
 
     step("grade", state.pending("grade"), grade, state, tables, "grade")
+
+    def forecast(key, m):
+        """fab fc fm 의 원격 작업: 끝나면 Volume 의 runs/<key>/results/ → results/forecast.csv (window 별 fev 점수 · task 평균 ·
+        마지막 window 를 Agent 와 같은 채점기로). 실패한 (task, 방법) 은 done 의 failed 에 남기고 나머지는 씀 (다시 해도 같음)."""
+        from fab.bench.forecast import collect
+
+        st = run_state(w, m["run_id"])
+        if st["life"] not in TERMINAL:
+            return
+        rows, failed = collect(m, bench_graders["forecast"])
+        tables.flush()
+        state.done("forecast", key, result=st["result"], rows=len(rows), failed=failed, message=st["message"][:500])
+        print(f"  {key}: {st['result']} {len(rows)}행" + (f", 실패 {len(failed)}개" if failed else ""))
+        for k, v in list(failed.items())[:10]:
+            print(f"    {k}: {v[-300:]}")
+
+    step("forecast", state.pending("forecast"), forecast, state, tables, "forecast")
 
     def recheck(key, m):
         recheck_table()

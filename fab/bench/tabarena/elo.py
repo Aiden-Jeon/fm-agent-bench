@@ -52,6 +52,7 @@ def _fit(err: np.ndarray, weight: np.ndarray) -> np.ndarray:
 def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int = MIN_CI_DATASETS,
         anchor: str = ANCHOR) -> pd.DataFrame:
     """long: method · dataset · split · metric_error (+ imputed: 단위마다 채운 비율 0~1). 빈칸은 미리 채워 둘 것 →
+    anchor (기준점, 1000 으로 옮기는 방법. TabArena 는 RandomForest, forecast 는 Seasonal Naive) 가 long 에 있어야 함.
     방법마다 elo · elo+ · elo- · imputed (채운 비율) · 데이터셋 수 · 평균 순위·승률 (TabArena 와 같은 단위 가중치).
     데이터셋이 min_ci 개 미만이거나 rounds <= 0 이면 부트스트랩을 안 하고 elo+·elo- 는 NaN.
     anchor: 1000 으로 고정할 방법 (TabArena 는 RandomForest, 다른 트랙은 그 트랙의 기존 방법. 예: 이상탐지 iforest)."""
@@ -62,6 +63,8 @@ def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int 
     wide = long.pivot(index="method", columns=["dataset", "split"], values="metric_error")
     if wide.isna().any().any():
         raise ValueError(f"빈칸 {int(wide.isna().sum().sum())}개: 먼저 {anchor} 로 채울 것")
+    if anchor not in wide.index:
+        raise ValueError(f"기준점 {anchor!r} 가 풀에 없음")
     imp = long.pivot(index="method", columns=["dataset", "split"], values="imputed").reindex_like(wide)
     ds = wide.columns.get_level_values("dataset").to_numpy()
     names, ds_idx = np.unique(ds, return_inverse=True)

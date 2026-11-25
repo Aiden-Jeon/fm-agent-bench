@@ -22,7 +22,10 @@ import os
 import sys
 
 WATCH = {"tabpfn": "tabpfn", "tabicl": "tabicl", "sdm": "kumo", "autogluon": "autogluon", "limix": "limix",
-         "exaonetabular": "exaone", "causilo": "causilo", "tabdpt": "tabdpt", "mitra": "mitra"}  # 최상위 모듈 → TFM 이름
+         "exaonetabular": "exaone", "causilo": "causilo", "tabdpt": "tabdpt", "mitra": "mitra",
+         # 시계열 FM (forecast 트랙, docs/forecast.md 9). tabpfn_time_series 는 tabpfn 도 import 하므로 따로 이름
+         "tabpfn_time_series": "tabpfn_ts", "chronos": "chronos", "timesfm": "timesfm", "uni2ts": "moirai", "toto": "toto",
+         "tirex": "tirex"}  # 최상위 모듈 → TFM 이름
 HEARTBEAT = 30  # 초
 
 

@@ -1,0 +1,11 @@
+# fev-bench task redset_1H 의 마지막 window (9 / 10 의 0 부터 센 번호). anon_id = 에이전트에게 보이는 이름 (docs/forecast.md 8)
+name: fc-redset-1h
+forecast:
+  task: redset_1H
+  window: 9
+  anon_id: forecast-p01
+task: forecast
+target: target
+id_col: id
+metric: sql
+cv: {}

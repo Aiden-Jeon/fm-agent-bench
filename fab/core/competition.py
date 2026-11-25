@@ -40,6 +40,8 @@ class Competition:
     tabarena: dict | None = None
     # 이상탐지 split 대회: {dataset, adbench (npz 이름), split (s<k>), seed, anon_id (s1 에이전트용)}. fab/bench/anomaly
     anomaly: dict | None = None
+    # forecast 대회 (fev-bench task 의 window 하나): {task, window, anon_id}. fab/bench/forecast
+    forecast: dict | None = None
 
     @property
     def dir(self) -> Path:

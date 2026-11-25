@@ -1,0 +1,264 @@
+# fev-bench task 정의 중 이 트랙의 10개 (docs/forecast.md 2). autogluon/fev @ ecce67120aae4827e9702b978a9e9327ecde81d0 의
+# benchmarks/fev_bench/tasks.yaml 에서 그대로 옮김 (Apache-2.0, Copyright Amazon.com, Inc. or its affiliates).
+# 순서 = docs/forecast.md 2 의 표 (# = 익명 id forecast-pNN 의 번호)
+tasks:
+- dataset_path: autogluon/fev_datasets
+  horizon: 24
+  num_windows: 10
+  seasonality: 24
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  static_columns:
+  - subset
+  dataset_config: redset_1H
+- dataset_path: autogluon/fev_datasets
+  horizon: 24
+  num_windows: 20
+  seasonality: 24
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  known_dynamic_columns:
+  - wind_speed
+  - day_length
+  - humidity
+  - rain_1h
+  - snow_1h
+  - temp
+  - pressure
+  past_dynamic_columns:
+  - global_horizontal_irradiance
+  - clouds_all
+  dataset_config: solar_with_weather_1H
+- dataset_path: autogluon/fev_datasets
+  horizon: 28
+  num_windows: 20
+  seasonality: 7
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  static_columns: []
+  dataset_config: ercot_1D
+- dataset_path: autogluon/fev_datasets
+  horizon: 24
+  num_windows: 20
+  seasonality: 24
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  known_dynamic_columns:
+  - Generation forecast
+  - System load forecast
+  dataset_config: epf_be
+- dataset_path: autogluon/fev_datasets
+  horizon: 61
+  num_windows: 5
+  initial_cutoff: '2023-05-01'
+  seasonality: 7
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  target: orders
+  known_dynamic_columns:
+  - holiday
+  - shops_closed
+  - winter_school_holidays
+  - school_holidays
+  past_dynamic_columns:
+  - shutdown
+  - mini_shutdown
+  - blackout
+  - mov_change
+  - frankfurt_shutdown
+  - precipitation
+  - snow
+  - user_activity_1
+  - user_activity_2
+  static_columns: []
+  dataset_config: rohlik_orders_1D
+- dataset_path: autogluon/fev_datasets
+  horizon: 28
+  num_windows: 10
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  static_columns: []
+  dataset_config: solar_1D
+- dataset_path: autogluon/fev_datasets
+  horizon: 13
+  num_windows: 10
+  seasonality: 1
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  static_columns: []
+  dataset_config: ecdc_ili
+- dataset_path: autogluon/fev_datasets
+  horizon: 12
+  num_windows: 4
+  seasonality: 12
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  static_columns: []
+  dataset_config: hospital
+- dataset_path: autogluon/fev_datasets
+  horizon: 12
+  num_windows: 10
+  seasonality: 12
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  static_columns: []
+  dataset_config: us_consumption_1M
+- dataset_path: autogluon/fev_datasets
+  horizon: 28
+  num_windows: 20
+  seasonality: 7
+  eval_metric: SQL
+  extra_metrics:
+  - MASE
+  - name: WAPE
+    epsilon: 1.0
+  - name: WQL
+    epsilon: 1.0
+  quantile_levels:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  static_columns: []
+  dataset_config: hospital_admissions_1D

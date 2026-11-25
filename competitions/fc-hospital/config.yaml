@@ -1,0 +1,11 @@
+# fev-bench task hospital 의 마지막 window (3 / 4 의 0 부터 센 번호). anon_id = 에이전트에게 보이는 이름 (docs/forecast.md 8)
+name: fc-hospital
+forecast:
+  task: hospital
+  window: 3
+  anon_id: forecast-p08
+task: forecast
+target: target
+id_col: id
+metric: sql
+cv: {}

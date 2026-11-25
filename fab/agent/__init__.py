@@ -78,11 +78,15 @@ TABLE = RESULTS / "mlebench_runs.csv"  # 에이전트 실행별 채점 (git 추�
 # TabArena 에이전트 실행별 채점 (git 추적, 열은 mlebench_runs 와 같고 대회 열만 다름). 위치는 fab.bench.tabarena 에서 정함
 from fab.bench.tabarena import RUNS as TA_TABLE  # noqa: E402
 from fab.bench.anomaly import RUNS as AD_TABLE  # noqa: E402  이상탐지 에이전트 실행 (열은 TabArena 와 같고 aupr · 사후 검사 몇 개를 더함)
-BENCH_TABLES = {"tabarena": TA_TABLE, "anomaly": AD_TABLE}  # 제출 기록의 bench → 표 (없으면 MLE-bench 의 TABLE)
+from fab.bench.forecast import RUNS as FC_TABLE  # noqa: E402  forecast 트랙 (docs/forecast.md 8), 열은 tabarena_runs + 지표 열
+# 제출 기록의 bench → 표 (없으면 MLE-bench 의 TABLE)
+BENCH_TABLES = {"tabarena": TA_TABLE, "anomaly": AD_TABLE, "forecast": FC_TABLE}
 HERE = Path(__file__).parent
 # 사후 검사: 에이전트가 TFM 을 썼는지, Kaggle 풀이·토론을 봤는지 (기록에서 찾음)
 # 단어 경계: "carte" 가 "Cartesian" 에 걸렸음 (2026-11-09 nomad Codex). Kumo 는 코드에 KumoTabular 로 나옴 → kumo 로 셈
-TFM_PATTERN = re.compile(r"\b(tabpfn|tabicl|kumo(?:tabular)?|autogluon|mitra|limix|exaone|tabdpt|carte)\b", re.I)
+# 시계열 FM (forecast 트랙, 2026-11-25): chronos · timesfm · moirai · toto · tirex · tabpfn_time_series (tabpfn 으로 셈)
+TFM_PATTERN = re.compile(r"\b(tabpfn|tabicl|kumo(?:tabular)?|autogluon|mitra|limix|exaone|tabdpt|carte|chronos|timesfm|moirai|toto|tirex)\b",
+                         re.I)
 # 코드의 import 문 (주석의 이름은 안 셈): `import a, b as c` 는 모듈마다, `from a.b import c` 는 a.
 # 모듈 → TFM 이름은 실행 중 기록과 같은 표 (fm_audit.WATCH, Kumo 의 모듈은 sdm)
 IMPORT_LINE = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\b|import\s+([\w., ]+))", re.M)
@@ -93,7 +97,10 @@ KAGGLE_PATTERN = re.compile(r"kaggle\.com/(?:code|competitions/[^/\s\"']+/(?:dis
 # from 은 import 문만 (2026-11-14 Codex 의 생각 글 "...trained on real datasets from OpenML" 이 걸렸음)
 DATA_SOURCE_PATTERN = re.compile(
     r"openml\.org|\bimport\s+openml\b|\bfrom\s+openml(?:\.\w+)*\s+import\b|fetch_openml|archive\.ics\.uci\.edu|doi\.org/10\.24432|"
-    r"\bucimlrepo\b|kaggle\.com/(?:datasets|c/|competitions/[^/\s\"']+/data)|\bkagglehub\b|kaggle\s+(?:datasets|competitions)\s+download",
+    r"\bucimlrepo\b|kaggle\.com/(?:datasets|c/|competitions/[^/\s\"']+/data)|\bkagglehub\b|kaggle\s+(?:datasets|competitions)\s+download|"
+    # forecast 트랙 (docs/forecast.md 9): fev 데이터 묶음 · fev 패키지와 후보 10개의 원래 출처 (HF 데이터 카드의 source)
+    r"autogluon/(?:fev|chronos)_datasets|\bimport\s+fev\b|\bfrom\s+fev(?:\.\w+)*\s+import\b|Salesforce/GiftEval|amazon-science/redset|"
+    r"zenodo\.org/records/4624805|neuralprophet-data|EU-ECDC/Respiratory_viruses|apps\.bea\.gov",
     re.I)
 # 실행한 명령 안의 pip 설치 (pip_target). 하네스 기록의 명령 칸 (Codex·Claude Code 의 command) 과 작업 디렉터리 코드의 줄에서 찾음.
 # 생각·대화 글과 명령 출력 (aggregated_output: README 의 "pip install tabpfn" 등) 은 실행이 아니라서 안 봄
@@ -288,9 +295,27 @@ def ta_target(name: str):
     return comp, ta["anon_id"]
 
 
+def fc_target(name: str):
+    """forecast 에이전트 대회 (competitions/fc-<task>, 설정에 forecast.anon_id) → (대회, 익명 id)."""
+    from fab.core.competition import load_competition
+
+    comp = load_competition(name)
+    fc = comp.forecast or {}
+    if not fc.get("anon_id"):
+        raise SystemExit(f"{name}: 설정에 forecast.anon_id 가 없음 (에이전트는 competitions/fc-<task> 대회만)")
+    if not (comp.dir / "description.md").exists():
+        raise SystemExit(f"{comp.dir}/description.md 없음")
+    return comp, fc["anon_id"]
+
+
 def leak_terms(comp) -> list[str]:
     """에이전트에게 보이면 안 되는 글: 데이터셋 이름 (원래·소문자·구분자 바꾼 것), 대회 이름, OpenML task·dataset id.
-    이상탐지 대회는 그쪽 목록 (fab/bench/anomaly 의 leak_terms: 데이터셋 · ADBench 이름)."""
+    이상탐지 대회는 그쪽 목록 (fab/bench/anomaly 의 leak_terms: 데이터셋 · ADBench 이름).
+    forecast 대회는 fev task · config 이름 · 원래 시리즈 id (fab.bench.forecast.leak_terms)."""
+    if comp.forecast:
+        from fab.bench.forecast import leak_terms as fc_leak_terms
+
+        return fc_leak_terms(comp)
     from fab.bench.tabarena import dataset_row
 
     if comp.anomaly:
@@ -325,7 +350,7 @@ def leak_check(comp, files: list[Path], texts: dict[str, str]):
 
 def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm: bool = False, comp=None,
            bench: str = "tabarena") -> str:
-    """comp: TabArena · 이상탐지 대회 (cid = 익명 id, bench 가 어느 쪽인지). 데이터는 그 대회의 data/ (public),
+    """comp: TabArena · 이상탐지 · forecast 대회 (cid = 익명 id, bench 가 어느 쪽인지). 데이터는 그 대회의 data/ (public),
     대회 이름은 내 Volume 의 제출 기록에만."""
     from fab.bench.mlebench import MLEBENCH_DIR
 
@@ -336,9 +361,13 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
     label = (f"{config}{CONTINUE_SUFFIX if cont else ''}{FM_SUFFIX if fm else ''}"
              f"{GATEWAY_SUFFIX if cfg['gateway'] else ''}")
     if comp is not None:  # 올리기 전에 데이터 파일 이름·설명 확인
-        leak_check(comp, [comp.data_dir / "description.md"],
-                   {"data files": " ".join(p.name for p in comp.data_dir.iterdir()), "cid": cid})
-        if (comp.tabarena or {}).get("obfuscate"):  # 알아볼 수 없게 바꾼 대회: 설명·열 머리·값에 원래 이름이 없는지 (docs/tabarena.md)
+        texts = {"data files": " ".join(p.name for p in comp.data_dir.iterdir()), "cid": cid}
+        if comp.forecast:  # 시리즈 id 값 · 열 머리 (원래 id 가 남지 않았는지)
+            ids = pd.read_csv(comp.data_dir / "train.csv", usecols=["id"], dtype=str).id.unique()
+            texts |= {"series ids": " ".join(ids), "columns": " ".join(
+                open(comp.data_dir / f).readline() for f in ("train.csv", "test.csv", "sample_submission.csv"))}
+        leak_check(comp, [comp.data_dir / "description.md"], texts)
+        if comp.tabarena and comp.tabarena.get("obfuscate"):  # 알아볼 수 없게 바꾼 대회: 설명·열 머리·값에 원래 이름이 없는지 (docs/tabarena.md)
             from fab.bench.tabarena import obf_leaks
 
             if found := obf_leaks(comp):
@@ -712,7 +741,7 @@ def recover_from_progress(d: Path) -> bool:
 
 
 def run_table(info: dict) -> Path:
-    """실행이 들어갈 표: 제출 기록의 bench (tabarena · anomaly) 의 표, 나머지는 mlebench_runs.csv."""
+    """실행이 들어갈 표: 제출 기록의 bench (tabarena · anomaly · forecast) 의 표, 나머지는 mlebench_runs.csv."""
     return BENCH_TABLES.get(info.get("bench"), TABLE)
 
 
@@ -739,6 +768,8 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
                run_crashed=bool(meta.get("run_crashed")))  # 실행기가 중간에 죽어 progress/ 사본으로 채점 (recover_from_progress)
     keys = ["score", "metric_error", "valid_submission", "error", *(["aupr"] if info.get("bench") == "anomaly" else [])] if ta else \
         ["score", "valid_submission", "any_medal", "gold_medal", "above_median", "lb_rank", "lb_teams"]
+    if info.get("bench") == "forecast":  # 보조 지표 (score = metric_error = SQL)
+        keys += ["SQL", "MASE", "WQL", "WAPE"]
     if report is not None:
         row.update({k: report.get(k) for k in keys})
     else:
@@ -750,8 +781,8 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
 
 
 def recheck_table():
-    """회수해 둔 기록으로 mlebench_runs.csv·tabarena_runs.csv·anomaly_runs.csv 의 사후 검사 열을 다시 계산 (검사 규칙을 고친 뒤). 원격 정리 작업이 부름."""
-    for table in (TABLE, TA_TABLE, AD_TABLE):
+    """회수해 둔 기록으로 mlebench_runs.csv 와 벤치별 runs 표 (tabarena · anomaly · forecast) 의 사후 검사 열을 다시 계산 (검사 규칙을 고친 뒤). 원격 정리 작업이 부름."""
+    for table in (TABLE, *BENCH_TABLES.values()):
         if table.exists():
             recheck_one(table)
 
@@ -832,14 +863,16 @@ def peek(keys: list[str] | None = None):
 def main(argv: list[str], bench: str | None = None):
     """bench=tabarena (fab ta agent): run 의 대상은 TabArena r0f0 대회 이름 (ta-<데이터셋>). 에이전트에게는 설정의 익명 id
     (anon_id) 만 보임: 원격 실행 이름·Volume 의 데이터 묶음·run.json. 대회 이름은 내 Volume 의 제출 기록에만.
-    bench=anomaly (fab ad agent): 같은 흐름, 대상은 이상탐지 s1 대회 (ad-<이름>, fab/bench/anomaly)."""
-    ta = bench in BENCH_TABLES
-    prog = {"tabarena": "fab ta agent", "anomaly": "fab ad agent"}.get(bench, "fab mleb agent")
+    bench=anomaly (fab ad agent): 같은 흐름, 대상은 이상탐지 s1 대회 (ad-<이름>, fab/bench/anomaly).
+    bench=forecast (fab fc agent): 같은 흐름, 대상은 forecast 대회 (fc-<task>, fab/bench/forecast)."""
+    ta, fc = bench == "tabarena", bench == "forecast"
+    prog = {"tabarena": "fab ta agent", "anomaly": "fab ad agent", "forecast": "fab fc agent"}.get(bench, "fab mleb agent")
     ap = argparse.ArgumentParser(prog=prog)
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="에이전트 실행 제출")
     r.add_argument("cid", help={"tabarena": "TabArena r0f0 대회 이름 (ta-<데이터셋>)",
-                               "anomaly": "이상탐지 s1 대회 이름 (ad-<이름>)"}.get(bench, "MLE-bench 대회 id"))
+                               "anomaly": "이상탐지 s1 대회 이름 (ad-<이름>)",
+                               "forecast": "forecast 대회 이름 (fc-<task>)"}.get(bench, "MLE-bench 대회 id"))
     r.add_argument("configs", nargs="+", choices=list(CONFIGS))
     r.add_argument("--rep", type=int, default=1, help="반복 번호 (같은 설정을 여러 번 돌릴 때 이름 구분)")
     r.add_argument("--hours", type=float, default=1.0)
@@ -883,6 +916,17 @@ def main(argv: list[str], bench: str | None = None):
         upload_answers(remote_settings(), [comp.name])  # 채점용 정답 (내 Volume)
         for c in args.configs:
             submit(anon, c, args.rep, args.hours, args.cont, args.fm, comp=comp)
+    elif args.cmd == "run" and fc:
+        from fab.bench.forecast import ensure_prepared as fc_prepared
+        from fab.bench.forecast.remote import upload_answers as fc_answers
+
+        check_continue(args.configs, args.cont)
+        check_experiment(settings())
+        comp, anon = fc_target(args.cid)
+        fc_prepared(comp)
+        fc_answers(remote_settings(), [comp.name])  # 채점용 정답 (내 Volume 의 forecast/answers/)
+        for c in args.configs:
+            submit(anon, c, args.rep, args.hours, args.cont, args.fm, comp=comp, bench="forecast")
     elif args.cmd == "run":
         from fab.bench.mlebench.remote import prepare_grading
 
