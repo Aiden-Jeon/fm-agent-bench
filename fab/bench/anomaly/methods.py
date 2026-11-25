@@ -99,11 +99,22 @@ def tabpfn_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int)
     from tabpfn.constants import ModelVersion
     from tabpfn_extensions.unsupervised import TabPFNUnsupervisedModel
 
+    class Regressor(TabPFNRegressor):
+        """tabpfn-extensions 는 y 를 logits 의 dtype 으로 맞춰 criterion (bar 분포) 에 넣는데, CUDA 에서는 bar 분포의 borders 가
+        double · logits 가 float 이라 `y[mask] = borders[0]` 에서 dtype 오류 (2026-11-25 원격 첫 실행, H100. 로컬 MPS 는 둘 다
+        float32 라 안 드러남) → full 출력의 logits 를 borders 의 dtype 으로 (log 밀도 계산이 double 이 될 뿐 값의 뜻은 같음)."""
+
+        def predict(self, X, *args, output_type="mean", **kw):
+            out = super().predict(X, *args, output_type=output_type, **kw)
+            if output_type == "full" and torch.is_tensor(out.get("logits")):
+                out["logits"] = out["logits"].to(dtype=out["criterion"].borders.dtype)
+            return out
+
     cfg = FM[base(name)]
     version = ModelVersion(cfg["version"])
     set_seed(seed)
     model = TabPFNUnsupervisedModel(tabpfn_clf=TabPFNClassifier.create_default_for_version(version),
-                                    tabpfn_reg=TabPFNRegressor.create_default_for_version(version))
+                                    tabpfn_reg=Regressor.create_default_for_version(version))
     model.fit(torch.tensor(X_train, dtype=torch.float32))
     set_seed(seed)  # 순열 (python random) 을 seed 로
     log_density = model.outliers(torch.tensor(X_test, dtype=torch.float32), n_permutations=cfg["n_permutations"])
