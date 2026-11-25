@@ -437,22 +437,13 @@ def submit_fm(todo: list[tuple[str, list[str]]], methods: list[str], note: str, 
     if any(is_clean(m) for m in methods):  # 깨끗한 context 진단: train 라벨 (내 Volume, 에이전트 SP 는 못 읽음)
         upload_train_labels(cfg, [c.name for c in comps])
         extra += ["--train-labels", train_labels_dir(cfg)]
-    if gpu:
-        from fab.bench.anomaly.methods import V35_FILE, WEIGHTS_REL
-        from fab.remote import list_names
-
-        secret = cfg.get("tabpfn_token_secret")
-        if V35_FILE not in list_names(cfg, WEIGHTS_REL) and not secret:
-            raise SystemExit(f"TabPFN v3.5 가중치 없음: {cfg['volume']}/{WEIGHTS_REL}/{V35_FILE} → 먼저 fab ad weights "
-                             "(로컬 브라우저로 라이선스 동의 · 업로드). 또는 databricks.local.yaml 의 tabpfn_token_secret")
-        gpu_extra = [*extra, *(["--tabpfn-secret", secret] if secret else [])]
     data = upload_data(cfg, comps)
     label = f"ad-{slug(todo[0][0])}-{len(comps)}splits" if len(todo) == 1 else f"ad-{len(todo)}datasets-{len(comps)}splits"
     runs = []
     for ms, is_cpu in ((cpu, True), (gpu, False)):
         if not ms:
             continue
-        jobs = [(c.name, data[c.name], [*ms, "--note", note, *(extra if is_cpu else gpu_extra)]) for c in comps]
+        jobs = [(c.name, data[c.name], [*ms, "--note", note, *extra]) for c in comps]
         if is_cpu:
             run = submit_cpu(cfg, label, None, None, ms, timeout, "", jobs=jobs)
         else:
@@ -576,7 +567,6 @@ def main(argv: list[str] | None = None):
     c.add_argument("--tol", type=float, default=0.005)
     e = sub.add_parser("elo", help="IForest = 1000 Elo: fm 풀 (12개 × 3 split) · agent 풀 (s1) → results/anomaly_elo.csv")
     e.add_argument("--rounds", type=int, default=200)
-    sub.add_parser("weights", help="TabPFN v3.5 체크포인트를 로컬에서 받아 (브라우저 라이선스 동의) Volume 의 weights/tabpfn/ 로")
     sub.add_parser("agent", help="에이전트 실행 (fab ad agent -h, fab ta agent 와 같은 명령)")
     args = ap.parse_args(argv)
 
@@ -609,31 +599,4 @@ def main(argv: list[str] | None = None):
                 columns={"sum": f"|차| ≤ {args.tol}", "count": "데이터셋"}).to_string())
     elif args.cmd == "elo":
         elo_tables(args.rounds)
-    elif args.cmd == "weights":
-        upload_weights()
 
-
-def upload_weights():
-    """weights.py 를 옆 가상환경에서 (`-I`, cwd 는 임시 폴더) → 받은 v3.5 파일을 Volume 의 weights/tabpfn/ 로 (이미 있으면 그대로)."""
-    import subprocess
-    import tempfile
-
-    from fab.bench.anomaly.methods import V35_FILE, WEIGHTS_REL
-    from fab.remote import dbx, list_names, settings
-
-    cfg = settings()
-    if V35_FILE in list_names(cfg, WEIGHTS_REL):
-        print(f"이미 있음: {cfg['volume']}/{WEIGHTS_REL}/{V35_FILE}")
-        return
-    py = AD_DIR / ".venv" / "bin" / "python"
-    if not py.exists():
-        sys.exit(f"{py} 없음: uv venv {AD_DIR}/.venv && uv pip install --python {py} tabpfn==9.2.0")
-    with tempfile.TemporaryDirectory() as d:
-        out = subprocess.run([str(py), "-I", str(Path(__file__).with_name("weights.py"))], cwd=d, stdout=subprocess.PIPE,
-                             text=True, check=True).stdout
-    got = json.loads(out.strip().splitlines()[-1])
-    if got["name"] != V35_FILE:
-        sys.exit(f"받은 파일 이름 {got['name']} ≠ {V35_FILE} (tabpfn 버전이 다름?) → methods.V35_FILE 확인")
-    dbx(cfg, "fs", "mkdir", f"dbfs:{cfg['volume']}/{WEIGHTS_REL}")
-    dbx(cfg, "fs", "cp", "--overwrite", got["path"], f"dbfs:{cfg['volume']}/{WEIGHTS_REL}/{got['name']}", timeout=3600)
-    print(f"업로드: {got['path']} ({got['bytes'] / 1e6:.0f} MB) → {cfg['volume']}/{WEIGHTS_REL}/")

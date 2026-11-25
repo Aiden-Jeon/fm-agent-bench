@@ -36,7 +36,7 @@
 | 지표 | AUROC (주), AUPRC (보조). Elo 오차 = 1 − AUROC |
 | 기준점 | **IsolationForest (pyod 기본) = 1000** (3). 같은 풀: pyod 기본 설정 10개 (CPU, 우리가 돌림) |
 | 맞춤 확인 | 우리 분할 + pyod 로 ADBench 논문 Table D4 의 IForest·KNN AUROC 가 12개 × 3 seed 평균에서 **소수 둘째 자리까지 같음** (2, 로컬) |
-| FM | `TabPFNUnsupervisedModel.outliers(n_permutations=10)` 기본, 점수 = −log 밀도. 가중치는 패키지 기본 TabPFN v3.5 (비상업 라이선스, 결정 2) (4) |
+| FM | `TabPFNUnsupervisedModel.outliers(n_permutations=10)` 기본, 점수 = −log 밀도. 가중치는 TabPFN v2 (Prior Labs License 1.1, 동의 없이 받음, 결정 2) (4) |
 | Agent | 기존 5설정 × 1시간 · A10, 라벨 없는 train · test + 설명 → `id,score`. train 으로만 fit (결정 4). 파일럿 cardio · fault (`s1`) (6) |
 | 격리 | 정답 (test 라벨) 은 로컬 캐시와 채점용 내 Volume 에만. 데이터셋 이름·출처는 안 알림 (익명 id `anomaly-p01`…). 공개 데이터라 알아본 흔적은 사후 검사 (7) |
 | 범위 밖 | C1·C2 (Agent 결과를 보고 정함), 결측값·생성·밀도, kumo·tabicl 로 chain rule 래퍼 새로 만들기 (후속) |
@@ -143,11 +143,10 @@ pyod 기본 설정 (인자 없이), CPU. ADBench 의 비지도 14개 중:
 | context | `fit(X_train)` 의 행 전부 (라벨 없음 → **이상점이 섞인 context**) | train 전부 (≤ 7,000 행, TabPFN v2 의 1만 행 한도 안) |
 | 범주 열 | `infer_categorical_features`: 값 40개 이하 · 값마다 평균 10행 넘는 열 → classifier. 그 열의 값은 `astype(int)` 로 클래스 번호가 됨 | 그대로. 주의: 입력이 MinMax 된 [0, 1] 이라 값이 셋 이상인 범주 열은 `astype(int)` 에서 0 과 1 로 뭉개짐 (cardio 3열 · fault 2열 · yeast 1열). 기본 동작의 한계로 적고 고치지 않음 |
 | seed | 순열은 전역 `random` | split seed 로 `random`·numpy·torch 를 놓음. TabPFN 의 `random_state` 는 기본 |
-| 가중치 | 패키지 기본 = 최신 (tabpfn 9.2.0 은 v3.5, 비상업 · 받을 때 동의) | **패키지 기본 v3.5** (결정 2, 사용자): `create_default_for_version(ModelVersion.V3_5)` 를 분류 · 회귀 둘 다. v3.5 는 분류 · 회귀 head 가 한 파일 (`tabpfn-v3.5-20260909.safetensors`). TABPFN-3.5 Non-Commercial License → 이 벤치 (연구 · 내부 벤치마크) 에만 씀 |
-| 동의 · 받기 | 동의는 브라우저 또는 `TABPFN_TOKEN` (`browser_auth.ensure_license_accepted`) | **로컬에서 브라우저로 한 번 동의하고 받은 파일을 내 Volume 의 `weights/tabpfn/` 에** (`fab ad weights`, forecast 트랙의 `fab fc weights` 와 같은 자리 · 같은 파일). 원격 GPU 작업은 실행기가 넘기는 `FAB_WEIGHTS` 아래 그 파일을 `model_path` 로 읽음 → 동의 확인 · 토큰 없음 (2026-11-25 사용자 결정). 대안: 파일이 없으면 Databricks secret (`tabpfn_token_secret`) 의 토큰을 원격 작업이 읽어 `TABPFN_TOKEN` 으로 (값은 로컬 · 출력 · 결과에 안 남고, 끝에 `~/.cache/tabpfn/auth_token` 을 지움). `TABPFN_NO_BROWSER=1` 로 동의가 안 돼 있으면 바로 실패 |
+| 가중치 | 패키지 기본 = 최신 (tabpfn 9.2.0 은 v3.5, 비상업 · 받을 때 동의) | **v2** (결정 2, 사용자): `create_default_for_version(ModelVersion.V2)` 를 분류 · 회귀 둘 다 (`tabpfn-v2-classifier.ckpt` · `tabpfn-v2-regressor.ckpt`, 우리 `tabpfn_v2` 와 같은 가중치). Prior Labs License 1.1, 받을 때 동의 없음 → 토큰 · 가중치 올리기가 필요 없음. 패키지 기본 v3.5 는 쓰지 않음. train ≤ 7,000 행 · 피처 ≤ 36 이라 v2 의 공식 한도 (1만 행 · 500 피처 · 10 클래스) 안 |
 | 원격 | | GPU (H100 1장), 실행마다 `pip install tabpfn-extensions==0.6.3` (이미지에 tabpfn 9.2.0 있음), telemetry 끔 (`TABPFN_DISABLE_TELEMETRY=1`, `tabpfn_common_utils` 의 `telemetry_enabled`) |
 
-이름: `tabpfn_unsup` (v3.5, 순열 10). 결과표의 `opts` 에 가중치 버전 · 순열 수를 남김 (`n_permutations=10 version=v3.5`).
+이름: `tabpfn_unsup` (v2, 순열 10). 결과표의 `opts` 에 가중치 버전 · 순열 수를 남김 (`n_permutations=10 version=v2`).
 
 학습 context 오염의 영향 (질문의 일부). TACTIC 은 "불안정" 까지만 원문 확인 → 결과에서 직접 봄:
 
@@ -242,7 +241,7 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 | 분할 재현 (12개 × 3 seed, 분할 함수만) | IForest · KNN 의 seed 평균이 Table D4 와 12/12 같음 (2) |
 | 실행 경로 (cardio · fault · yeast × s1~s3 × 기존 10개) | 99행 채점. Table D4 와 차이 0.005 이하 21/30: IForest · KNN · LOF · OCSVM · HBOS · COPOD 는 3/3 같음, PCA 2/3 (yeast −0.020), CBLOF 1/3, ECOD · LODA 0/3 (pyod 버전 · 무작위 투영) |
 | 깨끗한 context (`iforest+clean`, 같은 9개) | seed 평균 AUROC: cardio 0.932 → 0.951, fault 0.570 → 0.643, yeast 0.378 → 0.403 (train 라벨이 FM 작업 경로로 제대로 들어감) |
-| TabPFN 경로 (`tabpfn_unsup`, 합성 150 × 3, 순열 2, **v2 가중치** 로 · CPU) | 점수 모양 · 유한 · 같은 seed 같은 점수, 평균 4 옮긴 가짜 이상 AUROC 1.0. v3.5 는 토큰이 있어야 해 로컬에서는 못 봄 → 원격 첫 실행이 확인 |
+| TabPFN 경로 (`tabpfn_unsup`, 합성 150 × 3, 순열 2, **v2 가중치** 로 · CPU) | 점수 모양 · 유한 · 같은 seed 같은 점수, 평균 4 옮긴 가짜 이상 AUROC 1.0. (원격과 같은 v2 가중치, GPU 시간은 못 잼) |
 | Elo (`fab ad elo`, 위 9개 + 가짜 Agent 표) | fm · agent 풀 계산, `+fm` 설정 · `+clean` 은 빠짐, 실패 회차는 IForest 값 (imputed 0.5) |
 | TabArena Elo 그대로인지 | `elo()`·`fill()` 에 `anchor` 를 더한 뒤 `fab ta elo` → `results/tabarena_elo.csv` 차이 없음 (바이트 단위) |
 | 누출 검사 (12개) | 에이전트에게 가는 설명 · 파일 이름 · 익명 id · 코드 묶음 (runner.py 등 + MLE-bench 지시문) 에 데이터셋 · ADBench 이름 없음 |
@@ -275,7 +274,7 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 
 같은 split 의 기존 방법: LODA 0.9591 · `iforest+clean` 0.9541 · OCSVM 0.9517 · ECOD 0.9463 · COPOD 0.9380 · **IForest 0.9324** · CBLOF 0.8880 · HBOS 0.8785 · KNN 0.7815 · LOF 0.6702.
 Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0.005. 나머지 넷은 IForest 보다 낮음. FM (B) 은 아직.
-| – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1) | H100 1장, 어림 1~2.7 시간 | 보류: v3.5 파일 동의 · 업로드 (`fab ad weights`) 를 기다림. secret 은 안 씀 (워크스페이스에 scope 없음) |
+| – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1, v2 가중치) | H100 1장, 어림 1~2.7 시간 | 제출 확인 대기 (v3.5 를 위한 가중치 올리기 · 토큰은 버림) |
 | – | Agent 파일럿 2: fault (`anomaly-p04`) × 5설정 | | cardio 를 kick · sync 한 뒤 |
 
 ## 결정 (2026-11-25)
@@ -285,7 +284,7 @@ Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0
 | # | 정할 것 | 정한 것 (추천) | 까닭 |
 |---|---|---|---|
 | 1 | 데이터셋 | **ADBench Classical 중 규칙 (1) 로 고른 12개** (사용자) | 고전 tabular · FM 비용 · 분할이 깨끗한 것. 규칙이 정해져 있어 바꾸려면 규칙을 고침 |
-| 2 | TabPFN 가중치 | **패키지 기본 v3.5** (사용자. 추천안은 v2 였음) | "기본 설정" 그대로. 비상업 라이선스 (연구용 벤치로만), 받을 때 동의 → 로컬 브라우저로 동의하고 받은 파일을 Volume 에 올려 원격이 파일로 읽음 (4 의 "동의 · 받기", 같은 날 사용자가 secret 대신 이 방식으로 정함). v2 (Prior Labs License 1.1, 동의 없음) 는 안 돌림 |
+| 2 | TabPFN 가중치 | **v2** (사용자, 2026-11-25. 처음에는 패키지 기본 v3.5 로 정했다가 같은 날 "3.5 는 쓰지 말자") | Prior Labs License 1.1 (상업 이용 가능, 표시 조항), 동의 · 토큰이 필요 없음. 우리 `tabpfn_v2` (TabArena 트랙의 FM) 와 같은 가중치. v3.5 (비상업 · 받을 때 동의) 는 안 돌림 → "기본 설정" 중 가중치만 패키지 기본과 다름 (순열 10 · `n_estimators` 등은 기본) |
 | 3 | Agent 파일럿 | **cardio · fault 의 s1** × 5설정 × 1회 (사용자) | 6 |
 | 4 | Agent 의 test 피처 사용 | **train 으로만 fit (설명의 Rules), 지켰는지 사후 검사** (사용자. 추천안은 "막지 않고 기록") | FM · 기존 방법 (train 만 fit) 과 같은 조건 |
 | 5 | 설명에 분야 | **안 줌** (사용자) | ADBench 에 열 뜻이 없고, 분야를 주면 알아보기 쉬워짐 ("모델링 실력" 비교, TabArena 결정 3 과 같은 뜻) |
@@ -296,6 +295,6 @@ Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0
 ## 확인 못 한 것
 
 - pyod 1.0.0 → 3.6.8 사이 ECOD 가 어떻게 바뀌었는지 (landsat 에서 20점 차)
-- TabPFN 비지도 확장의 GPU 시간 (9 의 어림은 재 보지 않은 값), v3.5 에서 회귀의 `output_type="full"` (logits · criterion) 이 v2 와 같은지 (원격 첫 실행이 확인)
+- TabPFN 비지도 확장의 GPU 시간 (9 의 어림은 재 보지 않은 값)
 - ADBench 데이터의 원래 출처별 라이선스 (ADBench 저장소는 BSD-2, 데이터는 각 출처를 따름)
 - TACTIC 의 실험 설정 · 결과 (원문에서 "불안정" 까지만 확인)
