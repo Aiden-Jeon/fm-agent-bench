@@ -15,6 +15,7 @@ Volume (databricks.local.yaml 의 volume) 구조:
     fab/code.tgz                                   정리 작업이 쓰는 fab 코드 (로컬 명령마다 지금 코드로 다시 올림)
     mlebench/code.tgz, mlebench/data/<cid>/         채점 코드(mlebench 패키지·리더보드)와 정답 (fab/bench/mlebench/remote.py)
     tabarena/answers/<대회>.{csv,json}              TabArena split 정답 (fab/bench/tabarena/remote.py)
+    anomaly/answers/, anomaly/train_labels/         이상탐지 정답 · train 라벨 (fab/bench/anomaly/remote.py)
     outputs/                                       예측·OOF (로컬 results/<대회>/<모델>/ 자리)
     tables/{results,mlebench,mlebench_runs,tabarena,tabarena_runs}.csv    결과표 원본 (fab sync 가 results/ 로 받음)
 """
@@ -35,7 +36,8 @@ from fab.core.competition import ROOT
 
 LOCAL_CONFIG = ROOT / "databricks.local.yaml"
 JOB_NAME = "fab-reconcile"
-TABLES = ["results.csv", "mlebench.csv", "mlebench_runs.csv", "tabarena.csv", "tabarena_runs.csv"]  # 원격이 원본인 표
+TABLES = ["results.csv", "mlebench.csv", "mlebench_runs.csv", "tabarena.csv", "tabarena_runs.csv",
+          "anomaly.csv", "anomaly_runs.csv"]  # 원격이 원본인 표
 # (mlebench_agents.csv 는 로컬 fab mleb agents, tabarena_reference.csv 는 로컬 fab ta reference)
 KINDS = ["fm", "agent", "grade", "exclude", "recheck", "timing"]  # timing: 채점 시간 재기 (fab ta timing, #20)
 HERE = Path(__file__).parent

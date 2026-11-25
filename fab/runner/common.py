@@ -77,7 +77,12 @@ def cpu_count() -> int:
 
 
 def pip_args(models: list[str], comp: str | None = None) -> list[list[str]]:
-    """모델과 피처 변형(~<variant>, comp 가 있을 때)이 원격에서 더 설치할 pip 인자 목록."""
+    """모델과 피처 변형(~<variant>, comp 가 있을 때)이 원격에서 더 설치할 pip 인자 목록.
+    이상탐지 대회 (설정에 anomaly) 는 그 방법들의 패키지 (pyod · tabpfn-extensions, fab/bench/anomaly/methods.py)."""
+    if comp and load_competition(comp).anomaly:
+        from fab.bench.anomaly.methods import remote_pip
+
+        return remote_pip(models)
     out = []
     for m in models:
         out += [a for a in REMOTE_PIP.get(base_name(m), []) if a not in out]

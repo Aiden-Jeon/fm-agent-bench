@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
-from fab.core.competition import TRANSFORMS, build_features, get_folds, load_competition, load_data
+from fab.core.competition import COMP_DIR, TRANSFORMS, build_features, get_folds, load_competition, load_data
 from fab.core.metrics import EXTRA, normalize_proba, score
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, warn_overwrite, write_test_info
 from fab.models import is_refit, make_model, model_opts, split_features
@@ -257,6 +257,12 @@ def load_target(comp):
 
 
 def main(argv: list[str] | None = None):
+    argv = sys.argv[2:] if argv is None else argv
+    if argv and (COMP_DIR / argv[0] / "config.yaml").exists() and load_competition(argv[0]).anomaly:
+        # 이상탐지 대회 (비지도, fold·타깃 없음): fab databricks 실행기가 부르는 fab run 을 그쪽 실행으로 넘김
+        from fab.bench.anomaly.run import main as anomaly_main
+
+        sys.exit(anomaly_main(argv))
     ap = argparse.ArgumentParser(prog="fab run")
     add_run_args(ap)
     ap.add_argument("--gpus", type=int, default=None, help="동시에 쓸 GPU 수 (기본: 감지된 전부)")

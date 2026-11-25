@@ -77,6 +77,8 @@ AGENT_RUNS = OUTPUTS / "_mlebench" / "agents"  # 회수한 실행: <key>/ (원�
 TABLE = RESULTS / "mlebench_runs.csv"  # 에이전트 실행별 채점 (git 추적)
 # TabArena 에이전트 실행별 채점 (git 추적, 열은 mlebench_runs 와 같고 대회 열만 다름). 위치는 fab.bench.tabarena 에서 정함
 from fab.bench.tabarena import RUNS as TA_TABLE  # noqa: E402
+from fab.bench.anomaly import RUNS as AD_TABLE  # noqa: E402  이상탐지 에이전트 실행 (열은 TabArena 와 같고 aupr · 사후 검사 몇 개를 더함)
+BENCH_TABLES = {"tabarena": TA_TABLE, "anomaly": AD_TABLE}  # 제출 기록의 bench → 표 (없으면 MLE-bench 의 TABLE)
 HERE = Path(__file__).parent
 # 사후 검사: 에이전트가 TFM 을 썼는지, Kaggle 풀이·토론을 봤는지 (기록에서 찾음)
 # 단어 경계: "carte" 가 "Cartesian" 에 걸렸음 (2026-11-09 nomad Codex). Kumo 는 코드에 KumoTabular 로 나옴 → kumo 로 셈
@@ -287,9 +289,14 @@ def ta_target(name: str):
 
 
 def leak_terms(comp) -> list[str]:
-    """에이전트에게 보이면 안 되는 글: 데이터셋 이름 (원래·소문자·구분자 바꾼 것), 대회 이름, OpenML task·dataset id."""
+    """에이전트에게 보이면 안 되는 글: 데이터셋 이름 (원래·소문자·구분자 바꾼 것), 대회 이름, OpenML task·dataset id.
+    이상탐지 대회는 그쪽 목록 (fab/bench/anomaly 의 leak_terms: 데이터셋 · ADBench 이름)."""
     from fab.bench.tabarena import dataset_row
 
+    if comp.anomaly:
+        from fab.bench.anomaly import leak_terms as ad_leak_terms
+
+        return ad_leak_terms(comp)
     ds = comp.tabarena["dataset"].lower()
     words = {ds, ds.replace("_", "-"), ds.replace("-", "_"), ds.replace("_", " "), ds.replace("-", " "), comp.name,
              str(comp.tabarena["task_id"]), str(dataset_row(comp.tabarena["dataset"])["dataset_id"])}
@@ -316,8 +323,10 @@ def leak_check(comp, files: list[Path], texts: dict[str, str]):
         raise SystemExit("에이전트에게 보이는 곳에 데이터셋을 알려 주는 글이 있음 → 제출 안 함:\n  " + "\n  ".join(found))
 
 
-def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm: bool = False, comp=None) -> str:
-    """comp: TabArena 대회 (cid = 익명 id). 데이터는 그 대회의 data/ (public), 대회 이름은 내 Volume 의 제출 기록에만."""
+def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm: bool = False, comp=None,
+           bench: str = "tabarena") -> str:
+    """comp: TabArena · 이상탐지 대회 (cid = 익명 id, bench 가 어느 쪽인지). 데이터는 그 대회의 data/ (public),
+    대회 이름은 내 Volume 의 제출 기록에만."""
     from fab.bench.mlebench import MLEBENCH_DIR
 
     harness, model, alias = CONFIGS[config]
@@ -329,7 +338,7 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
     if comp is not None:  # 올리기 전에 데이터 파일 이름·설명 확인
         leak_check(comp, [comp.data_dir / "description.md"],
                    {"data files": " ".join(p.name for p in comp.data_dir.iterdir()), "cid": cid})
-        if comp.tabarena.get("obfuscate"):  # 알아볼 수 없게 바꾼 대회: 설명·열 머리·값에 원래 이름이 없는지 (docs/tabarena.md)
+        if (comp.tabarena or {}).get("obfuscate"):  # 알아볼 수 없게 바꾼 대회: 설명·열 머리·값에 원래 이름이 없는지 (docs/tabarena.md)
             from fab.bench.tabarena import obf_leaks
 
             if found := obf_leaks(comp):
@@ -381,7 +390,7 @@ def submit(cid: str, config: str, rep: int, hours: float, cont: bool = False, fm
         (Path(d) / "job.json").write_text(json.dumps(job))
         res = dbx(cfg, "jobs", "submit", "--no-wait", "--json", f"@{Path(d) / 'job.json'}", "-o", "json")
     run_id = json.loads(res.stdout[res.stdout.index("{"):])["run_id"]
-    extra = dict(bench="tabarena", comp=comp.name) if comp is not None else {}  # 내 Volume 의 제출 기록에만
+    extra = dict(bench=bench, comp=comp.name) if comp is not None else {}  # 내 Volume 의 제출 기록에만
     submit_item(main_cfg, "agent", key, dict(run, run_id=run_id, config=label, rep=rep, **extra))
     print(f"제출: {key} (run_id {run_id})" + (f" · LLM 경로 Unity Gateway ({run['upstream_model']})" if cfg["gateway"] else "")
           + (f" · trace → {cfg['traces_table']}" if cfg["traces_table"] else "")
@@ -703,8 +712,8 @@ def recover_from_progress(d: Path) -> bool:
 
 
 def run_table(info: dict) -> Path:
-    """실행이 들어갈 표: TabArena 실행 (제출 기록의 bench) 은 tabarena_runs.csv, 나머지는 mlebench_runs.csv."""
-    return TA_TABLE if info.get("bench") == "tabarena" else TABLE
+    """실행이 들어갈 표: 제출 기록의 bench (tabarena · anomaly) 의 표, 나머지는 mlebench_runs.csv."""
+    return BENCH_TABLES.get(info.get("bench"), TABLE)
 
 
 def append_run(row: dict, table: Path = TABLE):
@@ -718,7 +727,7 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
     """회수한 실행 하나의 표 행. report 는 원격 채점 보고서 (submission.csv 가 없으면 None)."""
     d = AGENT_RUNS / key
     meta = json.loads((d / "meta.json").read_text()) if (d / "meta.json").exists() else {}
-    ta = info.get("bench") == "tabarena"
+    ta = info.get("bench") in BENCH_TABLES
     bench = dict(comp=info["comp"], anon_id=info["cid"]) if ta else dict(mlebench=info["cid"])
     row = dict(timestamp=datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds"),
                **bench, config=info["config"], harness=info["harness"], model=info["model"],
@@ -728,32 +737,44 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
                continues=meta.get("continues", 0),
                first_exit_seconds=meta.get("first_exit_seconds", meta.get("harness_seconds")),
                run_crashed=bool(meta.get("run_crashed")))  # 실행기가 중간에 죽어 progress/ 사본으로 채점 (recover_from_progress)
-    keys = ["score", "metric_error", "valid_submission", "error"] if ta else \
+    keys = ["score", "metric_error", "valid_submission", "error", *(["aupr"] if info.get("bench") == "anomaly" else [])] if ta else \
         ["score", "valid_submission", "any_medal", "gold_medal", "above_median", "lb_rank", "lb_teams"]
     if report is not None:
         row.update({k: report.get(k) for k in keys})
     else:
         row.update(score=None, valid_submission=False)
-    p = posthoc(d)
+    p = bench_posthoc(d, info.get("bench"))
     row.update({k: (" ".join(v) if isinstance(v, list) else v) for k, v in p.items()})
     append_run(row, run_table(info))
     return row
 
 
 def recheck_table():
-    """회수해 둔 기록으로 mlebench_runs.csv·tabarena_runs.csv 의 사후 검사 열을 다시 계산 (검사 규칙을 고친 뒤). 원격 정리 작업이 부름."""
-    for table in (TABLE, TA_TABLE):
+    """회수해 둔 기록으로 mlebench_runs.csv·tabarena_runs.csv·anomaly_runs.csv 의 사후 검사 열을 다시 계산 (검사 규칙을 고친 뒤). 원격 정리 작업이 부름."""
+    for table in (TABLE, TA_TABLE, AD_TABLE):
         if table.exists():
             recheck_one(table)
 
 
+def bench_posthoc(d: Path, bench: str | None) -> dict:
+    """공통 사후 검사 + 벤치만의 검사 (이상탐지: ADBench 출처 · 데이터셋 이름 · test 로 fit 한 흔적). grade_run 과 recheck_one 이 같이 씀."""
+    p = posthoc(d)
+    if bench == "anomaly":
+        from fab.bench.anomaly.posthoc import posthoc as ad_posthoc
+
+        p |= ad_posthoc(d)
+    return p
+
+
 def recheck_one(table: Path):
+    bench = next((b for b, tb in BENCH_TABLES.items() if tb == table), None)
     with table_lock(table):
         t = read_table(table)
         # 회수 기록이 있는 행만 (2026-11-10 이전 실행의 기록은 kaggle-master 로컬에 있고 Volume 에 없음 → 그 행은 그대로)
         have = t.index[[(AGENT_RUNS / key).is_dir() for key in t.key]]
         checks = pd.DataFrame([{k: " ".join(v) if isinstance(v, list) else v
-                                for k, v in posthoc(AGENT_RUNS / t.at[i, "key"]).items()} for i in have], index=have)
+                                for k, v in bench_posthoc(AGENT_RUNS / t.at[i, "key"], bench).items()} for i in have],
+                              index=have)
         for c in checks:
             t[c] = t[c].astype(object) if c in t else None
             t.loc[have, c] = checks[c]
@@ -810,12 +831,15 @@ def peek(keys: list[str] | None = None):
 
 def main(argv: list[str], bench: str | None = None):
     """bench=tabarena (fab ta agent): run 의 대상은 TabArena r0f0 대회 이름 (ta-<데이터셋>). 에이전트에게는 설정의 익명 id
-    (anon_id) 만 보임: 원격 실행 이름·Volume 의 데이터 묶음·run.json. 대회 이름은 내 Volume 의 제출 기록에만."""
-    ta = bench == "tabarena"
-    ap = argparse.ArgumentParser(prog="fab ta agent" if ta else "fab mleb agent")
+    (anon_id) 만 보임: 원격 실행 이름·Volume 의 데이터 묶음·run.json. 대회 이름은 내 Volume 의 제출 기록에만.
+    bench=anomaly (fab ad agent): 같은 흐름, 대상은 이상탐지 s1 대회 (ad-<이름>, fab/bench/anomaly)."""
+    ta = bench in BENCH_TABLES
+    prog = {"tabarena": "fab ta agent", "anomaly": "fab ad agent"}.get(bench, "fab mleb agent")
+    ap = argparse.ArgumentParser(prog=prog)
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", help="에이전트 실행 제출")
-    r.add_argument("cid", help="TabArena r0f0 대회 이름 (ta-<데이터셋>)" if ta else "MLE-bench 대회 id")
+    r.add_argument("cid", help={"tabarena": "TabArena r0f0 대회 이름 (ta-<데이터셋>)",
+                               "anomaly": "이상탐지 s1 대회 이름 (ad-<이름>)"}.get(bench, "MLE-bench 대회 id"))
     r.add_argument("configs", nargs="+", choices=list(CONFIGS))
     r.add_argument("--rep", type=int, default=1, help="반복 번호 (같은 설정을 여러 번 돌릴 때 이름 구분)")
     r.add_argument("--hours", type=float, default=1.0)
@@ -837,7 +861,18 @@ def main(argv: list[str], bench: str | None = None):
 
         return lineage.main(argv[1:])
     args = ap.parse_args(argv)
-    if args.cmd == "run" and ta:
+    if args.cmd == "run" and bench == "anomaly":
+        from fab.bench.anomaly import agent_target, ensure_prepared as ad_prepared
+        from fab.bench.anomaly.remote import upload_answers as ad_answers
+
+        check_continue(args.configs, args.cont)
+        check_experiment(settings())
+        comp, anon = agent_target(args.cid)
+        ad_prepared(comp)
+        ad_answers(remote_settings(), [comp.name])  # 채점용 정답 (내 Volume)
+        for c in args.configs:
+            submit(anon, c, args.rep, args.hours, args.cont, args.fm, comp=comp, bench="anomaly")
+    elif args.cmd == "run" and ta:
         from fab.bench.tabarena import ensure_prepared
         from fab.bench.tabarena.remote import upload_answers
 

@@ -6508,3 +6508,468 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-23T22:28:53,ta-diabetes130us,tabicl_kv_refit~f2,auc,,,0,16.9,,c1,databricks,,,,,True,f2,70.0,kv_cache=True
 2026-11-23T22:08:20,ta-diabetes130us,lgbm_refit~f2,auc,,,0,13.6,,c1,databricks-cpu,,,,,True,f2,70.0,default
 2026-11-23T22:13:41,ta-diabetes130us,catboost_refit~f2,auc,,,0,320.6,,c1,databricks-cpu,,,,,True,f2,70.0,default
+2026-11-24T23:10:44,ad-annthyroid,iforest,auroc,,,0,0.7,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:44,ad-annthyroid,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:45,ad-annthyroid,ocsvm,auroc,,,0,1.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:46,ad-annthyroid,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:49,ad-annthyroid,cblof,auroc,,,0,3.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:51,ad-annthyroid,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:51,ad-annthyroid,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:53,ad-annthyroid,copod,auroc,,,0,1.4,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:53,ad-annthyroid,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:53,ad-annthyroid,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:53,ad-annthyroid,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,6.0,default context=clean
+2026-11-24T23:10:57,ads-annthyroid-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:57,ads-annthyroid-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:59,ads-annthyroid-s2,ocsvm,auroc,,,0,1.3,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:10:59,ads-annthyroid-s2,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:02,ads-annthyroid-s2,cblof,auroc,,,0,3.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:04,ads-annthyroid-s2,hbos,auroc,,,0,2.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:04,ads-annthyroid-s2,knn,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:05,ads-annthyroid-s2,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:05,ads-annthyroid-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:05,ads-annthyroid-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:05,ads-annthyroid-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,6.0,default context=clean
+2026-11-24T23:11:10,ads-annthyroid-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:10,ads-annthyroid-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:11,ads-annthyroid-s3,ocsvm,auroc,,,0,1.3,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:11,ads-annthyroid-s3,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:14,ads-annthyroid-s3,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:16,ads-annthyroid-s3,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:16,ads-annthyroid-s3,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:17,ads-annthyroid-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:17,ads-annthyroid-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:17,ads-annthyroid-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:11:17,ads-annthyroid-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,6.0,default context=clean
+2026-11-24T23:11:22,ad-cardio,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:22,ad-cardio,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:22,ad-cardio,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:25,ad-cardio,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:27,ad-cardio,hbos,auroc,,,0,2.3,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:27,ad-cardio,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:28,ad-cardio,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:28,ad-cardio,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:28,ad-cardio,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:28,ad-cardio,iforest+clean,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,21.0,default context=clean
+2026-11-24T23:11:32,ads-cardio-s2,iforest,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:32,ads-cardio-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:33,ads-cardio-s2,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:33,ads-cardio-s2,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:35,ads-cardio-s2,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:38,ads-cardio-s2,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:38,ads-cardio-s2,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:38,ads-cardio-s2,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:38,ads-cardio-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:38,ads-cardio-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:38,ads-cardio-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,21.0,default context=clean
+2026-11-24T23:11:43,ads-cardio-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:43,ads-cardio-s3,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:43,ads-cardio-s3,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:46,ads-cardio-s3,cblof,auroc,,,0,3.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:48,ads-cardio-s3,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:48,ads-cardio-s3,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:49,ads-cardio-s3,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:49,ads-cardio-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:49,ads-cardio-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:11:49,ads-cardio-s3,iforest+clean,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,21.0,default context=clean
+2026-11-24T23:11:54,ad-cover,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:11:54,ad-cover,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:11:56,ad-cover,ocsvm,auroc,,,0,2.6,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:11:57,ad-cover,lof,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:00,ad-cover,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:02,ad-cover,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:02,ad-cover,knn,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:03,ad-cover,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:03,ad-cover,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:03,ad-cover,loda,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:03,ad-cover,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:12:08,ads-cover-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:08,ads-cover-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:10,ads-cover-s2,ocsvm,auroc,,,0,2.4,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:10,ads-cover-s2,lof,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:13,ads-cover-s2,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:15,ads-cover-s2,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:16,ads-cover-s2,knn,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:16,ads-cover-s2,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:16,ads-cover-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:16,ads-cover-s2,loda,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:16,ads-cover-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:12:21,ads-cover-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:21,ads-cover-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:24,ads-cover-s3,ocsvm,auroc,,,0,2.6,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:24,ads-cover-s3,lof,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:27,ads-cover-s3,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:29,ads-cover-s3,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:29,ads-cover-s3,knn,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:30,ads-cover-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:30,ads-cover-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:30,ads-cover-s3,loda,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:12:30,ads-cover-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:12:35,ad-fault,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:35,ad-fault,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:35,ad-fault,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:35,ad-fault,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:38,ad-fault,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:40,ad-fault,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:40,ad-fault,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:40,ad-fault,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:40,ad-fault,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:40,ad-fault,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:41,ad-fault,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,27.0,default context=clean
+2026-11-24T23:12:45,ads-fault-s2,iforest,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:45,ads-fault-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:46,ads-fault-s2,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:46,ads-fault-s2,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:48,ads-fault-s2,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:51,ads-fault-s2,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:51,ads-fault-s2,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:51,ads-fault-s2,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:51,ads-fault-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:51,ads-fault-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:51,ads-fault-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,27.0,default context=clean
+2026-11-24T23:12:56,ads-fault-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:56,ads-fault-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:56,ads-fault-s3,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:56,ads-fault-s3,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:12:59,ads-fault-s3,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:13:01,ads-fault-s3,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:13:01,ads-fault-s3,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:13:02,ads-fault-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:13:02,ads-fault-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:13:02,ads-fault-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,27.0,default
+2026-11-24T23:13:02,ads-fault-s3,iforest+clean,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,27.0,default context=clean
+2026-11-24T23:13:07,ad-landsat,iforest,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:07,ad-landsat,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:08,ad-landsat,ocsvm,auroc,,,0,1.3,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:08,ad-landsat,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:12,ad-landsat,cblof,auroc,,,0,3.2,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:14,ad-landsat,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:14,ad-landsat,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:15,ad-landsat,copod,auroc,,,0,0.7,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:15,ad-landsat,ecod,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:15,ad-landsat,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:15,ad-landsat,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,36.0,default context=clean
+2026-11-24T23:13:20,ads-landsat-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:20,ads-landsat-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:21,ads-landsat-s2,ocsvm,auroc,,,0,1.5,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:21,ads-landsat-s2,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:24,ads-landsat-s2,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:26,ads-landsat-s2,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:26,ads-landsat-s2,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:27,ads-landsat-s2,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:27,ads-landsat-s2,ecod,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:27,ads-landsat-s2,loda,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:27,ads-landsat-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,36.0,default context=clean
+2026-11-24T23:13:32,ads-landsat-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:32,ads-landsat-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:33,ads-landsat-s3,ocsvm,auroc,,,0,1.4,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:34,ads-landsat-s3,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:36,ads-landsat-s3,cblof,auroc,,,0,2.7,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:38,ads-landsat-s3,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:39,ads-landsat-s3,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:39,ads-landsat-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:39,ads-landsat-s3,ecod,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:39,ads-landsat-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,36.0,default
+2026-11-24T23:13:40,ads-landsat-s3,iforest+clean,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,36.0,default context=clean
+2026-11-24T23:13:44,ad-magic-gamma,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:44,ad-magic-gamma,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:47,ad-magic-gamma,ocsvm,auroc,,,0,2.6,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:47,ad-magic-gamma,lof,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:50,ad-magic-gamma,cblof,auroc,,,0,3.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:53,ad-magic-gamma,hbos,auroc,,,0,2.3,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:53,ad-magic-gamma,knn,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:53,ad-magic-gamma,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:53,ad-magic-gamma,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:54,ad-magic-gamma,loda,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:54,ad-magic-gamma,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:13:58,ads-magic-gamma-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:13:58,ads-magic-gamma-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:01,ads-magic-gamma-s2,ocsvm,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:01,ads-magic-gamma-s2,lof,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:04,ads-magic-gamma-s2,cblof,auroc,,,0,3.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:06,ads-magic-gamma-s2,hbos,auroc,,,0,2.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:07,ads-magic-gamma-s2,knn,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:07,ads-magic-gamma-s2,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:07,ads-magic-gamma-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:07,ads-magic-gamma-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:08,ads-magic-gamma-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:14:12,ads-magic-gamma-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:12,ads-magic-gamma-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:15,ads-magic-gamma-s3,ocsvm,auroc,,,0,2.7,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:15,ads-magic-gamma-s3,lof,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:18,ads-magic-gamma-s3,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:20,ads-magic-gamma-s3,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:20,ads-magic-gamma-s3,knn,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:21,ads-magic-gamma-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:21,ads-magic-gamma-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:21,ads-magic-gamma-s3,loda,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:14:21,ads-magic-gamma-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:14:26,ad-mammography,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:26,ad-mammography,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:28,ad-mammography,ocsvm,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:28,ad-mammography,lof,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:31,ad-mammography,cblof,auroc,,,0,3.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:33,ad-mammography,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:33,ad-mammography,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:34,ad-mammography,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:34,ad-mammography,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:34,ad-mammography,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:34,ad-mammography,iforest+clean,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,6.0,default context=clean
+2026-11-24T23:14:39,ads-mammography-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:39,ads-mammography-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:42,ads-mammography-s2,ocsvm,auroc,,,0,2.6,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:42,ads-mammography-s2,lof,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:45,ads-mammography-s2,cblof,auroc,,,0,3.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:47,ads-mammography-s2,hbos,auroc,,,0,2.3,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:47,ads-mammography-s2,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:48,ads-mammography-s2,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:48,ads-mammography-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:48,ads-mammography-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:48,ads-mammography-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,6.0,default context=clean
+2026-11-24T23:14:53,ads-mammography-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:53,ads-mammography-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:55,ads-mammography-s3,ocsvm,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:55,ads-mammography-s3,lof,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:14:58,ads-mammography-s3,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:15:00,ads-mammography-s3,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:15:00,ads-mammography-s3,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:15:01,ads-mammography-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:15:01,ads-mammography-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:15:01,ads-mammography-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,6.0,default
+2026-11-24T23:15:01,ads-mammography-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,6.0,default context=clean
+2026-11-24T23:15:06,ad-pageblocks,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:06,ad-pageblocks,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:07,ad-pageblocks,ocsvm,auroc,,,0,0.7,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:07,ad-pageblocks,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:10,ad-pageblocks,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:12,ad-pageblocks,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:12,ad-pageblocks,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:13,ad-pageblocks,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:13,ad-pageblocks,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:13,ad-pageblocks,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:13,ad-pageblocks,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:15:17,ads-pageblocks-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:17,ads-pageblocks-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:18,ads-pageblocks-s2,ocsvm,auroc,,,0,0.7,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:18,ads-pageblocks-s2,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:21,ads-pageblocks-s2,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:23,ads-pageblocks-s2,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:24,ads-pageblocks-s2,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:24,ads-pageblocks-s2,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:24,ads-pageblocks-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:24,ads-pageblocks-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:24,ads-pageblocks-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:15:29,ads-pageblocks-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:29,ads-pageblocks-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:30,ads-pageblocks-s3,ocsvm,auroc,,,0,0.7,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:30,ads-pageblocks-s3,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:33,ads-pageblocks-s3,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:35,ads-pageblocks-s3,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:35,ads-pageblocks-s3,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:35,ads-pageblocks-s3,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:35,ads-pageblocks-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:35,ads-pageblocks-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,10.0,default
+2026-11-24T23:15:36,ads-pageblocks-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,10.0,default context=clean
+2026-11-24T23:15:40,ad-shuttle,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:40,ad-shuttle,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:43,ad-shuttle,ocsvm,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:43,ad-shuttle,lof,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:46,ad-shuttle,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:48,ad-shuttle,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:48,ad-shuttle,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:49,ad-shuttle,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:49,ad-shuttle,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:49,ad-shuttle,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:49,ad-shuttle,iforest+clean,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,9.0,default context=clean
+2026-11-24T23:15:54,ads-shuttle-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:54,ads-shuttle-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:57,ads-shuttle-s2,ocsvm,auroc,,,0,2.5,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:15:57,ads-shuttle-s2,lof,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:00,ads-shuttle-s2,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:02,ads-shuttle-s2,hbos,auroc,,,0,2.4,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:02,ads-shuttle-s2,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:03,ads-shuttle-s2,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:03,ads-shuttle-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:03,ads-shuttle-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:03,ads-shuttle-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,9.0,default context=clean
+2026-11-24T23:16:08,ads-shuttle-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:08,ads-shuttle-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:10,ads-shuttle-s3,ocsvm,auroc,,,0,2.4,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:10,ads-shuttle-s3,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:13,ads-shuttle-s3,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:16,ads-shuttle-s3,hbos,auroc,,,0,2.3,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:16,ads-shuttle-s3,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:16,ads-shuttle-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:16,ads-shuttle-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:16,ads-shuttle-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,9.0,default
+2026-11-24T23:16:17,ads-shuttle-s3,iforest+clean,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,9.0,default context=clean
+2026-11-24T23:16:21,ad-waveform,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:21,ad-waveform,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:22,ad-waveform,ocsvm,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:22,ad-waveform,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:25,ad-waveform,hbos,auroc,,,0,2.6,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:25,ad-waveform,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:25,ad-waveform,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:25,ad-waveform,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:25,ad-waveform,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:25,ad-waveform,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,21.0,default context=clean
+2026-11-24T23:16:30,ads-waveform-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:30,ads-waveform-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:30,ads-waveform-s2,ocsvm,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:31,ads-waveform-s2,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:34,ads-waveform-s2,cblof,auroc,,,0,3.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:36,ads-waveform-s2,hbos,auroc,,,0,2.4,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:36,ads-waveform-s2,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:37,ads-waveform-s2,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:37,ads-waveform-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:37,ads-waveform-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:37,ads-waveform-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,21.0,default context=clean
+2026-11-24T23:16:42,ads-waveform-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:42,ads-waveform-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:42,ads-waveform-s3,ocsvm,auroc,,,0,0.4,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:42,ads-waveform-s3,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:45,ads-waveform-s3,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:47,ads-waveform-s3,hbos,auroc,,,0,2.3,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:47,ads-waveform-s3,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:48,ads-waveform-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:48,ads-waveform-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:48,ads-waveform-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,21.0,default
+2026-11-24T23:16:48,ads-waveform-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,21.0,default context=clean
+2026-11-24T23:16:53,ad-wilt,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:53,ad-wilt,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:53,ad-wilt,ocsvm,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:53,ad-wilt,lof,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:56,ad-wilt,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:59,ad-wilt,hbos,auroc,,,0,2.3,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:59,ad-wilt,knn,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:59,ad-wilt,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:59,ad-wilt,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:16:59,ad-wilt,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:00,ad-wilt,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,5.0,default context=clean
+2026-11-24T23:17:04,ads-wilt-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:04,ads-wilt-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:05,ads-wilt-s2,ocsvm,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:05,ads-wilt-s2,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:08,ads-wilt-s2,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:10,ads-wilt-s2,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:10,ads-wilt-s2,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:11,ads-wilt-s2,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:11,ads-wilt-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:11,ads-wilt-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:11,ads-wilt-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,5.0,default context=clean
+2026-11-24T23:17:16,ads-wilt-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:16,ads-wilt-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:16,ads-wilt-s3,ocsvm,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:16,ads-wilt-s3,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:19,ads-wilt-s3,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:21,ads-wilt-s3,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:21,ads-wilt-s3,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:22,ads-wilt-s3,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:22,ads-wilt-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:22,ads-wilt-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,5.0,default
+2026-11-24T23:17:22,ads-wilt-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,5.0,default context=clean
+2026-11-24T23:17:27,ad-yeast,iforest,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:27,ad-yeast,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:27,ad-yeast,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:27,ad-yeast,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:30,ad-yeast,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:32,ad-yeast,hbos,auroc,,,0,2.2,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:32,ad-yeast,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:33,ad-yeast,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:33,ad-yeast,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:33,ad-yeast,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:33,ad-yeast,iforest+clean,auroc,,,0,0.2,,ad-base,databricks-cpu,,,,,True,,8.0,default context=clean
+2026-11-24T23:17:38,ads-yeast-s2,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:38,ads-yeast-s2,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:38,ads-yeast-s2,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:38,ads-yeast-s2,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:41,ads-yeast-s2,cblof,auroc,,,0,2.8,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:43,ads-yeast-s2,hbos,auroc,,,0,2.3,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:43,ads-yeast-s2,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:43,ads-yeast-s2,copod,auroc,,,0,0.6,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:44,ads-yeast-s2,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:44,ads-yeast-s2,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:44,ads-yeast-s2,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,8.0,default context=clean
+2026-11-24T23:17:49,ads-yeast-s3,iforest,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:49,ads-yeast-s3,pca,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:49,ads-yeast-s3,ocsvm,auroc,,,0,0.1,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:49,ads-yeast-s3,lof,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:52,ads-yeast-s3,cblof,auroc,,,0,2.9,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:54,ads-yeast-s3,hbos,auroc,,,0,2.1,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:54,ads-yeast-s3,knn,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:54,ads-yeast-s3,copod,auroc,,,0,0.5,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:54,ads-yeast-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:54,ads-yeast-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
+2026-11-24T23:17:55,ads-yeast-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,8.0,default context=clean
+2026-11-25T04:29:12,ad-annthyroid,tabpfn_unsup,auroc,,,0,71.0,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T04:29:45,ad-annthyroid,tabpfn_unsup+clean,auroc,,,0,33.0,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:31:28,ad-cardio,tabpfn_unsup,auroc,,,0,99.3,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T04:33:04,ad-cardio,tabpfn_unsup+clean,auroc,,,0,95.7,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:34:38,ad-cover,tabpfn_unsup,auroc,,,0,90.8,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T04:36:05,ad-cover,tabpfn_unsup+clean,auroc,,,0,87.1,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:38:26,ad-fault,tabpfn_unsup,auroc,,,0,137.9,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2
+2026-11-25T04:40:33,ad-fault,tabpfn_unsup+clean,auroc,,,0,126.1,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:49:48,ad-landsat,tabpfn_unsup,auroc,,,0,551.7,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2
+2026-11-25T04:57:41,ad-landsat,tabpfn_unsup+clean,auroc,,,0,472.9,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:59:14,ad-magic-gamma,tabpfn_unsup,auroc,,,0,89.7,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T05:00:19,ad-magic-gamma,tabpfn_unsup+clean,auroc,,,0,65.0,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:01:10,ad-mammography,tabpfn_unsup,auroc,,,0,47.0,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T05:01:54,ad-mammography,tabpfn_unsup+clean,auroc,,,0,44.3,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:02:55,ad-pageblocks,tabpfn_unsup,auroc,,,0,57.5,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T05:03:47,ad-pageblocks,tabpfn_unsup+clean,auroc,,,0,51.9,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:05:09,ad-shuttle,tabpfn_unsup,auroc,,,0,79.1,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2
+2026-11-25T05:06:22,ad-shuttle,tabpfn_unsup+clean,auroc,,,0,72.4,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:08:32,ad-waveform,tabpfn_unsup,auroc,,,0,126.3,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T05:10:31,ad-waveform,tabpfn_unsup+clean,auroc,,,0,119.2,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:11:00,ad-wilt,tabpfn_unsup,auroc,,,0,25.4,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2
+2026-11-25T05:11:22,ad-wilt,tabpfn_unsup+clean,auroc,,,0,21.9,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:11:58,ad-yeast,tabpfn_unsup,auroc,,,0,33.0,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2
+2026-11-25T05:12:26,ad-yeast,tabpfn_unsup+clean,auroc,,,0,28.5,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:29:40,ads-annthyroid-s2,tabpfn_unsup,auroc,,,0,68.3,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T06:30:13,ads-annthyroid-s2,tabpfn_unsup+clean,auroc,,,0,32.9,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:30:54,ads-annthyroid-s3,tabpfn_unsup,auroc,,,0,37.0,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T06:31:26,ads-annthyroid-s3,tabpfn_unsup+clean,auroc,,,0,32.4,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:33:07,ads-cardio-s2,tabpfn_unsup,auroc,,,0,97.0,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T06:34:38,ads-cardio-s2,tabpfn_unsup+clean,auroc,,,0,90.8,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:36:19,ads-cardio-s3,tabpfn_unsup,auroc,,,0,97.4,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T06:37:51,ads-cardio-s3,tabpfn_unsup+clean,auroc,,,0,92.2,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:39:25,ads-cover-s2,tabpfn_unsup,auroc,,,0,90.4,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T06:40:51,ads-cover-s2,tabpfn_unsup+clean,auroc,,,0,86.2,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:42:25,ads-cover-s3,tabpfn_unsup,auroc,,,0,90.6,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T06:43:52,ads-cover-s3,tabpfn_unsup+clean,auroc,,,0,87.1,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:46:11,ads-fault-s2,tabpfn_unsup,auroc,,,0,135.8,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2
+2026-11-25T06:48:16,ads-fault-s2,tabpfn_unsup+clean,auroc,,,0,125.0,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=clean
+2026-11-25T06:50:35,ads-fault-s3,tabpfn_unsup,auroc,,,0,135.1,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2
+2026-11-25T06:52:40,ads-fault-s3,tabpfn_unsup+clean,auroc,,,0,125.1,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:01:54,ads-landsat-s2,tabpfn_unsup,auroc,,,0,550.3,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2
+2026-11-25T07:09:43,ads-landsat-s2,tabpfn_unsup+clean,auroc,,,0,469.0,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:19:01,ads-landsat-s3,tabpfn_unsup,auroc,,,0,554.6,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2
+2026-11-25T07:26:44,ads-landsat-s3,tabpfn_unsup+clean,auroc,,,0,462.9,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:28:17,ads-magic-gamma-s2,tabpfn_unsup,auroc,,,0,89.4,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T07:29:22,ads-magic-gamma-s2,tabpfn_unsup+clean,auroc,,,0,65.0,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:30:56,ads-magic-gamma-s3,tabpfn_unsup,auroc,,,0,90.3,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T07:32:00,ads-magic-gamma-s3,tabpfn_unsup+clean,auroc,,,0,64.2,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:32:50,ads-mammography-s2,tabpfn_unsup,auroc,,,0,46.4,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T07:33:34,ads-mammography-s2,tabpfn_unsup+clean,auroc,,,0,43.5,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:34:24,ads-mammography-s3,tabpfn_unsup,auroc,,,0,47.2,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T07:35:08,ads-mammography-s3,tabpfn_unsup+clean,auroc,,,0,43.6,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:36:08,ads-pageblocks-s2,tabpfn_unsup,auroc,,,0,56.2,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T07:36:59,ads-pageblocks-s2,tabpfn_unsup+clean,auroc,,,0,51.0,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:37:59,ads-pageblocks-s3,tabpfn_unsup,auroc,,,0,56.3,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T07:38:50,ads-pageblocks-s3,tabpfn_unsup+clean,auroc,,,0,51.2,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:40:12,ads-shuttle-s2,tabpfn_unsup,auroc,,,0,78.5,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2
+2026-11-25T07:41:25,ads-shuttle-s2,tabpfn_unsup+clean,auroc,,,0,73.1,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:42:47,ads-shuttle-s3,tabpfn_unsup,auroc,,,0,78.6,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2
+2026-11-25T07:43:59,ads-shuttle-s3,tabpfn_unsup+clean,auroc,,,0,71.6,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:46:04,ads-waveform-s2,tabpfn_unsup,auroc,,,0,121.8,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T07:48:00,ads-waveform-s2,tabpfn_unsup+clean,auroc,,,0,115.6,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:50:05,ads-waveform-s3,tabpfn_unsup,auroc,,,0,121.2,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T07:52:03,ads-waveform-s3,tabpfn_unsup+clean,auroc,,,0,118.1,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:52:32,ads-wilt-s2,tabpfn_unsup,auroc,,,0,25.4,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2
+2026-11-25T07:52:54,ads-wilt-s2,tabpfn_unsup+clean,auroc,,,0,21.8,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:53:23,ads-wilt-s3,tabpfn_unsup,auroc,,,0,25.4,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2
+2026-11-25T07:53:44,ads-wilt-s3,tabpfn_unsup+clean,auroc,,,0,21.7,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:54:20,ads-yeast-s2,tabpfn_unsup,auroc,,,0,32.1,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2
+2026-11-25T07:54:48,ads-yeast-s2,tabpfn_unsup+clean,auroc,,,0,28.5,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=clean
+2026-11-25T07:55:23,ads-yeast-s3,tabpfn_unsup,auroc,,,0,31.5,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2
+2026-11-25T07:55:51,ads-yeast-s3,tabpfn_unsup+clean,auroc,,,0,27.7,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=clean
