@@ -288,9 +288,45 @@ Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0
 같은 split 의 기존 방법: **KNN 0.7413** · CBLOF 0.6743 · `iforest+clean` 0.6206 · LOF 0.5774 · **IForest 0.5647** · LODA 0.5515 · OCSVM 0.4414 · HBOS 0.4373 · ECOD 0.4322 · PCA 0.4322 · COPOD 0.4137.
 Agent 다섯 모두 IForest 보다 높지만 최고 (Codex) 도 KNN 보다 −0.019.
 
+### FM: TabPFN v2 비지도 (s1, 2026-11-25 13:25 ~ 14:12, H100 1장 47분)
+
+AUROC (s1). 기존 최고 = 기존 10개 중 최고, 순위 = 기존 10개 + `tabpfn_unsup` 11개 중. clean = train 의 정상 행만 context (train 라벨을 씀, Elo 밖). 이상 비율 순.
+
+| 데이터셋 | 이상 % | `tabpfn_unsup` | IForest | 기존 최고 | 순위 | `tabpfn+clean` | `iforest+clean` |
+|---|---|---|---|---|---|---|---|
+| cover | 0.96 | **0.400** | 0.890 | 0.954 (LODA) | 11 | 0.889 | 0.862 |
+| mammography | 2.32 | 0.880 | 0.878 | 0.908 (COPOD) | 5 | 0.897 | 0.893 |
+| Waveform | 2.90 | 0.760 | 0.730 | 0.817 (LOF) | 3 | 0.843 | 0.763 |
+| Wilt | 5.33 | **0.745** | 0.409 | 0.512 (LOF) | 1 | 0.949 | 0.459 |
+| shuttle | 7.15 | 0.979 | 0.998 | 0.998 (IForest) | 9 | 1.000 | 0.997 |
+| annthyroid | 7.42 | **0.883** | 0.818 | 0.818 (IForest) | 1 | 0.949 | 0.928 |
+| PageBlocks | 9.46 | 0.732 | 0.894 | 0.921 (ECOD) | 11 | 0.898 | 0.924 |
+| cardio | 9.61 | **0.531** | 0.932 | 0.959 (LODA) | 10 | 0.860 | 0.954 |
+| landsat | 20.71 | **0.607** | 0.469 | 0.580 (KNN) | 1 | 0.782 | 0.632 |
+| yeast | 34.16 | 0.433 | 0.375 | 0.446 (CBLOF) | 3 | 0.475 | 0.386 |
+| fault | 34.67 | 0.642 | 0.565 | 0.741 (KNN) | 3 | 0.796 | 0.621 |
+| magic.gamma | 35.16 | **0.849** | 0.741 | 0.828 (KNN) | 1 | 0.893 | 0.776 |
+
+읽은 것 (seed 하나, 판단은 약함)
+
+- TabPFN 은 IForest 보다 8 / 12 에서 낫고, 4 개 (Wilt · annthyroid · landsat · magic.gamma) 에서 11개 중 1등. Wilt 는 기존 10개가 모두 0.51 이하인데 0.745
+- 대신 크게 무너지는 곳이 셋: cover 0.400 (0.5 아래), cardio 0.531, PageBlocks 0.732 (각각 11 · 10 · 11 등)
+- **그 셋은 context 의 이상점이 원인**: 정상 행만 context 로 주면 cover 0.400 → 0.889 (+0.49), cardio 0.531 → 0.860 (+0.33), PageBlocks 0.732 → 0.898 (+0.17). 같은 진단에서 IForest 는 −0.03 ~ +0.03. 
+  cover 는 이상이 1% (train 67행) 뿐인데도 가장 크게 다침 → 해치는 것은 오염 "비율" 이 아니라 이상 행끼리 모여 있어 context 안에 비슷한 이웃이 있는지로 보임 (TabPFN 이 context 의 이웃으로 밀도를 매기면 모인 이상점은 서로를 "정상" 으로 만듦. 이 해석은 확인 안 함).
+  이상 비율과 clean 효과의 순위 상관 −0.11, 이상 비율과 `tabpfn − IForest` 의 순위 상관 +0.44 (12개)
+- clean context 의 TabPFN 은 12개 중 11개에서 기존 최고 이상 또는 근처 (Wilt 0.949 · annthyroid 0.949 · shuttle 1.000) → 밀도 모형 자체는 좋고, 비지도 설정의 약점은 오염된 context. TACTIC 의 "불안정" 과 같은 방향
+- Agent 파일럿 두 곳은 TabPFN 에 불리한 데이터: cardio (무너지는 셋 중 하나) 0.531 대 Codex 0.954, fault 0.642 대 Codex 0.722
+
+Elo (IForest = 1000, s1 만 · 이 절의 계산. `fab ad elo` 의 fm 풀은 3 split 이라 TabPFN 의 s2 · s3 이 IForest 값으로 채워짐 → seed 2 · 3 을 돌린 뒤 그것을 씀)
+
+| 풀 | 결과 |
+|---|---|
+| fm (12개 s1, 부트스트랩 200번) | IForest 1000 · **tabpfn_unsup 966 (+207 / −198)** · ECOD 949 · KNN 922 · LODA 922 · CBLOF 914 · COPOD 900 · LOF 873 · PCA 854 · HBOS 811 · OCSVM 788. TabPFN 은 IForest 와 구간이 겹침 (이길 때 크게, 질 때 크게) |
+| agent (cardio · fault s1, 구간 없음) | **Codex 1448** · AIDE × GPT 1117 · LODA 1117 · CBLOF 1089 · KNN · OCSVM 1038 · Claude Code +cont 1012 · IForest 1000 · ECOD 963 · AIDE × Sonnet 938 · Claude Code 913 · COPOD · **tabpfn_unsup 888** · PCA 875 · LOF · HBOS 806 |
+
 - 실행 메모: 13:23 에 다른 체크아웃 (이상탐지 코드 없음) 의 kick 이 이 5개와 B 1회째 채점 요청을 옛 코드로 처리해 시도 1/3 실패 (agent: `mlebench/code.tgz` 없음, grade: `KeyError: 'cid'`). 바로 이 worktree 에서 다시 kick 해 정상 처리. forecast 세션에 kick 전 상대 트랙 대기 항목 확인을 요청함
 - B 1회째 (13:02, run_id 680939975486579) 는 3분 만에 12개 모두 실패: CUDA 에서 TabPFN 회귀의 raw 공간 bar 분포는 float64 (`_place_raw_space_bardist`, MPS 만 float32) 인데 tabpfn-extensions 가 y 를 logits (float32) 에 맞춰 `ignore_init` 의 `y[mask] = borders[0]` 에서 dtype 오류. 로컬 MPS 확인에서는 안 드러남 → `methods.py` 의 `Regressor` 가 full 출력의 logits 를 borders dtype 으로 맞춤. 13:25 다시 냄 (run_id 773094351672969)
-| – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1, v2 가중치) | H100 1장, 어림 1~2.7 시간, 상한 5시간 | 2026-11-25 13:02 제출 (`ad-12datasets-12splits-20261125-130236`, run_id 680939975486579) + 채점 요청 `anomaly__20261125-130244-497071` |
+| 2026-11-25 13:25 | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1, v2 가중치) | H100 1장 | 47분 SUCCESS (실패 0, landsat 이 가장 김 552초). 첫 제출 13:02 (`ad-12datasets-12splits-20261125-130236`, run_id 680939975486579) + 채점 요청 `anomaly__20261125-130244-497071` |
 | – | Agent 파일럿 2: fault (`anomaly-p04`) × 5설정 | | cardio 를 kick · sync 한 뒤 |
 
 ## 결정 (2026-11-25)

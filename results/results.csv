@@ -6901,3 +6901,27 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-24T23:17:54,ads-yeast-s3,ecod,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
 2026-11-24T23:17:54,ads-yeast-s3,loda,auroc,,,0,0.0,,ad-base,databricks-cpu,,,,,True,,8.0,default
 2026-11-24T23:17:55,ads-yeast-s3,iforest+clean,auroc,,,0,0.3,,ad-base,databricks-cpu,,,,,True,,8.0,default context=clean
+2026-11-25T04:29:12,ad-annthyroid,tabpfn_unsup,auroc,,,0,71.0,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T04:29:45,ad-annthyroid,tabpfn_unsup+clean,auroc,,,0,33.0,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:31:28,ad-cardio,tabpfn_unsup,auroc,,,0,99.3,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T04:33:04,ad-cardio,tabpfn_unsup+clean,auroc,,,0,95.7,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:34:38,ad-cover,tabpfn_unsup,auroc,,,0,90.8,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T04:36:05,ad-cover,tabpfn_unsup+clean,auroc,,,0,87.1,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:38:26,ad-fault,tabpfn_unsup,auroc,,,0,137.9,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2
+2026-11-25T04:40:33,ad-fault,tabpfn_unsup+clean,auroc,,,0,126.1,,ad-fm,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:49:48,ad-landsat,tabpfn_unsup,auroc,,,0,551.7,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2
+2026-11-25T04:57:41,ad-landsat,tabpfn_unsup+clean,auroc,,,0,472.9,,ad-fm,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=clean
+2026-11-25T04:59:14,ad-magic-gamma,tabpfn_unsup,auroc,,,0,89.7,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T05:00:19,ad-magic-gamma,tabpfn_unsup+clean,auroc,,,0,65.0,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:01:10,ad-mammography,tabpfn_unsup,auroc,,,0,47.0,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2
+2026-11-25T05:01:54,ad-mammography,tabpfn_unsup+clean,auroc,,,0,44.3,,ad-fm,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:02:55,ad-pageblocks,tabpfn_unsup,auroc,,,0,57.5,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2
+2026-11-25T05:03:47,ad-pageblocks,tabpfn_unsup+clean,auroc,,,0,51.9,,ad-fm,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:05:09,ad-shuttle,tabpfn_unsup,auroc,,,0,79.1,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2
+2026-11-25T05:06:22,ad-shuttle,tabpfn_unsup+clean,auroc,,,0,72.4,,ad-fm,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:08:32,ad-waveform,tabpfn_unsup,auroc,,,0,126.3,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2
+2026-11-25T05:10:31,ad-waveform,tabpfn_unsup+clean,auroc,,,0,119.2,,ad-fm,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:11:00,ad-wilt,tabpfn_unsup,auroc,,,0,25.4,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2
+2026-11-25T05:11:22,ad-wilt,tabpfn_unsup+clean,auroc,,,0,21.9,,ad-fm,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=clean
+2026-11-25T05:11:58,ad-yeast,tabpfn_unsup,auroc,,,0,33.0,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2
+2026-11-25T05:12:26,ad-yeast,tabpfn_unsup+clean,auroc,,,0,28.5,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=clean
