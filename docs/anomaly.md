@@ -254,7 +254,27 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 |---|---|---|---|
 | 2026-11-25 07:59 | A: 기존 10개 + `iforest+clean` (`--note ad-base`) | 12개 × s1~s3 (36), serverless CPU 작업 하나 (`ad-12datasets-36splits-cpu-20261125-075904`) + 채점 요청 `anomaly__20261125-080029-017778` | 08:18 끝. 작업 상태는 FAILED (종료 코드 1) 지만 36개 대회를 끝까지 돌았고 결과는 남음: 실패한 방법이 있는 대회가 있어서. 실패: pyod PCA 가 cardio s1 · s3, fault s2 · s3 에서 점수 NaN (로컬에서는 같은 데이터로 통과 → 플랫폼에 따라 성분 분산 0 으로 나눔), CBLOF 가 waveform s1 에서 "Could not form valid cluster separation" (pyod 기본 n_clusters=8). 빠진 칸은 Elo 에서 IForest 값 (imputed). 작업 실행이 두 번 (task 재시도) 이고 두 번째에 PCA 실패가 fault 둘에 더 나옴 → 정리 작업이 합친 쪽 확인 필요 |
 | 2026-11-25 08:14 | Agent 파일럿 1: cardio (`anomaly-p02`, s1) × 5설정 (aide-sonnet · claude-code-sonnet · aide-gpt · codex-gpt · claude-code-sonnet+cont), 한 번에 (TabArena #26 과 같은 방식). 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 다섯 모두 SUCCESS (AIDE 63분 · Codex 51분 · Claude Code 3분 · +cont 5분) |
-| 2026-11-25 10:16 | 정리 작업 kick (이 worktree, 대기 항목은 모두 이 트랙 것) | fm 1 · agent 5 · grade 1 | 실행 중 |
+| 2026-11-25 10:16 | 정리 작업 kick (이 worktree, 대기 항목은 모두 이 트랙 것) | fm 1 · agent 5 · grade 1 | SUCCESS. `fab sync` → `anomaly.csv` 393행 (36 × 11 − 실패 3: PCA cardio s1 · s3, CBLOF waveform s1. 정리 작업이 합친 것은 첫 번째 task 실행의 출력), `anomaly_runs.csv` 5행 |
+| 2026-11-25 10:32 | Agent 파일럿 2: fault (`anomaly-p04`, s1) × 5설정, 한 번에. 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 제출됨 |
+
+### 기존 방법 맞춤 (원격, 12개 × 3 seed)
+
+`fab ad compare` (우리 seed 평균 − ADBench Table D4, |차| ≤ 0.005 인 데이터셋 수): IForest · KNN · LOF · OCSVM · HBOS · COPOD **12/12**, PCA 8/11
+(cardio 는 seed 1개만 · Wilt +0.198 · yeast −0.020 · mammography +0.009), CBLOF 4/11, ECOD 3/12 (landsat −0.205 · Waveform −0.109), LODA 0/12 (shuttle +0.376 등, 대부분 위로).
+기준점 IForest 가 12개 모두 공개값과 같음 → 분할 · 척도 · 채점이 ADBench 와 같음. 다른 값은 pyod 1.0.0 → 3.6.8 의 구현 차이로 보고 (어디가 바뀌었는지는 확인 못 함) 우리 실행 값을 씀.
+
+### cardio Agent (s1, 1회째)
+
+| 설정 | AUROC | AUPRC | 시간 | 메모 |
+|---|---|---|---|---|
+| Codex × GPT | **0.9538** | 0.6746 | 49분 | pyod 를 스스로 깔았지만 최종은 sklearn IForest 여러 개 · 회전 IForest · OCSVM · 노름 · 꼬리 점수를 train 순위로 맞춰 손으로 정한 가중치로 섞음 (`detector.py`, train 만 fit). 첫 추론 글에서 모양 (1,831 × 21) 으로 "cardiotocography" 로 알아봄, 끝 무렵 "ADBench performance shows IForest is strong" (기억). 원본 받기 · 주소 접근 없음 |
+| AIDE × GPT | 0.9260 | 0.5792 | 60분 (시간 종료) | |
+| Claude Code × Sonnet +cont | 0.8930 | 0.4827 | 29초 | |
+| Claude Code × Sonnet | 0.8782 | 0.4440 | 10초 | |
+| AIDE × Sonnet | 0.7991 | 0.3497 | 60분 (시간 종료) | |
+
+같은 split 의 기존 방법: LODA 0.9591 · `iforest+clean` 0.9541 · OCSVM 0.9517 · ECOD 0.9463 · COPOD 0.9380 · **IForest 0.9324** · CBLOF 0.8880 · HBOS 0.8785 · KNN 0.7815 · LOF 0.6702.
+Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0.005. 나머지 넷은 IForest 보다 낮음. FM (B) 은 아직.
 | – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1) | H100 1장, 어림 1~2.7 시간 | 보류: v3.5 파일 동의 · 업로드 (`fab ad weights`) 를 기다림. secret 은 안 씀 (워크스페이스에 scope 없음) |
 | – | Agent 파일럿 2: fault (`anomaly-p04`) × 5설정 | | cardio 를 kick · sync 한 뒤 |
 
