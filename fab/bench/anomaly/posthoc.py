@@ -17,13 +17,16 @@ AD_SOURCE = re.compile(
     r"github\.com/Minqi824/ADBench|\badbench\b|odds\.cs\.stonybrook\.edu|\bpyod\.utils\.data\b|\bfetch_covtype\b|"
     r"\bfetch_kddcup99\b|\bload_breast_cancer\b|openml\.org|\bfetch_openml\b|archive\.ics\.uci\.edu|\bucimlrepo\b", re.I)
 # 데이터셋마다 이름 · 원래 이름 (단어 경계, 대소문자 무시)
-NAMES = {"annthyroid": [r"ann-?thyroid", r"thyroid"], "cardio": [r"cardiotocograph\w*", r"\bctg\b"],
-         "cover": [r"cover ?type", r"forest cover"], "fault": [r"steel plates?", r"plates? faults?"],
-         "landsat": [r"landsat", r"statlog", r"sat ?image"], "magic.gamma": [r"magic gamma", r"gamma telescope", r"magic telescope"],
-         "mammography": [r"mammograph\w*"], "PageBlocks": [r"page[- ]?blocks?"], "shuttle": [r"\bshuttle\b"],
+NAMES = {"annthyroid": [r"ann-?thyroid", r"thyroid"], "cardio": [r"cardiotocograph\w*", r"\bctg\b", r"\bcardio\b"],
+         "cover": [r"cover ?type", r"\bcovtype\b", r"forest cover"], "fault": [r"steel plates?", r"plates? faults?"],
+         "landsat": [r"landsat", r"statlog", r"sat ?image"],
+         "magic.gamma": [r"magic[ ._-]?gamma", r"gamma telescope", r"magic ?telescope"],
+         "mammography": [r"mammograph\w*"], "PageBlocks": [r"page[ _-]?blocks?"], "shuttle": [r"\bshuttle\b"],
          "Waveform": [r"\bwaveform\b"], "Wilt": [r"\bwilt\b"], "yeast": [r"\byeast\b"]}
 TEST_FIT = re.compile(
-    r"(?:concat|vstack|r_\[|append)\s*\(?\s*\[?\s*\w*train\w*\s*,\s*\w*test\w*|"  # train · test 이어 붙이기
+    # train · test 이어 붙이기: np.concatenate([X_train, X_test]) · np.vstack((…)) · pd.concat([train, test]) · np.r_[…]
+    r"(?:concatenate|concat|[vh]stack|r_)\s*[\[(]*\s*\w*train\w*\s*,\s*\w*test\w*|"
+    r"\w*train\w*\.append\(\s*\w*test\w*|"  # train_df.append(test_df)
     r"\.fit(?:_transform|_predict)?\(\s*\w*test\w*|"  # test 로 fit
     r"\.fit(?:_transform)?\(\s*\w*(?:all|full|combined|both)\w*", re.I)
 

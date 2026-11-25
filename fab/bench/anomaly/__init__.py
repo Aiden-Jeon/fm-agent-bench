@@ -167,19 +167,26 @@ def feature_names(d: int) -> list[str]:
     return [f"f{j}" for j in range(d)]
 
 
+def split_with_ids(dataset: str, seed: int):
+    """ADBench 분할 + 행 id → (X_train, X_test, y_train, y_test, id_train, id_test). id = (ADBench 번호, seed) 고정 seed 의
+    무작위 순열을 train · test 가 나눠 가짐. prepare (파일) 와 init_committed (설명의 예시 id) 가 같이 씀."""
+    X, y = load_npz(dataset)
+    X_train, X_test, y_train, y_test = adbench_split(X, y, seed)
+    num = int(DATASETS[dataset].split("_", 1)[0])
+    ids = np.random.default_rng([num, seed]).permutation(len(y_train) + len(y_test))
+    return X_train, X_test, y_train, y_test, ids[:len(y_train)], ids[len(y_train):]
+
+
 def prepare(comp: Competition):
     """fab download 가 부름: split 의 public → comp.data_dir, 정답 → ANSWERS/<대회>.{csv,json}, train 라벨 → TRAIN_LABELS.
     행 id = (ADBench 번호, seed) 고정 seed 의 무작위 순열을 train · test 가 나눠 가짐 (id 에 정보 없음).
     행 순서는 ADBench 분할이 내놓은 순서 그대로 (train_test_split 이 섞은 무작위 순서라 라벨 정보 없음). TabArena 처럼 id 순으로
     다시 놓으면 IForest 처럼 행 순서로 표본을 뽑는 방법이 ADBench 와 달라짐 (2026-11-25 로컬: cardio IForest 0.9315 대 0.9319)."""
     ad = comp.anomaly
-    X, y = load_npz(ad["dataset"])
-    X_train, X_test, y_train, y_test = adbench_split(X, y, ad["seed"])
-    cols = feature_names(X.shape[1])
-    num = int(DATASETS[ad["dataset"]].split("_", 1)[0])
-    ids = np.random.default_rng([num, ad["seed"]]).permutation(len(y_train) + len(y_test))
-    train = pd.DataFrame(X_train, columns=cols).assign(**{ID_COL: ids[:len(y_train)], LABEL_COL: y_train})
-    test = pd.DataFrame(X_test, columns=cols).assign(**{ID_COL: ids[len(y_train):], LABEL_COL: y_test})
+    X_train, X_test, y_train, y_test, id_train, id_test = split_with_ids(ad["dataset"], ad["seed"])
+    cols = feature_names(X_train.shape[1])
+    train = pd.DataFrame(X_train, columns=cols).assign(**{ID_COL: id_train, LABEL_COL: y_train})
+    test = pd.DataFrame(X_test, columns=cols).assign(**{ID_COL: id_test, LABEL_COL: y_test})
     comp.data_dir.mkdir(parents=True, exist_ok=True)
     train[[ID_COL, *cols]].to_csv(comp.data_dir / "train.csv", index=False)  # 값은 float repr (다시 읽으면 같은 값)
     test[[ID_COL, *cols]].to_csv(comp.data_dir / "test.csv", index=False)
@@ -199,9 +206,10 @@ def prepare(comp: Competition):
 
 
 def ensure_prepared(comp: Competition):
-    """없으면 prepare. 있으면 description.md 만 대회 폴더의 것으로 맞춤."""
-    if not ((comp.data_dir / "train.csv").exists() and (ANSWERS / f"{comp.name}.json").exists()
-            and (TRAIN_LABELS / f"{comp.name}.csv").exists()):
+    """prepare 가 쓰는 파일이 하나라도 없으면 (중간에 멈춘 prepare 등) prepare. 다 있으면 description.md 만 대회 폴더의 것으로 맞춤."""
+    need = [comp.data_dir / f for f in ("train.csv", "test.csv", "sample_submission.csv")] + \
+        [ANSWERS / f"{comp.name}.csv", ANSWERS / f"{comp.name}.json", TRAIN_LABELS / f"{comp.name}.csv"]
+    if not all(p.exists() for p in need):
         return prepare(comp)
     src, dst = comp.dir / "description.md", comp.data_dir / "description.md"
     if src.exists() and (not dst.exists() or dst.read_bytes() != src.read_bytes()):
@@ -283,13 +291,10 @@ def init_committed():
                     f"# competitions/{SPLIT_PREFIX}<이름>-s<k>/ 로 만듦 (git 제외). anon_id = 에이전트에게 보이는 이름 (docs/anomaly.md 6)\n")
             (d / "config.yaml").write_text(head + yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True))
         if not (d / "description.md").exists():
-            X, y = load_npz(ds)
-            X_train, X_test, _, _ = adbench_split(X, y, SPLITS[AGENT_SPLIT])
-            num = int(DATASETS[ds].split("_", 1)[0])
-            ids = np.random.default_rng([num, SPLITS[AGENT_SPLIT]]).permutation(len(X_train) + len(X_test))
-            first = ids[len(X_train):][:2]  # test.csv 의 첫 두 행 (prepare 와 같은 순서)
-            (d / "description.md").write_text(DESCRIPTION.format(d=X.shape[1], last=X.shape[1] - 1, n_train=len(X_train),
-                                                                 n_test=len(X_test), id0=first[0], id1=first[1]))
+            X_train, X_test, _, _, _, id_test = split_with_ids(ds, SPLITS[AGENT_SPLIT])
+            d_ = X_train.shape[1]
+            (d / "description.md").write_text(DESCRIPTION.format(d=d_, last=d_ - 1, n_train=len(X_train), n_test=len(X_test),
+                                                                 id0=id_test[0], id1=id_test[1]))  # test.csv 의 첫 두 행
         print(f"{d.name}: {cfg['anomaly']['anon_id']}")
 
 

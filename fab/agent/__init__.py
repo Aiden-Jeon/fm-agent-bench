@@ -743,11 +743,7 @@ def grade_run(key: str, info: dict, report: dict | None) -> dict:
         row.update({k: report.get(k) for k in keys})
     else:
         row.update(score=None, valid_submission=False)
-    p = posthoc(d)
-    if info.get("bench") == "anomaly":  # 이상탐지만의 사후 검사 (ADBench 출처 · 데이터셋 이름 · test 로 fit 한 흔적)
-        from fab.bench.anomaly.posthoc import posthoc as ad_posthoc
-
-        p |= ad_posthoc(d)
+    p = bench_posthoc(d, info.get("bench"))
     row.update({k: (" ".join(v) if isinstance(v, list) else v) for k, v in p.items()})
     append_run(row, run_table(info))
     return row
@@ -760,13 +756,25 @@ def recheck_table():
             recheck_one(table)
 
 
+def bench_posthoc(d: Path, bench: str | None) -> dict:
+    """공통 사후 검사 + 벤치만의 검사 (이상탐지: ADBench 출처 · 데이터셋 이름 · test 로 fit 한 흔적). grade_run 과 recheck_one 이 같이 씀."""
+    p = posthoc(d)
+    if bench == "anomaly":
+        from fab.bench.anomaly.posthoc import posthoc as ad_posthoc
+
+        p |= ad_posthoc(d)
+    return p
+
+
 def recheck_one(table: Path):
+    bench = next((b for b, tb in BENCH_TABLES.items() if tb == table), None)
     with table_lock(table):
         t = read_table(table)
         # 회수 기록이 있는 행만 (2026-11-10 이전 실행의 기록은 kaggle-master 로컬에 있고 Volume 에 없음 → 그 행은 그대로)
         have = t.index[[(AGENT_RUNS / key).is_dir() for key in t.key]]
         checks = pd.DataFrame([{k: " ".join(v) if isinstance(v, list) else v
-                                for k, v in posthoc(AGENT_RUNS / t.at[i, "key"]).items()} for i in have], index=have)
+                                for k, v in bench_posthoc(AGENT_RUNS / t.at[i, "key"], bench).items()} for i in have],
+                              index=have)
         for c in checks:
             t[c] = t[c].astype(object) if c in t else None
             t.loc[have, c] = checks[c]
