@@ -54,7 +54,8 @@ def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int 
     """long: method · dataset · split · metric_error (+ imputed: 단위마다 채운 비율 0~1). 빈칸은 미리 채워 둘 것 →
     anchor (기준점, 1000 으로 옮기는 방법. TabArena 는 RandomForest, forecast 는 Seasonal Naive) 가 long 에 있어야 함.
     방법마다 elo · elo+ · elo- · imputed (채운 비율) · 데이터셋 수 · 평균 순위·승률 (TabArena 와 같은 단위 가중치).
-    데이터셋이 min_ci 개 미만이거나 rounds <= 0 이면 부트스트랩을 안 하고 elo+·elo- 는 NaN."""
+    데이터셋이 min_ci 개 미만이거나 rounds <= 0 이면 부트스트랩을 안 하고 elo+·elo- 는 NaN.
+    anchor: 1000 으로 고정할 방법 (TabArena 는 RandomForest, 다른 트랙은 그 트랙의 기존 방법. 예: 이상탐지 iforest)."""
     key = ["method", "dataset", "split"]
     if len(dup := long[long.duplicated(key, keep=False)]):
         raise ValueError(f"같은 (method, dataset, split) 행이 여럿: {dup[key].drop_duplicates().head().values.tolist()}")
@@ -84,11 +85,11 @@ def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int 
     else:  # 데이터셋 2개를 복원 추출하면 뽑을 수 있는 묶음이 3가지뿐 → 구간이 수천~수만이라 뜻이 없음
         lo = hi = np.full_like(raw, np.nan)
 
-    a = list(wide.index).index(anchor)
+    anchor_i = list(wide.index).index(anchor)
     rank = wide.rank(axis=0, method="average").to_numpy()
     m = len(wide)
     out = pd.DataFrame(dict(
-        elo=raw - raw[a] + INIT,
+        elo=raw - raw[anchor_i] + INIT,
         **{"elo+": np.clip(hi - raw, 0, None), "elo-": np.clip(raw - lo, 0, None)},
         rank=(rank * weight).sum(1) / weight.sum(),
         winrate=((m - rank) / (m - 1) * weight).sum(1) / weight.sum(),
@@ -99,7 +100,7 @@ def elo(long: pd.DataFrame, rounds: int = ROUNDS, seed: int = SEED, min_ci: int 
 
 
 def fill(long: pd.DataFrame, methods: list[str], anchor: str = ANCHOR) -> pd.DataFrame:
-    """methods 마다 anchor (기본 RandomForest) 가 있는 모든 (데이터셋, split) 을 채움. 없는 곳은 anchor 값, imputed=1.
+    """methods 마다 기준점 (anchor, 기본 RandomForest) 이 있는 모든 (데이터셋, split) 을 채움. 없는 곳은 기준점 값, imputed=1.
     long 에 imputed (0~1, Agent 의 실패 회차 비율) 가 있으면 있는 곳은 그 값 그대로."""
     long = long if "imputed" in long else long.assign(imputed=0.0)
     rf = long[long.method == anchor][["dataset", "split", "metric_error"]]

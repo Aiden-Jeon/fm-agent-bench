@@ -21,6 +21,8 @@
   이 중 표 형식 대회 4개 (spaceship·nomad·tps-may-2022·leaf) 를 씀
 - **TabArena** (`autogluon/tabarena` v0.1, 51개): OpenML 고정 분할로 채점하고 공개된 TFM·GBDT 의 split 별 결과와 비교.
   FM (tabicl·kumo 51개, tabpfn_v2 33개) 은 모든 split, Agent 는 1회 1시간이라 16개 (파일럿 2개 × 2회 + #26 10개 × 1회 + 행 추가 kddcup09 · NATICUSdroid · Bioresponse · Diabetes130US 1회씩) 의 r0f0 × 5설정만 ([docs/tabarena.md](docs/tabarena.md))
+- **이상탐지 · ADBench** (`Minqi824/ADBench`, Classical 47개 중 12개): 회귀 · 분류 밖 문제. 비지도 (라벨 없는 train → test 행마다 이상 점수), AUROC.
+  FM 은 TabPFN 비지도 확장, 기존 이상탐지 방법 (pyod 기본 10개, IForest = Elo 1000) 과 한 풀. FM · 기존 방법은 12개 × seed 3개, Agent 는 3개의 seed 1 × 5설정 ([docs/anomaly.md](docs/anomaly.md))
 - **fev-bench** (`autogluon/fev`, 시계열 예측 100 task 중 단변량 10개): 표 형식 밖 문제에서 tabular FM (TabPFN-TS · TabICL forecaster) 을
   시계열 FM (Chronos-2 · TimesFM-2.5 등) · 통계 방법 · Agent 와 비교. 지표 SQL (분위수) · MASE, Elo 기준점 Seasonal Naive = 1000.
   FM · 기존 방법은 모든 window, Agent 는 마지막 window 하나 ([docs/forecast.md](docs/forecast.md))
@@ -127,6 +129,40 @@ leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. �
   Diabetes130US 를 더해 (15개 → 16개) kumo 1876 → 1899 (Agent 다섯 · GBDT 를 모두 이김), Codex 1721 → 1729, AIDE × Sonnet 1616 → 1633, tabicl 1538 → 1530, 우리 lgbm 1176 → 1158 (Diabetes130US 에서는 RandomForest 기본보다도 나쁜 점수). tabpfn_v2 (ours) 1301 → 1287 로 Claude Code 공식 · 우리 catboost 아래가 된 것 말고 순서는 그대로 (모든 값이 조금씩 바뀜, 같은 풀 정의)
 - 모든 방법·평균 순위·승률은 [docs/tabarena.md 의 "Elo"](docs/tabarena.md#elo-2026-11-16). `uv run --frozen fab ta elo` → `results/tabarena_elo.csv`
 
+### 이상탐지 (ADBench, 비지도)
+
+ADBench Classical 중 규칙으로 고른 12개, ADBench 분할 그대로 (seed 1·2·3, 층화 70/30, 라벨 없는 train 으로 fit → test 행마다 점수). AUROC (↑).
+FM = tabpfn-extensions `TabPFNUnsupervisedModel.outliers()` (TabPFN v2 가중치, 순열 10), 기존 방법 = pyod 기본 10개. 자세히는 [docs/anomaly.md](docs/anomaly.md).
+
+| 데이터셋 (seed 3개 평균) | FM (TabPFN) | IForest (기준점) | 기존 최고 | FM, 정상 행만 context (진단) |
+|---|---|---|---|---|
+| Wilt | **0.730** | 0.419 | 0.507 (LOF) | 0.937 |
+| annthyroid | **0.883** | 0.820 | 0.820 (IForest) | 0.949 |
+| landsat | **0.603** | 0.476 | 0.580 (KNN) | 0.779 |
+| magic.gamma | **0.839** | 0.732 | 0.824 (KNN) | 0.884 |
+| fault | 0.660 | 0.570 | **0.730** (KNN) | 0.805 |
+| mammography | 0.869 | 0.864 | **0.908** (ECOD) | 0.888 |
+| yeast | 0.418 | 0.378 | **0.453** (LOF) | 0.457 |
+| Waveform | 0.701 | 0.715 | **0.750** (COPOD) | 0.772 |
+| shuttle | 0.968 | **0.996** | **0.996** (IForest) | 1.000 |
+| PageBlocks | 0.732 | 0.896 | **0.915** (ECOD) | 0.901 |
+| cardio | 0.522 | 0.932 | **0.954** (PCA) | 0.869 |
+| cover | 0.521 | 0.867 | **0.942** (LODA) | 0.927 |
+
+| Agent (s1) | cardio | fault | Wilt |
+|---|---|---|---|
+| FM (TabPFN, s1) | 0.531 | 0.642 | 0.745 |
+| Agent 최고 (모두 Codex × GPT) | **0.954**¹ | 0.722 | **0.801**¹ |
+| 기존 최고 (s1) | 0.959 (LODA) | **0.741** (KNN) | 0.512 (LOF) |
+
+**읽는 법**
+
+- Elo (IForest = 1000, 12개 × 3 split): IForest 1000 · ECOD 969 · **TabPFN 966** (+200 / −169) · LODA 946 · KNN 939 … OCSVM 824 → FM 은 기존 방법과 같은 수준. 4개에서 1등, 3개 (cover · cardio · PageBlocks) 에서 꼴찌
+- 무너지는 까닭은 train (context) 에 섞인 이상점: 정상 행만 context 로 주면 (train 라벨을 쓰는 진단, Elo 밖) 12개 모두 오르고 8개에서 기존 최고와 같거나 나음. 이상이 1% 뿐인 cover 가 가장 크게 다쳐 (+0.41) 비율보다 이상 행이 모여 있는지가 문제로 보임
+- Agent 풀 Elo (3개, 구간 없음): Codex 1531 · AIDE × GPT 1129 · Claude Code +cont 1110 · AIDE × Sonnet 1041 · TabPFN 1041 · IForest 1000. Agent 는 3개 데이터셋 × 5설정 × 1회 (파일럿 cardio · fault + TabPFN 이 크게 이긴 Wilt)
+- ¹ Codex 가 데이터 모양 (행 · 열 · 이상 비율) 으로 데이터셋을 알아본 실행 (cardio · Wilt, 원본 받기는 없음). 알아보지 못한 fault 에서는 기존 KNN 보다 낮음
+- `uv run --frozen fab ad elo` → `results/anomaly_elo.csv`, 채점 `results/anomaly.csv` · `results/anomaly_runs.csv`, ADBench 공개값 비교 `fab ad compare` (기준점 IForest 는 12개 모두 공개값과 같음)
+
 ### Forecast (fev-bench, 시계열 예측)
 
 10 task (단변량) 의 SQL (분위수 손실, 낮을수록 좋음) Elo, Seasonal Naive = 1000. 전체 표 · 해석은 [docs/forecast.md](docs/forecast.md).
@@ -157,13 +193,14 @@ fab/
   runner/                         # FM 실행: fab databricks 가 제출 (TFM: AI Runtime GPU, GBDT: serverless CPU), 원격에서 fab run
   submission.py                   # test.npy → 제출 파일 (여러 모델이면 평균, 원격 정리 작업 안에서)
   bench/mlebench/                 # MLE-bench 분할 준비 (로컬 mle-bench 가상환경), 채점 재료 업로드·원격 채점 (remote.py), 공개 에이전트 점수
+  bench/anomaly/                  # 이상탐지 (ADBench): 분할 재현·대회 준비, pyod·TabPFN 비지도 원격 실행 (run.py), AUROC 채점, Elo (IForest = 1000)
   bench/forecast/                 # fev-bench 시계열 예측: 마지막 window 대회 (fab fc), fev 식 채점 (metrics.py), 원격 실행기 (run_fev.py)
   agent/                          # 에이전트 실행: 로컬 런처 (__init__.py) + 원격 실행기 (runner.py: LLM 프록시·형식 검사 서버)
                                   #   C2 (--fm): fm_notes.txt (지시문의 TFM 안내), fm_warmup.py (사전 점검), fm_audit.py (TFM import 기록)
   remote/                         # 원격 상태(Volume 의 state/)·정리 작업 (reconcile.py: 결과 합치기·채점, `fab remote kick` 으로 실행)·fab sync
 docker/air/                       # Databricks 실행 이미지 (FM 패키지 미리 설치)
-results/                          # git 추적 결과 표 (성능 대시보드 아래 설명, TabArena 는 tabarena*.csv). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
-docs/                             # mle-bench.md · tabarena.md · forecast.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
+results/                          # git 추적 결과 표 (성능 대시보드 아래 설명, TabArena 는 tabarena*.csv, 이상탐지는 anomaly*.csv, forecast 는 forecast*.csv). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
+docs/                             # mle-bench.md · tabarena.md · anomaly.md · forecast.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
 ```
 
 ## 준비
@@ -284,6 +321,13 @@ uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors code
 uv run --frozen fab mleb agent run nomad2018-predict-transparent-conductors codex-gpt --fm   # C2: TFM 을 깐 환경 (+fm)
 uv run --frozen fab mleb agent peek                    # 실행 중 진행 (LLM 호출·429)
 uv run --frozen fab mleb agent list                    # 처리 상태 (회수·채점은 정리 작업, 결과는 fab sync)
+
+# 이상탐지 (ADBench): FAB_ANOMALY = ADBench 저장소 · 정답 위치 (절대경로, fab/bench/anomaly/__init__.py 위쪽 설명)
+uv run --frozen fab ad prepare all --splits all          # ADBench 분할 → 대회 data/ (public), 정답은 FAB_ANOMALY
+uv run --frozen fab ad fm all --methods iforest ecod knn --splits all        # pyod (serverless CPU) + 채점 요청
+uv run --frozen fab ad fm all --methods tabpfn_unsup tabpfn_unsup+clean --splits all   # TabPFN 비지도 (GPU)
+uv run --frozen fab ad agent run ad-cardio codex-gpt     # 에이전트 (seed 1, 익명 id)
+uv run --frozen fab ad compare && uv run --frozen fab ad elo   # ADBench 공개값 비교, Elo → results/anomaly_elo.csv
 ```
 
 타깃이 둘인 대회(nomad2018)는 타깃마다 대회 하나(`mleb-nomad2018-formation`, `-bandgap`)로 돌리고, `fab mleb grade` 가

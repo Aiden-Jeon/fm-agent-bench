@@ -12,6 +12,7 @@ COMMANDS = {
     "run": ("fab.runner.run", "원격 전용 (fab databricks 가 원격에서 부름)"),
     "mleb": ("fab.bench.mlebench", "MLE-bench 채점 요청·공개 에이전트 점수, fab mleb agent: 에이전트 실행"),
     "ta": ("fab.bench.tabarena", "TabArena-v0.1: split 대회 준비·FM 제출·채점 요청·TabArena 결과 비교, fab ta agent: 에이전트 실행"),
+    "ad": ("fab.bench.anomaly", "표 이상탐지 (ADBench, 비지도): 대회 준비·기존 방법·FM 제출·채점 요청·Elo (IForest = 1000), fab ad agent: 에이전트"),
     "fc": ("fab.bench.forecast", "fev-bench 시계열 예측: 대회 준비·채점 확인·공개 결과·Elo, fab fc agent: 에이전트 실행"),
     "remote": ("fab.remote", "원격 정리 작업: deploy (만들기·갱신) / status / kick"),
     "sync": ("fab.remote.sync", "원격 결과표 → results/*.csv (예측은 --pull 로 골라서)"),

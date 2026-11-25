@@ -22,6 +22,7 @@ from fab.remote import TABLES, dbx, list_names, settings
 # 표마다 행을 구분하는 열 (실행 시각 + 대상). 원격 표는 pandas 로 다시 쓰여 숫자 표기가 바뀔 수 있어 전체 행 비교는 안 함
 ROW_KEYS = {"results.csv": ["timestamp", "comp", "model"], "mlebench.csv": ["timestamp", "mlebench", "model"],
             "mlebench_runs.csv": ["key"], "tabarena.csv": ["timestamp", "comp", "model"], "tabarena_runs.csv": ["key"],
+            "anomaly.csv": ["timestamp", "comp", "model"], "anomaly_runs.csv": ["key"],
             "forecast.csv": ["timestamp", "task", "method", "window"], "forecast_runs.csv": ["key"]}
 
 

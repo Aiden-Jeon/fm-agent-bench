@@ -3,6 +3,8 @@ __pycache__/
 competitions/*/data
 # TabArena 생성 split 대회 (fab/bench/tabarena 의 split_comp)
 competitions/tas-*/
+# 이상탐지 생성 split 대회 (fab/bench/anomaly 의 split_comp)
+competitions/ads-*/
 results/*/
 !results/results.csv
 competitions/*/folds.csv
