@@ -4,7 +4,7 @@ tabular FM 을 시계열 예측에 쓰는 공개 구현 (TabPFN-TS, TabICL forec
 (기존 5설정 × 1시간) · 기존 예측 방법과 비교해 Elo 로 답한다. 배경은 minipfn issue #117 (tabular FM 을 회귀·분류 밖 문제에 쓰는
 방법 목록). 여기서 하는 것은 minipfn 구현이 아니라 공개된 tabular FM 의 검증이고 minipfn 코드·가중치는 쓰지 않는다.
 
-- **상태: 설계 확정 (2026-11-25, 사용자).** 아래 "결정" 1~9. 구현 · 원격 실행 · Agent 는 그다음 (원격은 실행 전마다 확인)
+- **상태 (2026-11-25):** 설계 확정 (결정 1~9) → 구현 · 원격 시험 · FM 본실행 (10 task × 7 방법) · Agent 파일럿 (redset_1H × 5설정) 끝. 나머지 Agent 는 사용자가 정함
 - 조사일 2026-11-25. fev 저장소는 `autogluon/fev` 의 `ecce671` (2026-11-23 커밋), 패키지 `fev` 0.10.0, 데이터 `autogluon/fev_datasets` 의 `d3e7e72` (HF, 2026-10-21 수정)
 - TabArena 트랙 ([tabarena.md](tabarena.md)) 의 순서·규칙을 그대로 따름. 다른 점만 적음
 - 확인 못 한 것은 "확인 못 함" 으로 적음. 추측으로 채우지 않음
@@ -307,6 +307,30 @@ Elo (SQL, 10 task, Seasonal Naive = 1000, 부트스트랩 200번)
 
 - FM 풀에는 공개 결과에 없는 우리 방법 (TabICL-TS) 만 더함. 재현한 같은 방법을 같이 넣으면 거의 같은 값끼리 부동소수 차로 승패가 갈려 숫자가 흔들림 (같은 값인 Seasonal Naive (ours) 가 1023) → 재현은 위 맞춤 확인에만
 - 읽은 것 (Agent 전, 판단은 약함): tabular FM 둘은 통계 방법보다 확실히 낫지만 시계열 FM (Chronos-2 · TimesFM-2.5) 보다 아래. TabPFN-TS 는 redset_1H 에서 1등, TabICL-TS 는 1등이 없음. 공개 결과에서 TabPFN-TS 가 앞섰던 solar_with_weather_1H 는 마지막 window 에서는 Chronos-2 가 앞섬 (task 평균과 마지막 window 는 다를 수 있음). TabICL-TS 는 rohlik (공변량 13 · 시리즈 7) 에서 Seasonal Naive 와 같은 수준
+
+### Agent 파일럿: redset_1H (`forecast-p01`, 마지막 window, 1회, 2026-11-25 15:27 ~ 18:35 KST)
+
+5설정 × 1회 (A10 1장 · 1시간). LLM 줄마다 하나씩 차례로 (Sonnet 줄: aide-sonnet → claude-code-sonnet → +cont, GPT 줄: codex-gpt → aide-gpt). 실패 없음, 다섯 모두 유효 제출.
+
+| 순위 | 방법 | SQL | SN 대비 | MASE | 비고 |
+|---|---|---|---|---|---|
+| 1 | **Agent: Codex × GPT** | **2.0244** | 0.729 | 2.128 | Chronos · TimesFM 을 스스로 설치 (`pip_target`), 최종 = 로컬 모델 + Chronos (미세조정 포함) + TimesFM 의 horizon 별 가중 앙상블 (계보: `ensemble_horizon_cov_final.py`) |
+| 2 | TabPFN-TS (v2) | 2.1232 | 0.764 | 2.244 | FM 최고 |
+| 3 | Agent: Claude Code × Sonnet +cont | 2.1382 | 0.770 | 2.273 | 이어 가기 8번, 하네스 599초 |
+| 4 | Chronos-2 | 2.1424 | 0.771 | 2.286 | |
+| 5 | TimesFM-2.5 | 2.1717 | 0.782 | 2.283 | |
+| 6 | Agent: AIDE × Sonnet | 2.1733 | 0.782 | 2.319 | 1시간 다 씀 |
+| 7 | Agent: AIDE × GPT | 2.1829 | 0.786 | 2.336 | 1시간 다 씀 |
+| 8 | TabICL-TS | 2.2684 | 0.817 | 2.837 | |
+| 9 | Agent: Claude Code × Sonnet | 2.4086 | 0.867 | 2.477 | 하네스가 25초 만에 스스로 끝냄 (공식 설정) |
+| 10 | Seasonal Naive | 2.7783 | 1.000 | 2.580 | |
+| 11 | AutoETS | 2.8004 | 1.008 | 2.780 | |
+| 12 | Chronos-Bolt | 3.1662 | 1.140 | 3.588 | |
+
+- Agent 풀 Elo 는 안 냄: task 가 하나라 Bradley-Terry 가 위 순위를 옮겨 적은 것뿐 (`fab fc elo` 는 Agent 를 돌린 task 가 2개 이상일 때만 agent 풀을 만듦)
+- 사후 검사: 원본 데이터 주소 (`data_source_urls`) · Kaggle 주소 0, 429 재시도 0. 회수 기록 전체 (코드 · 하네스 기록) 에 `redset` · `redshift` 가 한 번도 없음 → 알아본 흔적 없음 (설명의 "cloud data warehouse" · static 값 `provisioned` · `serverless` 는 줬음). TFM 은 Codex 만 (chronos · timesfm, 실행 중 import 도 잡힘), 나머지 넷은 없음
+- 읽은 것 (1 task · 1회, 판단은 약함): tabular FM 최고 (TabPFN-TS) 는 Agent 넷보다 낫고 시계열 FM 둘보다도 조금 나음. Agent 1등 (Codex) 은 tabular FM 이 아니라 **시계열 FM 을 스스로 깔아 앙상블**한 것 → "Agent 가 이겼다" 보다 "Agent 가 FM 을 찾아 썼다" 에 가까움 (TabArena C2 와 같은 질문이 공식 설정에서 나옴). 시계열 FM 없이 푼 Agent 셋 (Claude Code +cont · AIDE 둘) 은 TabPFN-TS 와 Chronos-2 사이 ~ TimesFM 근처
+- 남은 것: solar_with_weather_1H (파일럿 2번째) 와 나머지 8 task 의 Agent 는 이 결과를 보고 사용자가 정함. C1 · C2 도 그 뒤
 
 ## 결정 (2026-11-25)
 

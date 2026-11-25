@@ -127,6 +127,24 @@ leaf·tps 에서는 같은 피처를 넣은 GBDT 가 FM 보다 더 좋아짐. �
   Diabetes130US 를 더해 (15개 → 16개) kumo 1876 → 1899 (Agent 다섯 · GBDT 를 모두 이김), Codex 1721 → 1729, AIDE × Sonnet 1616 → 1633, tabicl 1538 → 1530, 우리 lgbm 1176 → 1158 (Diabetes130US 에서는 RandomForest 기본보다도 나쁜 점수). tabpfn_v2 (ours) 1301 → 1287 로 Claude Code 공식 · 우리 catboost 아래가 된 것 말고 순서는 그대로 (모든 값이 조금씩 바뀜, 같은 풀 정의)
 - 모든 방법·평균 순위·승률은 [docs/tabarena.md 의 "Elo"](docs/tabarena.md#elo-2026-11-16). `uv run --frozen fab ta elo` → `results/tabarena_elo.csv`
 
+### Forecast (fev-bench, 시계열 예측)
+
+10 task (단변량) 의 SQL (분위수 손실, 낮을수록 좋음) Elo, Seasonal Naive = 1000. 전체 표 · 해석은 [docs/forecast.md](docs/forecast.md).
+
+| 방식 | 방법 | Elo (마지막 window, 10 task) | Elo (task 평균, 공개 결과와 한 풀) |
+|---|---|---|---|
+| 시계열 FM (기존 방법) | Chronos-2 | **1698** | **1812** |
+| 시계열 FM (기존 방법) | TimesFM-2.5 | 1567 | 1690 |
+| FM (tabular) | TabPFN-TS (v2) | 1402 | 1574 |
+| 시계열 FM (기존 방법) | Chronos-Bolt | 1307 | 1442 |
+| FM (tabular) | TabICL-TS | 1266 | 1431 |
+| 통계 (기존 방법) | AutoETS | 1122 | 1210 |
+| 통계 (기준점) | Seasonal Naive | 1000 | 1000 |
+
+- task 평균 풀에는 공개 결과의 TabPFN-TS-3 1715 · AutoARIMA 1315 도 있음. 우리 실행은 공개 결과와 60칸 모두 0.24% 안
+- Agent 는 파일럿 1 task (redset_1H, 마지막 window, 5설정 × 1회) 만: Codex × GPT 가 1등 (SQL 2.024) 이지만 Chronos · TimesFM 을 스스로 깔아 앙상블한 것. FM 최고 TabPFN-TS 2.123, 나머지 Agent 넷은 2.138 ~ 2.409. task 하나라 Agent Elo 는 안 냄
+- 읽는 법: tabular FM 둘은 통계 방법보다 확실히 낫지만 시계열 FM (Chronos-2 · TimesFM-2.5) 보다 아래. TabPFN-TS 가 1등인 task 는 redset_1H 하나
+
 ## 구조
 
 ```

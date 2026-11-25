@@ -485,9 +485,18 @@ def reference() -> pd.DataFrame:
     return ref
 
 
+def latest_grades() -> pd.DataFrame:
+    """results/forecast.csv 에서 (방법, task, window, scorer) 마다 마지막 행 (시험 실행 뒤 본실행이 같은 칸을 다시 씀)."""
+    g = pd.read_csv(GRADES)
+    return g.sort_values("timestamp", kind="stable").drop_duplicates(["method", "task", "window", "scorer"], keep="last")
+
+
 def elo_tables(rounds: int) -> pd.DataFrame:
-    """FM 풀 (task 평균: 공개 결과 + 우리 실행) · Agent 풀 (마지막 window: 우리 실행 + Agent) × 지표 (SQL · MASE).
-    Agent 풀은 우리 실행 · Agent 결과가 있어야 함 (없으면 FM 풀만)."""
+    """풀 셋 × 지표 (SQL · MASE), Seasonal Naive = 1000:
+    fm    task 평균 (window 모두): 공개 결과 + 공개 결과에 없는 우리 방법
+    last  마지막 window (10 task): 우리 실행의 기존 방법 · FM
+    agent 마지막 window, Agent 를 돌린 task 만 (TabArena 의 Agent 풀처럼): last + Agent 5설정. task 가 2개 미만이면 안 만듦
+          (task 하나의 Bradley-Terry 는 그 task 의 순위를 옮겨 적은 것뿐)"""
     from fab.bench.tabarena import elo
 
     ref = pd.read_csv(REFERENCE)
@@ -496,7 +505,7 @@ def elo_tables(rounds: int) -> pd.DataFrame:
         pools = {"fm": ref[["method", "task_name", metric]].rename(columns={"task_name": "dataset", metric: "metric_error"})
                  .assign(split="all")}
         if GRADES.exists():
-            g = pd.read_csv(GRADES)
+            g = latest_grades()
             # FM 풀에는 공개 결과에 없는 우리 방법만 (TabICL-TS). 재현한 방법 (같은 이름) 을 같이 넣으면 거의 같은 값끼리
             # 부동소수 차로 승패가 갈려 숫자가 흔들림 (Seasonal Naive 가 같은 값인데 1023) → 재현은 맞춤 확인 (compare) 에만
             ours = g[(g.window == "all") & ~g.method.isin(set(ref.method))][["method", "task", metric]].rename(
@@ -504,8 +513,12 @@ def elo_tables(rounds: int) -> pd.DataFrame:
             pools["fm"] = pd.concat([pools["fm"], ours.assign(method=ours.method + " (ours)", split="all")])
             last = g[g.is_last.eq(True)][["method", "task", "window", metric]].rename(
                 columns={"task": "dataset", "window": "split", metric: "metric_error"})
+            pools["last"] = last
             agent = agent_long(metric)
-            pools["agent"] = pd.concat([last, agent]) if len(agent) else last
+            if agent.dataset.nunique() >= 2:
+                pools["agent"] = pd.concat([last[last.dataset.isin(set(agent.dataset))], agent])
+            elif len(agent):
+                print(f"주의: Agent 를 돌린 task {agent.dataset.nunique()}개 (< 2) → agent 풀은 안 만듦 (task 별 표는 docs/forecast.md)")
         for pool, long in pools.items():
             long = long[long.dataset.isin(tasks())]
             filled = elo.fill(long, list(dict.fromkeys(long.method)), anchor=ANCHOR)
@@ -534,7 +547,7 @@ def agent_long(metric: str) -> pd.DataFrame:
     r = r[r.comp.isin(of)].copy()
     r["dataset"], r["split"] = r.comp.map(lambda c: of[c][0]), r.comp.map(lambda c: of[c][1])
     r["failed"] = ~r.valid_submission.eq(True) | r[metric].isna()
-    g = pd.read_csv(GRADES)
+    g = latest_grades()
     sn = g[(g.method == ANCHOR) & g.is_last.eq(True)].set_index("task")[metric]
     r["metric_error"] = r[metric].where(~r.failed, r.dataset.map(sn))
     r["method"] = "agent: " + r.config
