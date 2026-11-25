@@ -32,6 +32,19 @@ ANCHOR = "iforest"  # Elo 기준점 = 1000 (docs/anomaly.md 결정 7)
 FM = {"tabpfn_unsup": dict(version="v3.5", n_permutations=10)}
 PYOD_PIP = [["pyod==3.6.8"]]  # 로컬 재현 확인 (docs/anomaly.md 2) 과 같은 버전
 FM_PIP = [["tabpfn==9.2.0"], ["tabpfn-extensions==0.6.3"]]  # tabpfn 은 FM 실행 이미지 (docker/air) 와 같은 버전
+# v3.5 체크포인트 (분류 · 회귀 한 파일, tabpfn 9.2.0 의 ModelSource.get_v3_5 기본). 로컬에서 브라우저로 동의하고 받은 것을
+# Volume 의 weights/tabpfn/ 에 올려 둠 (fab ad weights, forecast 트랙의 fab fc weights 와 같은 자리) → 원격은 파일로 읽어 동의 불필요
+V35_FILE = "tabpfn-v3.5-20260909.safetensors"
+WEIGHTS_REL = "weights/tabpfn"  # Volume 안. 원격 실행기는 FAB_WEIGHTS = <volume>/weights 를 넘김
+
+
+def checkpoint(version: str) -> str | None:
+    """원격에서 쓸 체크포인트 파일 (FAB_WEIGHTS/tabpfn/<파일>) 이 있으면 그 경로. 없으면 None (토큰으로 받기, run.py)."""
+    w = os.environ.get("FAB_WEIGHTS")
+    if version != "v3.5" or not w:
+        return None
+    p = os.path.join(w, "tabpfn", V35_FILE)
+    return p if os.path.exists(p) else None
 
 
 def base(name: str) -> str:
@@ -89,8 +102,9 @@ def pyod_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int) -
 
 
 def tabpfn_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int) -> np.ndarray:
-    """−log 밀도 (tabpfn-extensions 의 outliers 는 낮을수록 이상 → 부호를 뒤집음). 가중치는 FM[...]['version']
-    (v3.5 는 받을 때 라이선스 동의가 필요 → run.py 가 TABPFN_TOKEN 을 원격 secret 에서 넣음)."""
+    """−log 밀도 (tabpfn-extensions 의 outliers 는 낮을수록 이상 → 부호를 뒤집음). 가중치는 FM[...]['version'].
+    v3.5 는 받을 때 라이선스 동의가 필요 → Volume 에 받아 둔 파일 (checkpoint) 을 쓰고, 없으면 run.py 가 TABPFN_TOKEN 을
+    원격 secret 에서 넣어 패키지가 받게 함."""
     os.environ.setdefault("TABPFN_NO_BROWSER", "1")  # 동의가 안 돼 있으면 브라우저를 기다리지 말고 바로 실패
     import torch
     from tabpfn import TabPFNClassifier, TabPFNRegressor
@@ -99,9 +113,10 @@ def tabpfn_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int)
 
     cfg = FM[base(name)]
     version = ModelVersion(cfg["version"])
+    over = dict(model_path=ckpt) if (ckpt := checkpoint(cfg["version"])) else {}  # 받아 둔 파일 → 동의 확인 없이 읽음
     set_seed(seed)
-    model = TabPFNUnsupervisedModel(tabpfn_clf=TabPFNClassifier.create_default_for_version(version),
-                                    tabpfn_reg=TabPFNRegressor.create_default_for_version(version))
+    model = TabPFNUnsupervisedModel(tabpfn_clf=TabPFNClassifier.create_default_for_version(version, **over),
+                                    tabpfn_reg=TabPFNRegressor.create_default_for_version(version, **over))
     model.fit(torch.tensor(X_train, dtype=torch.float32))
     set_seed(seed)  # 순열 (python random) 을 seed 로
     log_density = model.outliers(torch.tensor(X_test, dtype=torch.float32), n_permutations=cfg["n_permutations"])

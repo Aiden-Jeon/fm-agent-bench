@@ -5,7 +5,7 @@
 배경은 minipfn issue #117 (tabular FM 을 회귀·분류 밖 문제에 쓰는 방법과 벤치 목록). 여기서 하는 것은 minipfn 구현이 아니라
 **공개된 tabular FM 이 이 문제에서 먹히는지를 이 저장소의 FM 대 Agent 틀로 검증**하는 것 (minipfn 코드·가중치는 안 씀).
 
-- 2026-11-25 설계 초안 (사용자 확인 전). 순서·규칙은 TabArena 트랙 ([tabarena.md](tabarena.md), P4) 을 따름
+- 2026-11-25 설계 (사용자 확인: 결정 표), 같은 날 연동 구현 · 로컬 확인 ("로컬 확인"), 원격 실행 ("실행 기록"). 순서·규칙은 TabArena 트랙 ([tabarena.md](tabarena.md), P4) 을 따름
 - 확인 못 한 것은 "확인 못 함" 으로 적음. 추측으로 채우지 않음
 - 계획·단계: [plans/roadmap.md](plans/roadmap.md)
 
@@ -22,6 +22,8 @@
 - [7. 오염과 사후 검사](#7-오염과-사후-검사)
 - [8. 연동 설계](#8-연동-설계)
 - [9. 비용 어림](#9-비용-어림)
+- [로컬 확인 (2026-11-25)](#로컬-확인-2026-11-25)
+- [실행 기록](#실행-기록)
 - [결정 (2026-11-25)](#결정-2026-11-25)
 - [확인 못 한 것](#확인-못-한-것)
 
@@ -34,8 +36,8 @@
 | 지표 | AUROC (주), AUPRC (보조). Elo 오차 = 1 − AUROC |
 | 기준점 | **IsolationForest (pyod 기본) = 1000** (3). 같은 풀: pyod 기본 설정 10개 (CPU, 우리가 돌림) |
 | 맞춤 확인 | 우리 분할 + pyod 로 ADBench 논문 Table D4 의 IForest·KNN AUROC 가 12개 × 3 seed 평균에서 **소수 둘째 자리까지 같음** (2, 로컬) |
-| FM | `TabPFNUnsupervisedModel.outliers(n_permutations=10)` 기본, 점수 = −log 밀도. 가중치는 결정 2 (TabPFN v2 추천) (4) |
-| Agent | 기존 5설정 × 1시간 · A10, 라벨 없는 train · test + 설명 → `id,score`. 파일럿 2개 (`s1`) (6) |
+| FM | `TabPFNUnsupervisedModel.outliers(n_permutations=10)` 기본, 점수 = −log 밀도. 가중치는 패키지 기본 TabPFN v3.5 (비상업 라이선스, 결정 2) (4) |
+| Agent | 기존 5설정 × 1시간 · A10, 라벨 없는 train · test + 설명 → `id,score`. train 으로만 fit (결정 4). 파일럿 cardio · fault (`s1`) (6) |
 | 격리 | 정답 (test 라벨) 은 로컬 캐시와 채점용 내 Volume 에만. 데이터셋 이름·출처는 안 알림 (익명 id `anomaly-p01`…). 공개 데이터라 알아본 흔적은 사후 검사 (7) |
 | 범위 밖 | C1·C2 (Agent 결과를 보고 정함), 결측값·생성·밀도, kumo·tabicl 로 chain rule 래퍼 새로 만들기 (후속) |
 
@@ -141,15 +143,16 @@ pyod 기본 설정 (인자 없이), CPU. ADBench 의 비지도 14개 중:
 | context | `fit(X_train)` 의 행 전부 (라벨 없음 → **이상점이 섞인 context**) | train 전부 (≤ 7,000 행, TabPFN v2 의 1만 행 한도 안) |
 | 범주 열 | `infer_categorical_features`: 값 40개 이하 · 값마다 평균 10행 넘는 열 → classifier. 그 열의 값은 `astype(int)` 로 클래스 번호가 됨 | 그대로. 주의: 입력이 MinMax 된 [0, 1] 이라 값이 셋 이상인 범주 열은 `astype(int)` 에서 0 과 1 로 뭉개짐 (cardio 3열 · fault 2열 · yeast 1열). 기본 동작의 한계로 적고 고치지 않음 |
 | seed | 순열은 전역 `random` | split seed 로 `random`·numpy·torch 를 놓음. TabPFN 의 `random_state` 는 기본 |
-| 가중치 | 패키지 기본 = 최신 (tabpfn 9.2.0 은 v3.5, 비상업 · 받을 때 동의) | **결정 2**: v2 추천 (`create_default_for_version(ModelVersion.V2)`, 동의 없이 받음, 우리 `tabpfn_v2` 와 같은 가중치). v3.5 는 원격에서 토큰이 필요 (토큰을 원격에 안 보내는 규칙과 부딪힘) |
-| 원격 | | GPU (H100 1장), 실행마다 `pip install tabpfn-extensions==0.6.3` (이미지에 tabpfn 9.2.0 있음), 원격 telemetry 끔 (`tabpfn_common_utils` 의 설정, 구현 때 확인) |
+| 가중치 | 패키지 기본 = 최신 (tabpfn 9.2.0 은 v3.5, 비상업 · 받을 때 동의) | **패키지 기본 v3.5** (결정 2, 사용자): `create_default_for_version(ModelVersion.V3_5)` 를 분류 · 회귀 둘 다. v3.5 는 분류 · 회귀 head 가 한 파일 (`tabpfn-v3.5-20260909.safetensors`). TABPFN-3.5 Non-Commercial License → 이 벤치 (연구 · 내부 벤치마크) 에만 씀 |
+| 동의 · 받기 | 동의는 브라우저 또는 `TABPFN_TOKEN` (`browser_auth.ensure_license_accepted`) | **로컬에서 브라우저로 한 번 동의하고 받은 파일을 내 Volume 의 `weights/tabpfn/` 에** (`fab ad weights`, forecast 트랙의 `fab fc weights` 와 같은 자리 · 같은 파일). 원격 GPU 작업은 실행기가 넘기는 `FAB_WEIGHTS` 아래 그 파일을 `model_path` 로 읽음 → 동의 확인 · 토큰 없음 (2026-11-25 사용자 결정). 대안: 파일이 없으면 Databricks secret (`tabpfn_token_secret`) 의 토큰을 원격 작업이 읽어 `TABPFN_TOKEN` 으로 (값은 로컬 · 출력 · 결과에 안 남고, 끝에 `~/.cache/tabpfn/auth_token` 을 지움). `TABPFN_NO_BROWSER=1` 로 동의가 안 돼 있으면 바로 실패 |
+| 원격 | | GPU (H100 1장), 실행마다 `pip install tabpfn-extensions==0.6.3` (이미지에 tabpfn 9.2.0 있음), telemetry 끔 (`TABPFN_DISABLE_TELEMETRY=1`, `tabpfn_common_utils` 의 `telemetry_enabled`) |
 
-이름: `tabpfn_unsup` (v2, 순열 10). 결과표의 `opts` 에 가중치 버전 · 순열 수를 남김.
+이름: `tabpfn_unsup` (v3.5, 순열 10). 결과표의 `opts` 에 가중치 버전 · 순열 수를 남김 (`n_permutations=10 version=v3.5`).
 
 학습 context 오염의 영향 (질문의 일부). TACTIC 은 "불안정" 까지만 원문 확인 → 결과에서 직접 봄:
 
 1. 데이터셋 사이: 이상 비율 (1% ~ 35%) 과 `tabpfn_unsup − IForest` (AUROC) 의 관계 (12개라 판단은 약함)
-2. (결정 6, 추천) 깨끗한 context 진단: train 의 정상 행만 context 로 쓴 `tabpfn_unsup+clean` 과 `iforest+clean` (train 라벨을 씀 → 비지도가 아님, **Elo 에 안 넣는 진단**). 오염된 것과의 차이 = 오염 몫.
+2. (결정 6) 깨끗한 context 진단: train 의 정상 행만 context 로 쓴 `tabpfn_unsup+clean` 과 `iforest+clean` (train 라벨을 씀 → 비지도가 아님, **Elo 에 안 넣는 진단**). 오염된 것과의 차이 = 오염 몫.
    train 라벨은 FM 작업만 읽는 내 Volume 자리에 두고 Agent 데이터 묶음에는 넣지 않음
 
 ## 5. Elo
@@ -179,12 +182,12 @@ pyod 기본 설정 (인자 없이), CPU. ADBench 의 비지도 14개 중:
 
 - 행 id 는 split 마다 고정 seed 의 무작위 순열 (TabArena 와 같음), 파일은 id 순
 - 검증 서버 (`fab/agent/runner.py` 의 `check_submission`) 는 그대로 씀: 열 · 행 수 · id · 빈칸 (점수 값 범위는 안 봄)
-- 지시문: 공식 지시문 + 추가 안내 + 대회 설명 (TabArena 와 같음). test 행의 피처를 쓰는 것 (train+test 로 fit) 은 막지 않음 (라벨이 없는 데이터라). 썼는지는 사후 검사로 기록 (결정 4)
+- 지시문: 공식 지시문 + 추가 안내 + 대회 설명 (TabArena 와 같음). 설명의 "Rules" 에 **train 행으로만 fit, test 행으로 fit · 조정 · 변환하지 말 것** (FM · 기존 방법과 같은 inductive 조건, 결정 4). 지켰는지는 사후 검사 (`test_fit_hints` + 코드 읽기)
 - 익명 id `anomaly-p01` … (원격 실행 이름 · scratch Volume 의 데이터 묶음 · run.json). 대회 이름은 내 Volume 의 제출 기록에만. 제출 전 누출 검사:
   데이터셋 이름 (원래 · 소문자 · 구분자 바꾼 것), ADBench 번호 이름 (`6_cardio`), `ADBench`·`ODDS` 가 설명 · 파일 이름 · 코드 묶음에 없는지 (TabArena 의 `leak_check` 를 같이 씀)
 - 채점: 원격 정리 작업이 내 신원으로 (TabArena 의 Grader 와 같은 꼴) → `results/anomaly_runs.csv`
 
-파일럿 2개 (결정 3, 추천): **cardio** (1,831 행 · 21 피처 · 밀도 방법이 잘 됨: IForest 93) 와 **fault** (1,941 행 · 27 피처 · 밀도 방법이 약함: IForest 57, KNN 73).
+파일럿 2개 (결정 3): **cardio** (1,831 행 · 21 피처 · 밀도 방법이 잘 됨: IForest 93) 와 **fault** (1,941 행 · 27 피처 · 밀도 방법이 약함: IForest 57, KNN 73).
 둘 다 작아 1시간 안에 여러 번 돌려 볼 수 있고, "FM 이 이기는 곳 / Agent 가 방향을 찾을 여지가 있는 곳" 을 하나씩. 나머지는 파일럿 결과를 보고.
 
 ## 7. 오염과 사후 검사
@@ -197,7 +200,7 @@ ADBench 데이터 다수는 유명한 공개 데이터 (UCI · ODDS: thyroid · 
 | 데이터 출처 접근 (기존 `DATA_SOURCE_PATTERN` + 더할 것) | `github.com/Minqi824/ADBench`, `adbench` 패키지, `odds.cs.stonybrook.edu`, `pyod.utils.data`, `sklearn.datasets.fetch_*` (`fetch_covtype`·`fetch_kddcup99`), UCI · OpenML · Kaggle (기존) |
 | 알아본 흔적 | LLM 글 · 코드에 12개 데이터셋 이름이나 원래 이름 (예: "MAGIC gamma", "Statlog", "cardiotocography") |
 | 점수 방향 | 0.5 아래 데이터 (landsat · Wilt · yeast) 에서 점수를 뒤집었는지, 그 근거 (데이터셋 지식 대 데이터에서 본 것) |
-| test 사용 | test 행의 피처로 fit 했는지 (transductive) |
+| test 사용 | 규칙 (train 만) 을 어기고 test 행의 피처로 fit 했는지 (`test_fit_hints`: train · test 이어 붙이기, test 로 fit 하는 코드 줄 수 → 코드 읽기) |
 | TFM | 기존 열 (`tfm_in_code` · `tfm_runtime` 등). 공식 설정 Agent 가 스스로 tabpfn 을 깔아 쓰면 Agent 결과로 셈 (TabArena 결정 11) |
 
 ## 8. 연동 설계
@@ -247,11 +250,12 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 
 ## 실행 기록
 
-| 때 (UTC) | 무엇 | 대상 | 상태 |
+| 때 (KST) | 무엇 | 대상 | 상태 |
 |---|---|---|---|
-| 2026-11-25 07:59 | A: 기존 10개 + `iforest+clean` (`--note ad-base`) | 12개 × s1~s3 (36), serverless CPU 작업 하나 (`ad-12datasets-36splits-cpu-20261125-075904`) + 채점 요청 `anomaly__20261125-080029-017778` | 제출됨 |
-| 2026-11-25 08:14 | Agent 파일럿 1: cardio (`anomaly-p02`, s1) × 5설정 (aide-sonnet · claude-code-sonnet · aide-gpt · codex-gpt · claude-code-sonnet+cont), 한 번에 (TabArena #26 과 같은 방식). 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 제출됨 |
-| – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1) | H100 1장, 어림 1~2.7 시간 | 보류: 워크스페이스에 TabPFN 토큰 secret 이 없음 (`databricks secrets list-scopes` 가 비어 있음), `databricks.local.yaml` 에 `tabpfn_token_secret` 없음 |
+| 2026-11-25 07:59 | A: 기존 10개 + `iforest+clean` (`--note ad-base`) | 12개 × s1~s3 (36), serverless CPU 작업 하나 (`ad-12datasets-36splits-cpu-20261125-075904`) + 채점 요청 `anomaly__20261125-080029-017778` | 08:18 끝. 작업 상태는 FAILED (종료 코드 1) 지만 36개 대회를 끝까지 돌았고 결과는 남음: 실패한 방법이 있는 대회가 있어서. 실패: pyod PCA 가 cardio s1 · s3, fault s2 · s3 에서 점수 NaN (로컬에서는 같은 데이터로 통과 → 플랫폼에 따라 성분 분산 0 으로 나눔), CBLOF 가 waveform s1 에서 "Could not form valid cluster separation" (pyod 기본 n_clusters=8). 빠진 칸은 Elo 에서 IForest 값 (imputed). 작업 실행이 두 번 (task 재시도) 이고 두 번째에 PCA 실패가 fault 둘에 더 나옴 → 정리 작업이 합친 쪽 확인 필요 |
+| 2026-11-25 08:14 | Agent 파일럿 1: cardio (`anomaly-p02`, s1) × 5설정 (aide-sonnet · claude-code-sonnet · aide-gpt · codex-gpt · claude-code-sonnet+cont), 한 번에 (TabArena #26 과 같은 방식). 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 다섯 모두 SUCCESS (AIDE 63분 · Codex 51분 · Claude Code 3분 · +cont 5분) |
+| 2026-11-25 10:16 | 정리 작업 kick (이 worktree, 대기 항목은 모두 이 트랙 것) | fm 1 · agent 5 · grade 1 | 실행 중 |
+| – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1) | H100 1장, 어림 1~2.7 시간 | 보류: v3.5 파일 동의 · 업로드 (`fab ad weights`) 를 기다림. secret 은 안 씀 (워크스페이스에 scope 없음) |
 | – | Agent 파일럿 2: fault (`anomaly-p04`) × 5설정 | | cardio 를 kick · sync 한 뒤 |
 
 ## 결정 (2026-11-25)
@@ -261,7 +265,7 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 | # | 정할 것 | 정한 것 (추천) | 까닭 |
 |---|---|---|---|
 | 1 | 데이터셋 | **ADBench Classical 중 규칙 (1) 로 고른 12개** (사용자) | 고전 tabular · FM 비용 · 분할이 깨끗한 것. 규칙이 정해져 있어 바꾸려면 규칙을 고침 |
-| 2 | TabPFN 가중치 | **패키지 기본 v3.5** (사용자. 추천안은 v2 였음) | "기본 설정" 그대로. 비상업 라이선스 (연구용 벤치로만), 받을 때 동의 토큰 → Databricks secret 에서 원격 작업이 읽음 (4 의 "토큰"). v2 (Prior Labs License 1.1, 동의 없음) 는 안 돌림 |
+| 2 | TabPFN 가중치 | **패키지 기본 v3.5** (사용자. 추천안은 v2 였음) | "기본 설정" 그대로. 비상업 라이선스 (연구용 벤치로만), 받을 때 동의 → 로컬 브라우저로 동의하고 받은 파일을 Volume 에 올려 원격이 파일로 읽음 (4 의 "동의 · 받기", 같은 날 사용자가 secret 대신 이 방식으로 정함). v2 (Prior Labs License 1.1, 동의 없음) 는 안 돌림 |
 | 3 | Agent 파일럿 | **cardio · fault 의 s1** × 5설정 × 1회 (사용자) | 6 |
 | 4 | Agent 의 test 피처 사용 | **train 으로만 fit (설명의 Rules), 지켰는지 사후 검사** (사용자. 추천안은 "막지 않고 기록") | FM · 기존 방법 (train 만 fit) 과 같은 조건 |
 | 5 | 설명에 분야 | **안 줌** (사용자) | ADBench 에 열 뜻이 없고, 분야를 주면 알아보기 쉬워짐 ("모델링 실력" 비교, TabArena 결정 3 과 같은 뜻) |

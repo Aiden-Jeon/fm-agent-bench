@@ -5,7 +5,8 @@ results.csv 에 행. fab/runner/run.py 의 main 이 anomaly 대회를 여기로 
     fab run <대회> <방법...> --note <글> [--train-labels <Volume 경로>] [--tabpfn-secret <scope>/<key>]
 
 --train-labels: +clean 방법 (깨끗한 context 진단) 이 읽는 train 라벨 폴더 (내 Volume, remote.py).
---tabpfn-secret: TabPFN v3.5 가중치의 라이선스 동의 토큰이 든 Databricks secret. 토큰 값은 이 원격 작업 안에서만 읽고
+TabPFN v3.5 가중치: Volume 의 weights/tabpfn/ 에 받아 둔 파일이 있으면 그것 (실행기가 FAB_WEIGHTS 로 넘김, fab ad weights).
+--tabpfn-secret: 그 파일이 없을 때만 쓰는 대안. 라이선스 동의 토큰이 든 Databricks secret. 토큰 값은 이 원격 작업 안에서만 읽고
 (databricks-sdk, 작업 신원 = 내 신원) 환경 변수 TABPFN_TOKEN 으로만 넘김. 출력 · 결과에 남기지 않음.
 """
 
@@ -74,7 +75,7 @@ def main(argv: list[str]):
                     raise RuntimeError("+clean 은 --train-labels 가 필요")
                 lab = pd.read_csv(Path(args.train_labels) / f"{comp.name}.csv").set_index(ID_COL)[LABEL_COL]
                 X_fit = X_train[lab.loc[train[ID_COL]].to_numpy() == 0]
-            if M.is_gpu(m):
+            if M.is_gpu(m) and not M.checkpoint(M.FM[M.base(m)]["version"]):  # 받아 둔 파일이 없을 때만 토큰
                 tabpfn_token(args.tabpfn_secret)
             s = M.scores(m, X_fit, X_test, seed)
             out = OUTPUTS / comp.name / m
