@@ -440,3 +440,51 @@ timestamp,comp,dataset,split,seed,model,metric,score,metric_error,aupr,run,note,
 2026-11-25T05:15:27,ad-wilt,Wilt,s1,1,tabpfn_unsup+clean,auroc,0.9493705709921926,0.050629429007807425,0.38228222337748,2026-11-25T05:11:22,ad-fm,n_permutations=10 version=v2 context=clean
 2026-11-25T05:15:28,ad-yeast,yeast,s1,1,tabpfn_unsup,auroc,0.4331587898317222,0.5668412101682778,0.3192517334666566,2026-11-25T05:11:58,ad-fm,n_permutations=10 version=v2
 2026-11-25T05:15:28,ad-yeast,yeast,s1,1,tabpfn_unsup+clean,auroc,0.4749820981023989,0.5250179018976011,0.3472169167262226,2026-11-25T05:12:26,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:41,ads-annthyroid-s2,annthyroid,s2,2,tabpfn_unsup,auroc,0.8704906250000001,0.12950937499999993,0.3060990931184759,2026-11-25T06:29:40,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:41,ads-annthyroid-s2,annthyroid,s2,2,tabpfn_unsup+clean,auroc,0.9434968749999999,0.0565031250000001,0.5091007088221604,2026-11-25T06:30:13,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:41,ads-annthyroid-s3,annthyroid,s3,3,tabpfn_unsup,auroc,0.89461875,0.10538124999999998,0.33431101777897854,2026-11-25T06:30:54,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:42,ads-annthyroid-s3,annthyroid,s3,3,tabpfn_unsup+clean,auroc,0.954728125,0.04527187499999996,0.5392911850528481,2026-11-25T06:31:26,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:42,ads-cardio-s2,cardio,s2,2,tabpfn_unsup,auroc,0.5548764283816104,0.44512357161838956,0.16811856706285477,2026-11-25T06:33:07,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:42,ads-cardio-s2,cardio,s2,2,tabpfn_unsup+clean,auroc,0.8847803803955809,0.11521961960441907,0.6857518498117025,2026-11-25T06:34:38,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:42,ads-cardio-s3,cardio,s3,3,tabpfn_unsup,auroc,0.4806954937170191,0.5193045062829809,0.14655403912403697,2026-11-25T06:36:19,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:42,ads-cardio-s3,cardio,s3,3,tabpfn_unsup+clean,auroc,0.8607494020728143,0.13925059792718575,0.61634182852765,2026-11-25T06:37:51,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:43,ads-cover-s2,cover,s2,2,tabpfn_unsup,auroc,0.5333943628041435,0.46660563719585646,0.01756199575113752,2026-11-25T06:39:25,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:43,ads-cover-s2,cover,s2,2,tabpfn_unsup+clean,auroc,0.9456805589014695,0.054319441098530485,0.5957812524183017,2026-11-25T06:40:51,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:43,ads-cover-s3,cover,s3,3,tabpfn_unsup,auroc,0.630419630840223,0.369580369159777,0.040811099617851405,2026-11-25T06:42:25,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:43,ads-cover-s3,cover,s3,3,tabpfn_unsup+clean,auroc,0.9466568929052105,0.05334310709478951,0.5046149971916157,2026-11-25T06:43:52,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:44,ads-fault-s2,fault,s2,2,tabpfn_unsup,auroc,0.6447727449910345,0.35522725500896546,0.45207003379943317,2026-11-25T06:46:11,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:44,ads-fault-s2,fault,s2,2,tabpfn_unsup+clean,auroc,0.7877783841376264,0.21222161586237365,0.6212912479249311,2026-11-25T06:48:16,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:44,ads-fault-s3,fault,s3,3,tabpfn_unsup,auroc,0.6937839453236663,0.3062160546763337,0.5364761816123579,2026-11-25T06:50:35,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:44,ads-fault-s3,fault,s3,3,tabpfn_unsup+clean,auroc,0.8306566877160156,0.16934331228398436,0.7227440082218135,2026-11-25T06:52:40,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:45,ads-landsat-s2,landsat,s2,2,tabpfn_unsup,auroc,0.6118272370999347,0.3881727629000653,0.2671287703924715,2026-11-25T07:01:54,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:45,ads-landsat-s2,landsat,s2,2,tabpfn_unsup+clean,auroc,0.7855192684519923,0.21448073154800773,0.5772923742746305,2026-11-25T07:09:43,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:45,ads-landsat-s3,landsat,s3,3,tabpfn_unsup,auroc,0.5894856303069889,0.41051436969301114,0.26081632629892854,2026-11-25T07:19:01,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:45,ads-landsat-s3,landsat,s3,3,tabpfn_unsup+clean,auroc,0.7703527106466361,0.22964728935336387,0.5641782810127265,2026-11-25T07:26:44,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:46,ads-magic-gamma-s2,magic.gamma,s2,2,tabpfn_unsup,auroc,0.8325155611748686,0.16748443882513142,0.7813612607174121,2026-11-25T07:28:17,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:46,ads-magic-gamma-s2,magic.gamma,s2,2,tabpfn_unsup+clean,auroc,0.8788338844582766,0.12116611554172341,0.8613087916383603,2026-11-25T07:29:22,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:46,ads-magic-gamma-s3,magic.gamma,s3,3,tabpfn_unsup,auroc,0.8360903540903541,0.16390964590964585,0.7908436140429179,2026-11-25T07:30:56,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:46,ads-magic-gamma-s3,magic.gamma,s3,3,tabpfn_unsup+clean,auroc,0.8790402930402932,0.12095970695970681,0.8645768056347966,2026-11-25T07:32:00,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:47,ads-mammography-s2,mammography,s2,2,tabpfn_unsup,auroc,0.8522265862173649,0.1477734137826351,0.17617228126041767,2026-11-25T07:32:50,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:47,ads-mammography-s2,mammography,s2,2,tabpfn_unsup+clean,auroc,0.8737097753491198,0.12629022465088025,0.36433986868120133,2026-11-25T07:33:34,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:47,ads-mammography-s3,mammography,s3,3,tabpfn_unsup,auroc,0.8766050076237862,0.12339499237621376,0.16895608946321714,2026-11-25T07:34:24,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:47,ads-mammography-s3,mammography,s3,3,tabpfn_unsup+clean,auroc,0.8937083701147581,0.10629162988524188,0.30363495097848187,2026-11-25T07:35:08,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:48,ads-pageblocks-s2,PageBlocks,s2,2,tabpfn_unsup,auroc,0.7477793392669925,0.25222066073300753,0.3432971004842897,2026-11-25T07:36:08,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:48,ads-pageblocks-s2,PageBlocks,s2,2,tabpfn_unsup+clean,auroc,0.9131008945102501,0.08689910548974988,0.6358581652353565,2026-11-25T07:36:59,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:48,ads-pageblocks-s3,PageBlocks,s3,3,tabpfn_unsup,auroc,0.717138459479355,0.28286154052064505,0.3514472169779487,2026-11-25T07:37:59,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:48,ads-pageblocks-s3,PageBlocks,s3,3,tabpfn_unsup+clean,auroc,0.8919806375337394,0.10801936246626065,0.6421695569842006,2026-11-25T07:38:50,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:49,ads-shuttle-s2,shuttle,s2,2,tabpfn_unsup,auroc,0.9731159108480951,0.026884089151904877,0.6412786126526554,2026-11-25T07:40:12,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:49,ads-shuttle-s2,shuttle,s2,2,tabpfn_unsup+clean,auroc,0.9997479938078478,0.00025200619215215436,0.9969682780331486,2026-11-25T07:41:25,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:49,ads-shuttle-s3,shuttle,s3,3,tabpfn_unsup,auroc,0.9521069969339354,0.04789300306606459,0.5770942239510218,2026-11-25T07:42:47,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:49,ads-shuttle-s3,shuttle,s3,3,tabpfn_unsup+clean,auroc,0.9997635037671669,0.0002364962328330611,0.9976843849172776,2026-11-25T07:43:59,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:50,ads-waveform-s2,Waveform,s2,2,tabpfn_unsup,auroc,0.6825523429710868,0.3174476570289132,0.06917177370979598,2026-11-25T07:46:04,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:50,ads-waveform-s2,Waveform,s2,2,tabpfn_unsup+clean,auroc,0.7470920571618478,0.2529079428381522,0.18767130338564145,2026-11-25T07:48:00,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:50,ads-waveform-s3,Waveform,s3,3,tabpfn_unsup,auroc,0.6588899966766368,0.34111000332336316,0.06397695827233679,2026-11-25T07:50:05,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:50,ads-waveform-s3,Waveform,s3,3,tabpfn_unsup+clean,auroc,0.7267863077434364,0.27321369225656356,0.14352743843884996,2026-11-25T07:52:03,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:51,ads-wilt-s2,Wilt,s2,2,tabpfn_unsup,auroc,0.736152087503439,0.26384791249656103,0.0905816309044448,2026-11-25T07:52:32,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:51,ads-wilt-s2,Wilt,s2,2,tabpfn_unsup+clean,auroc,0.9292591995294697,0.07074080047053033,0.3225228356229332,2026-11-25T07:52:54,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:51,ads-wilt-s3,Wilt,s3,3,tabpfn_unsup,auroc,0.7078348970240862,0.2921651029759138,0.08157379713559076,2026-11-25T07:53:23,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:51,ads-wilt-s3,Wilt,s3,3,tabpfn_unsup+clean,auroc,0.9324940946562568,0.06750590534374323,0.3350907577603454,2026-11-25T07:53:44,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:52,ads-yeast-s2,yeast,s2,2,tabpfn_unsup,auroc,0.38428660938059434,0.6157133906194057,0.29026442677959746,2026-11-25T07:54:20,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:52,ads-yeast-s2,yeast,s2,2,tabpfn_unsup+clean,auroc,0.42490153956319365,0.5750984604368063,0.32427295716302734,2026-11-25T07:54:48,ad-fm,n_permutations=10 version=v2 context=clean
+2026-11-25T09:21:52,ads-yeast-s3,yeast,s3,3,tabpfn_unsup,auroc,0.4359112065878983,0.5640887934121017,0.31341775208098577,2026-11-25T07:55:23,ad-fm,n_permutations=10 version=v2
+2026-11-25T09:21:52,ads-yeast-s3,yeast,s3,3,tabpfn_unsup+clean,auroc,0.4725205871822414,0.5274794128177587,0.3457517459836773,2026-11-25T07:55:51,ad-fm,n_permutations=10 version=v2 context=clean

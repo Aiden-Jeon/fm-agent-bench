@@ -23,6 +23,7 @@
 - [8. 연동 설계](#8-연동-설계)
 - [9. 비용 어림](#9-비용-어림)
 - [로컬 확인 (2026-11-25)](#로컬-확인-2026-11-25)
+- [결과 (12개 × 3 seed, Agent 3개 · s1, 2026-11-25)](#결과-12개--3-seed-agent-3개--s1-2026-11-25)
 - [실행 기록](#실행-기록)
 - [결정 (2026-11-25)](#결정-2026-11-25)
 - [확인 못 한 것](#확인-못-한-것)
@@ -40,6 +41,7 @@
 | Agent | 기존 5설정 × 1시간 · A10, 라벨 없는 train · test + 설명 → `id,score`. train 으로만 fit (결정 4). 파일럿 cardio · fault (`s1`) (6) |
 | 격리 | 정답 (test 라벨) 은 로컬 캐시와 채점용 내 Volume 에만. 데이터셋 이름·출처는 안 알림 (익명 id `anomaly-p01`…). 공개 데이터라 알아본 흔적은 사후 검사 (7) |
 | 범위 밖 | C1·C2 (Agent 결과를 보고 정함), 결측값·생성·밀도, kumo·tabicl 로 chain rule 래퍼 새로 만들기 (후속) |
+| **답 (2026-11-25)** | **반쯤 먹힘.** TabPFN 비지도는 IForest 와 Elo 가 같은 수준 (966 대 1000, 구간이 겹침). 4개에서는 11개 중 1등 (Wilt 는 기존 방법이 모두 0.51 이하인데 0.730), 3개 (cover · cardio · PageBlocks) 에서는 꼴찌로 무너짐. 무너지는 까닭은 **context 에 섞인 이상점**: 정상 행만 context 로 주면 12개 모두 오르고 (+0.02 ~ +0.41) 8개에서 기존 최고와 같거나 나음. Agent 는 Codex × GPT 만 뚜렷이 강함 (3개 Agent 풀 Elo 1531, TabPFN 1041) 이지만 3개 중 2개 (cardio · Wilt) 에서 데이터셋을 알아봄 → "결과" |
 
 ## 출처
 
@@ -247,6 +249,62 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 | 누출 검사 (12개) | 에이전트에게 가는 설명 · 파일 이름 · 익명 id · 코드 묶음 (runner.py 등 + MLE-bench 지시문) 에 데이터셋 · ADBench 이름 없음 |
 | 설치 · 묶음 | `pip_args` 가 CPU 작업에 `pyod==3.6.8`, GPU 작업에 `tabpfn==9.2.0` · `tabpfn-extensions==0.6.3` 을 넣음. 기존 테스트 29개 통과 · ruff 통과 |
 
+## 결과 (12개 × 3 seed, Agent 3개 · s1, 2026-11-25)
+
+`uv run --frozen fab ad elo` → `results/anomaly_elo.csv`. 채점은 `results/anomaly.csv` (기존 · FM), `results/anomaly_runs.csv` (Agent).
+
+### FM 대 기존 방법 (seed 3개 평균 AUROC)
+
+순위 = 기존 10개 + `tabpfn_unsup` 11개 중 (평균으로). clean 은 train 의 정상 행만 context (train 라벨을 씀, Elo 밖).
+
+| 데이터셋 | 이상 % | `tabpfn_unsup` | 순위 | IForest | 기존 최고 | `tabpfn+clean` | clean 효과 |
+|---|---|---|---|---|---|---|---|
+| Wilt | 5.33 | **0.730** | 1 | 0.419 | 0.507 (LOF) | 0.937 | +0.207 |
+| annthyroid | 7.42 | **0.883** | 1 | 0.820 | 0.820 (IForest) | 0.949 | +0.066 |
+| landsat | 20.71 | **0.603** | 1 | 0.476 | 0.580 (KNN) | 0.779 | +0.176 |
+| magic.gamma | 35.16 | **0.839** | 1 | 0.732 | 0.824 (KNN) | 0.884 | +0.044 |
+| fault | 34.67 | 0.660 | 3 | 0.570 | 0.730 (KNN) | 0.805 | +0.144 |
+| mammography | 2.32 | 0.869 | 4 | 0.864 | 0.908 (ECOD) | 0.888 | +0.019 |
+| yeast | 34.16 | 0.418 | 4 | 0.378 | 0.453 (LOF) | 0.457 | +0.040 |
+| Waveform | 2.90 | 0.701 | 5 | 0.715 | 0.750 (COPOD) | 0.772 | +0.072 |
+| shuttle | 7.15 | 0.968 | 8 | 0.996 | 0.996 (IForest) | 1.000 | +0.032 |
+| PageBlocks | 9.46 | 0.732 | 11 | 0.896 | 0.915 (ECOD) | 0.901 | +0.169 |
+| cardio | 9.61 | 0.522 | 11 | 0.932 | 0.954 (PCA) | 0.869 | +0.346 |
+| cover | 0.96 | 0.521 | 11 | 0.867 | 0.942 (LODA) | 0.927 | +0.406 |
+
+- TabPFN 의 split 사이 표준편차는 대부분 0.01 ~ 0.05, cover 만 0.116 (test 이상 28 ~ 35개). s1 하나로 본 것 ("FM: TabPFN v2 비지도 (s1)") 과 같은 그림
+- IForest 보다 7 / 12 에서 나음, 1등 4개, 꼴찌 3개. clean context 는 12개 모두에서 오름 (IForest 의 clean 효과는 −0.01 ~ +0.14). clean TabPFN 은 8 / 12 에서 기존 최고 (오염된 train 으로 fit) 와 같거나 나음 (−0.01 안)
+- 가장 크게 다치는 cover 는 이상이 1% 뿐 → 해치는 것은 오염 비율이 아니라 이상 행이 모여 서로를 "정상" 으로 보이게 하는지로 보임 (확인 안 함). 이상이 35% 인 magic.gamma · fault 는 오히려 TabPFN 이 1 · 3등
+
+### Elo (IForest = 1000)
+
+| 풀 | 방법 (Elo, 95% 구간) |
+|---|---|
+| fm: 12개 × 3 split (36 단위), 부트스트랩 200번 | IForest **1000** (+96 / −88) · ECOD 969 (+182 / −125) · **tabpfn_unsup 966** (+200 / −169) · LODA 946 · KNN 939 · CBLOF 927 · COPOD 919 · PCA 912 · LOF 876 · HBOS 850 · OCSVM 824 |
+| agent: cardio · fault · Wilt 의 s1 (3 단위, 구간 없음) | **Codex × GPT 1531** · AIDE × GPT 1129 · Claude Code × Sonnet +cont 1110 · AIDE × Sonnet 1041 · KNN 1041 · **tabpfn_unsup 1041** · Claude Code × Sonnet 1008 · CBLOF 1008 · IForest 1000 · LODA 992 · ECOD 943 · LOF 909 · OCSVM 909 · PCA 901 · COPOD 857 · HBOS 756 |
+
+- fm 풀: TabPFN 은 IForest · ECOD 와 구간이 겹침 → 기존 방법보다 낫다고 말할 수 없음. 이길 때 크게 이기고 질 때 크게 져서 구간이 가장 넓음
+- CBLOF (waveform s1) · PCA (cardio s1 · s3) 의 실패 칸은 IForest 값 (imputed 0.028 · 0.056)
+- agent 풀은 데이터셋 3개라 순서는 단단하지 않음. Codex 는 세 곳 모두 IForest · TabPFN 보다 높고 (0.954 · 0.722 · 0.801), 나머지 Agent 넷은 섞임
+
+### FM 대 Agent (s1)
+
+| 데이터셋 | TabPFN | Agent 최고 | 기존 최고 | 알아봄 |
+|---|---|---|---|---|
+| cardio | 0.531 | **0.954** (Codex) | 0.959 (LODA) | Codex: 모양으로 "cardiotocography", ADBench 결과 기억 |
+| fault | 0.642 | 0.722 (Codex) | **0.741** (KNN) | 없음 (Codex 는 "UCI arrhythmia" 로 잘못 짐작) |
+| Wilt | 0.745 | **0.801** (Codex) | 0.512 (LOF) | Codex: "UCI Wilt dataset", 원래 열 · 벤치 AUC 기억 |
+
+- 질문 (FM 대 Agent) 의 답: 이 세 곳에서는 Codex × GPT 가 TabPFN 보다 모두 나음. 그러나 Codex 가 이긴 곳 중 둘은 데이터셋을 알아본 곳이고, 알아보지 못한 fault 에서는 기존 KNN 보다 낮음 → "Agent 가 모델링으로 이겼다" 로 읽기 어려움. 다른 Agent 넷은 Wilt 에서만 TabPFN 근처 (0.63 ~ 0.74)
+- Wilt 에서 Agent 다섯이 모두 기존 방법보다 높은 것은 "밀도로 드문 행" 이 라벨과 반대인 데이터에서, 데이터를 보고 점수 방향 · 변환을 고른 몫 (Codex 는 알아본 몫이 섞임)
+- 파일럿 두 곳 (cardio · fault) 은 TabPFN 에 불리한 데이터 (cardio 는 무너지는 셋 중 하나) 였고, Wilt 는 TabPFN 결과를 보고 고른 유리한 데이터 → 세 곳 모두 고른 데이터라 일반화하지 않음
+
+### 후속 (이번 범위 밖)
+
+- context 의 이상점을 줄이는 비지도 방법 (예: 1차 점수로 상위 몇 % 를 context 에서 빼고 다시 점수) — clean 진단이 가리키는 개선 여지. 라벨 없이 되는지 확인할 것
+- kumo · tabicl 로 같은 chain rule 래퍼 (작업 지시의 후속)
+- Agent 를 알아보기 어려운 데이터 (열을 섞고 값을 바꾼 것, TabArena 의 obfuscate 처럼) 로 다시
+
 ## 실행 기록
 
 | 때 (KST) | 무엇 | 대상 | 상태 |
@@ -254,7 +312,10 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 | 2026-11-25 07:59 | A: 기존 10개 + `iforest+clean` (`--note ad-base`) | 12개 × s1~s3 (36), serverless CPU 작업 하나 (`ad-12datasets-36splits-cpu-20261125-075904`) + 채점 요청 `anomaly__20261125-080029-017778` | 08:18 끝. 작업 상태는 FAILED (종료 코드 1) 지만 36개 대회를 끝까지 돌았고 결과는 남음: 실패한 방법이 있는 대회가 있어서. 실패: pyod PCA 가 cardio s1 · s3, fault s2 · s3 에서 점수 NaN (로컬에서는 같은 데이터로 통과 → 플랫폼에 따라 성분 분산 0 으로 나눔), CBLOF 가 waveform s1 에서 "Could not form valid cluster separation" (pyod 기본 n_clusters=8). 빠진 칸은 Elo 에서 IForest 값 (imputed). 작업 실행이 두 번 (task 재시도) 이고 두 번째에 PCA 실패가 fault 둘에 더 나옴 → 정리 작업이 합친 쪽 확인 필요 |
 | 2026-11-25 08:14 | Agent 파일럿 1: cardio (`anomaly-p02`, s1) × 5설정 (aide-sonnet · claude-code-sonnet · aide-gpt · codex-gpt · claude-code-sonnet+cont), 한 번에 (TabArena #26 과 같은 방식). 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 다섯 모두 SUCCESS (AIDE 63분 · Codex 51분 · Claude Code 3분 · +cont 5분) |
 | 2026-11-25 10:16 | 정리 작업 kick (이 worktree, 대기 항목은 모두 이 트랙 것) | fm 1 · agent 5 · grade 1 | SUCCESS. `fab sync` → `anomaly.csv` 393행 (36 × 11 − 실패 3: PCA cardio s1 · s3, CBLOF waveform s1. 정리 작업이 합친 것은 첫 번째 task 실행의 출력), `anomaly_runs.csv` 5행 |
-| 2026-11-25 10:32 | Agent 파일럿 2: fault (`anomaly-p04`, s1) × 5설정, 한 번에. 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 제출됨 |
+| 2026-11-25 10:32 | Agent 파일럿 2: fault (`anomaly-p04`, s1) × 5설정, 한 번에. 내기 전 `fab mleb agent list` 에 다른 실행 없음 | A10 × 1시간 × 5 | 다섯 모두 SUCCESS, 13:3x kick 으로 채점 |
+| 2026-11-25 14:20 | TabPFN s2 · s3 (`tabpfn_unsup` · `+clean`, 24 split) | H100 1장 | SUCCESS, 작업 156분 (실행기 안 88분, 나머지는 노드 대기 · 설치), 실패 0 |
+| 2026-11-25 14:21 | Agent 3: Wilt (`anomaly-p11`, s1) × 5설정 (TabPFN 의 s1 결과를 보고 FM 에 유리한 대조로 고름) | A10 × 1시간 × 5 | 넷 SUCCESS, +cont 는 플랫폼 오류 (`ENV_VARS_FILE_READ_FAILED`) → 제외 · 14:24 다시 냄 → SUCCESS |
+| 2026-11-25 15:4x · 18:20 | kick 두 번 (Wilt Agent · 제외, 그다음 TabPFN s2 · s3 채점). forecast 세션과 "상대 트랙 grade 대기 없음 + 상대 agent 대기 항목이 모두 아직 RUNNING" 일 때만 kick 하기로 합의. 18:20 kick 때는 forecast agent 둘이 끝난 채 대기 중이라 그쪽 제안대로 이쪽이 먼저 (그 둘은 시도 1/3, forecast 브랜치 kick 으로 처리) | | SUCCESS, 이상탐지 대기 항목 0 |
 
 ### 기존 방법 맞춤 (원격, 12개 × 3 seed)
 
