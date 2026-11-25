@@ -38,7 +38,7 @@ tabular FM 을 시계열 예측에 쓰는 공개 구현 (TabPFN-TS, TabICL forec
 | 기준점 | **Seasonal Naive = 1000** (fev-bench skill score 의 기준) |
 | Elo | `fab/bench/tabarena/elo.py` 의 `elo()` 를 기준점 인자 (`anchor="RandomForest"` 기본) 로 일반화해 그대로. 풀 둘: FM 풀 (task 평균, 모든 window) · Agent 풀 (마지막 window) |
 | 기존 방법 | Seasonal Naive · AutoETS (statsforecast) + 시계열 FM Chronos-2 · Chronos-Bolt · TimesFM-2.5 (Apache-2.0 가중치): 공개 결과 (task 평균) 를 받고, window 별 값이 없어서 우리가 다시 돌림. **AutoARIMA 는 공개 결과로 FM 풀에만** (CPU 약 4시간을 아낌, Agent 풀에서는 뺌) |
-| FM (이 트랙) | TabPFN-TS (`tabpfn-time-series` 1.4.0, 기본 TabPFN v3.5) · TabICL forecaster (`tabicl[forecast]` 2.2.0). 기본 설정 한 번 |
+| FM (이 트랙) | TabPFN-TS (fev 의 `tabpfn-ts` 래퍼: `tabpfn-time-series` 1.0.10 · TabPFN **v2** 회귀, 공개 결과 "TabPFN-TS (v2)" 와 같은 설정) · TabICL forecaster (`tabicl[forecast]` 2.2.0). 기본 설정 한 번. TabPFN v3.5 는 뺌 (결정 6) |
 | Agent | 기존 5설정 × 1시간 · A10. 제출 = 마지막 window 의 점 예측 + 분위수 9개 (0.1~0.9). 정답 격리·익명 id (`forecast-p01`…) · 사후 검사 |
 | 범위 밖 | C1 · C2 (Agent 결과를 보고 사용자가 정함), 시계열 이상탐지 (TSB-AD, 이 트랙 다음) |
 
@@ -51,7 +51,7 @@ tabular FM 을 시계열 예측에 쓰는 공개 구현 (TabPFN-TS, TabICL forec
 | 패키지 `fev` 0.10.0 (`Task`·`EvaluationWindow`·`metrics.py`) | 3, 4 |
 | 데이터 [HF autogluon/fev_datasets @ d3e7e72](https://huggingface.co/datasets/autogluon/fev_datasets) (config 100개, 라이선스 표시 `other` = 데이터셋마다 다름) | 2, 8 |
 | 리더보드 [HF Space autogluon/fev-leaderboard](https://huggingface.co/spaces/autogluon/fev-leaderboard) | 동적 페이지라 안 읽음 (확인 못 함). 숫자는 저장소의 `results/*.csv` 에서 |
-| TabPFN-TS [PriorLabs/tabpfn-time-series](https://github.com/PriorLabs/tabpfn-time-series) 1.4.0 (`defaults.py`: `TABPFN_MODEL_VERSION = "v3.5"`) | 7 |
+| TabPFN-TS [PriorLabs/tabpfn-time-series](https://github.com/PriorLabs/tabpfn-time-series): 1.0.10 (fev 래퍼 `models/tabpfn-ts`, v2 체크포인트 `tabpfn-v2-regressor-2noar4o2.ckpt`). 최신 1.4.0 의 기본은 v3.5 (`defaults.py`) | 7 |
 | TabICL forecaster [튜토리얼](https://tabicl.readthedocs.io/en/latest/tutorials/time_series_forecasting.html), `tabicl` 2.2.0 의 `tabicl/forecast/_forecaster.py` | 7 |
 
 공개 결과 스냅샷: fev 저장소 `ecce671` 의 `benchmarks/fev_bench/results/` (2026-11-23). 받은 것은 `results/forecast_reference.csv` 에 원래 열 (`model_name`·`task_name`·`SQL`·`MASE`·`WQL`·`WAPE`·`fev_version`·`fev_commit`·`model_kwargs`·`trained_on_this_dataset`) 그대로 + 스냅샷 commit.
@@ -131,7 +131,7 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 
 | 풀 | 단위 | 참가자 | 기준점 |
 |---|---|---|---|
-| **FM 풀** | (task, `all`) — window 평균 하나 | 공개 결과 (Seasonal Naive · AutoETS · AutoARIMA · Chronos-2 · Chronos-Bolt · TimesFM-2.5 · TabPFN-TS · TabPFN-TS-3) + 우리 실행 (AutoARIMA 를 뺀 같은 방법 + TabPFN-TS (v3.5) · TabICL) | 공개 Seasonal Naive = 1000 |
+| **FM 풀** | (task, `all`) — window 평균 하나 | 공개 결과 (Seasonal Naive · AutoETS · AutoARIMA · Chronos-2 · Chronos-Bolt · TimesFM-2.5 · TabPFN-TS · TabPFN-TS-3) + 우리 실행 (AutoARIMA · TabPFN-TS-3 을 뺀 같은 방법 + TabICL) | 공개 Seasonal Naive = 1000 |
 | **Agent 풀** | (task, `w<W−1>`) — 마지막 window | 우리 실행 (기존 방법 5 + FM 2) + Agent 5설정 (설정마다 회차 평균). AutoARIMA 없음 (window 별 값이 없고 다시 안 돌림) | 우리 Seasonal Naive = 1000 |
 
 - 빈칸 (공개 결과의 AutoETS 3 · AutoARIMA 4 · TabPFN-TS 1 task, 실패한 실행·Agent 회차) 은 TabArena 처럼 Seasonal Naive 값으로 채우고 `imputed` 에 남김
@@ -160,7 +160,7 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 
 | 이름 | 패키지 | 모델 | feature | 라이선스 |
 |---|---|---|---|---|
-| `tabpfn_ts` | `tabpfn-time-series` 1.4.0 (`TabPFNTSPipeline.predict_fev`, 로컬 모드) | TabPFN **v3.5** 회귀 (패키지가 고정) | known 공변량 lag {1, season}·이동 평균, running index, 달력 sin/cos, 자동 계절 (FFT). 타깃 lag 없음 | 패키지 Apache-2.0. **v3.5 가중치는 비상업 라이선스 · 첫 사용 때 브라우저로 수락** (TabArena 의 `tabpfn35` 와 같은 절차, HF gated 를 로컬에서 받아 Volume 의 `weights/` 로) |
+| `tabpfn_ts` | fev `models/tabpfn-ts` 래퍼 (`tabpfn` 7.1.1 · `tabpfn-time-series` 1.0.10, `TabPFNTimeSeriesPredictor` 로컬 모드, 컨텍스트 5,000) | TabPFN **v2** 회귀 (`tabpfn-v2-regressor-2noar4o2.ckpt`) | running index, 달력 sin/cos, 자동 계절 (FFT) + known 공변량 그대로. 타깃 lag 없음 | 패키지 Apache-2.0, v2 가중치는 수락 없이 받음 (표 형식 트랙의 `tabpfn_v2` 와 같음) |
 | `tabicl_ts` | `tabicl[forecast]` 2.2.0 (`TabICLForecaster`) | TabICL v2 회귀 (기본 체크포인트) | index · 달력 · 자동 주기 (FFT). 공변량은 context/future 의 추가 열로 | BSD-3 (패키지·가중치, 확인 필요) |
 
 - TabPFN-TS 는 fev 래퍼 (`models/tabpfn-ts-3`) 와 같은 `predict_fev` 경로 (패키지가 fev 를 직접 받음). 공개 TabPFN-TS-3 (v3 체크포인트) · TabPFN-TS (v2) 결과는 참고선 (FM 풀)
@@ -211,7 +211,7 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 | Seasonal Naive · AutoETS | CPU 5분 | serverless CPU |
 | AutoARIMA | 0 (안 돌림) | 공개 결과만 (결정 5) |
 | Chronos-2 · Chronos-Bolt · TimesFM-2.5 | GPU 5분 미만 | H100 1장 |
-| TabPFN-TS (v3.5) | GPU 약 2~4시간 (공개 TabPFN-TS 90분 · TabPFN-TS-3 243분) | H100 1장, task 마다 나누면 동시에 |
+| TabPFN-TS (v2) | GPU 약 1.5시간 (공개 TabPFN-TS 90분) | H100 1장 |
 | TabICL forecaster | GPU 1~3시간 (공개 결과 없음, TabPFN-TS 와 비슷하다고 봄. 로컬 작은 task 로 먼저 잼) | 〃 |
 | **합** | **GPU 약 4~8 H100-시간 + CPU 수 분** | 실행 전 확인받음 |
 | Agent 파일럿 | 2 task × 5설정 × 1시간 = A10 10시간 + 토큰 | 실행 전 확인받음 |
@@ -223,7 +223,7 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 |---|---|---|
 | 옆 환경 | `FAB_FORECAST` (절대경로, 예: `…/projects/fm-agent-bench-project/forecast`): `.venv` (fev 0.10.0 · datasets), `data/cache` (HF), `data/answers`, `fev-repo` (ecce671) | 만듦 (조사용). uv.lock 은 안 바꿈 |
 | 데이터 준비 | `fab/bench/forecast/driver.py` (옆 venv 에서 `-I`, fab 을 import 안 함) | fev `Task` → 마지막 window 의 past · future · 정답 → CSV, 모든 window 의 cutoff 기록 |
-| 대회 · 채점 | `fab/bench/forecast/__init__.py` · `remote.py` | `fab fc prepare · check · describe · fm · weights · reference · elo · agent`. 채점 = 4 의 numpy 식, 원격 정리 작업의 `bench: forecast` 요청 (TabArena 의 `grade_tabarena` 옆에 같은 꼴) |
+| 대회 · 채점 | `fab/bench/forecast/__init__.py` · `remote.py` | `fab fc prepare · check · describe · fm · reference · elo · agent`. 채점 = 4 의 numpy 식, 원격 정리 작업의 `bench: forecast` 요청 (TabArena 의 `grade_tabarena` 옆에 같은 꼴) |
 | 원격 FM · 기존 방법 | `fab/bench/forecast/run_fev.py` (원격 실행 스크립트) + 제출은 `fab/runner/databricks.py` 의 `submit` · `submit_cpu` 를 재사용 | task × 방법마다 모든 window 예측 → window 별 점수 + 마지막 window 예측 (Agent 와 같은 채점기로 다시 채점) → Volume 의 `outputs/forecast/` |
 | Elo | `fab/bench/tabarena/elo.py` | `anchor` 인자. TabArena 비트 단위 확인 |
 | Agent | `fab/agent/__init__.py` (bench=forecast: `fc_target`, 표 `results/forecast_runs.csv`), `runner.py` (`check_submission` 의 (id, timestamp)), `TFM_PATTERN` · `DATA_SOURCE_PATTERN` | 지시문 · 실행기는 그대로 |
@@ -237,14 +237,14 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 
 | 부분 | 한 것 |
 |---|---|
-| 파일 | `fab/bench/forecast/`: `__init__.py` (대회 · 채점 · CLI `fab fc`), `driver.py` (옆 venv, fev 로 window 꺼내기 · fev 로 채점 확인), `metrics.py` (fev 식 numpy), `remote.py` (정답 업로드 · 채점기), `run_fev.py` (원격 실행기), `weights.py` (TabPFN v3.5 받기), `describe.py` (설명 만들기), `tasks.yaml` (fev task 정의 10개, fev @ ecce671 그대로). 대회 `competitions/fc-<task>/` (config.yaml · description.md) 10개. 테스트 `tests/test_forecast.py` |
-| 옆 환경 | `FAB_FORECAST` = `…/projects/fm-agent-bench-project/forecast` (절대경로): `.venv` (fev 0.10.0), `.venv-fm` (TabPFN-TS 1.4.0 · TabICL 2.2.0, `fab fc weights` · 로컬 시험용), `hf/` (HF 캐시), `data/cache/<task>/w<window>/` (원래 id), `data/answers/` (정답 · 계절 오차 · id 대응표) |
+| 파일 | `fab/bench/forecast/`: `__init__.py` (대회 · 채점 · CLI `fab fc`), `driver.py` (옆 venv, fev 로 window 꺼내기 · fev 로 채점 확인), `metrics.py` (fev 식 numpy), `remote.py` (정답 업로드 · 채점기), `run_fev.py` (원격 실행기), `describe.py` (설명 만들기), `tasks.yaml` (fev task 정의 10개, fev @ ecce671 그대로). 대회 `competitions/fc-<task>/` (config.yaml · description.md) 10개. 테스트 `tests/test_forecast.py` |
+| 옆 환경 | `FAB_FORECAST` = `…/projects/fm-agent-bench-project/forecast` (절대경로): `.venv` (fev 0.10.0), `.venv-fm` (TabPFN-TS 1.4.0 · TabICL 2.2.0, 로컬 시험용), `hf/` (HF 캐시), `data/cache/<task>/w<window>/` (원래 id), `data/answers/` (정답 · 계절 오차 · id 대응표) |
 | 대회 | 행 = (id, timestamp). 시리즈 id 는 `s001…` (task 이름에서 정한 seed 의 무작위 순서, 대응표는 정답 json 에만). static 공변량은 train.csv 에 시리즈마다 같은 값으로. 계절 오차 s_i 는 준비할 때 train 에서 계산해 정답 csv 의 `scale` 열로 (채점 때 train 을 안 읽음) |
 | 채점 | `score_frame`: 열 이름 · 행 수 · (id, timestamp) 짝 (시각으로 비교: `2024-01-01` = `2024-01-01 00:00:00` = ISO `T`) · 숫자 · NaN 을 보고 4 의 식. `metric_error` = `score` = SQL, 표에 MASE · WQL · WAPE 도 |
 | 형식 검사 서버 | `fab/agent/runner.py` 의 `check_submission`: sample 에 `timestamp` 열이 있으면 (id, timestamp) 짝 집합 (시각으로) 과 예측 열이 숫자인지까지. 없으면 예전과 같음 (로컬 확인 11가지 경우) |
 | 원격 FM · 기존 방법 | `fab fc fm <task...>`: 방법 묶음마다 `databricks air run` (H100 1장, 내 신원, 환경 6) 하나. 실행기가 방법마다 venv (`uv venv` + `uv pip install fev==0.10.0 <패키지>`) 를 만들고 task 마다 worker 를 부름. 기본 묶음 셋: `tabpfn_ts` / `tabicl_ts` / `snaive autoets chronos2 chronos_bolt timesfm25`. 제출 기록은 `state/forecast/`, 정리 작업의 새 단계 `forecast` 가 회수 → `results/forecast.csv` (window 별 fev 점수 `scorer=fev`, task 평균 `window=all`, 마지막 window 를 Agent 와 같은 채점기로 `scorer=ours, is_last`) |
 | fev 래퍼 | 공개 결과가 나온 commit (`f323f6c` · `aa66862`) 이 아니라 **스냅샷 `ecce671` 의 래퍼 하나로** (`aa66862` 에는 timesfm-2.5 래퍼가 없음). 래퍼의 `requirements.txt` 를 그대로 깔고, 패키지 저장소에 고정 버전이 없으면 모델 패키지 (fev · statsforecast · chronos-forecasting · timesfm · tabpfn-time-series · tabicl · torch) 의 고정은 두고 나머지만 풀어 다시 (`relaxed_pins` 열). 로컬 사내 프록시에 `autogluon.timeseries==1.5.0` 이 없어 statsforecast 래퍼에서 이렇게 됨 (래퍼가 쓰는 것은 주기 → seasonality 표 하나) |
-| TabPFN v3.5 가중치 | `TABPFN_TOKEN` (API 키) 이나 브라우저 로그인으로 라이선스를 수락해야 받음. 토큰은 쓰지 않음: **사용자가 로컬에서 `fab fc weights` 를 한 번 돌려 브라우저로 수락** → 체크포인트를 Volume 의 `weights/tabpfn/` 로 올리고 원격은 파일 경로로 읽음 (sap_rpt 의 gated 가중치와 같은 방식). 없으면 `fab fc fm` 이 tabpfn_ts 묶음을 내기 전에 멈춤 |
+| TabPFN v3.5 → v2 (2026-11-25, 사용자) | 처음엔 `tabpfn-time-series` 1.4.0 의 기본 (v3.5) 을 계획했지만 v3.5 가중치는 `TABPFN_TOKEN` (API 키) 이나 브라우저 로그인으로 라이선스를 수락해야 받음 → **v3.5 는 빼고** 공개 결과 "TabPFN-TS (v2)" 의 fev 래퍼 그대로 (수락 없음, 공개 결과와 맞춰 볼 수 있음). TabPFN-TS-3 (v3 시계열 체크포인트) 은 공개 결과로 FM 풀에만 |
 | TabICL | fev 래퍼가 없어 `run_fev.py` 의 `tabicl_ts`: window 마다 `convert_input_data(window, "pandas")` → `TabICLForecaster().predict_df(context, future_df)` (known 공변량만, 기본 체크포인트 `tabicl-regressor-v2-20260212.ckpt` · HF `jingang/TabICL`, 점 예측은 기본 `mean`) |
 | 사후 검사 | `TFM_PATTERN` 에 chronos · timesfm · moirai · toto · tirex, `fm_audit.WATCH` 에 시계열 FM 모듈 (tabpfn_time_series → `tabpfn_ts`), `DATA_SOURCE_PATTERN` 에 fev 데이터 묶음 · `import fev` · 후보 10개의 원래 출처 주소 (GiftEval · redset · EPF zenodo · neuralprophet-data · ECDC · BEA). 기존 TabArena · MLE-bench 행은 `recheck` 를 다시 돌리지 않음 (회수 기록이 Volume 에만 있음) — 새 이름이 옛 실행에 나올 일은 드묾 |
 | Elo | `elo(…, anchor=)` · `fill(…, anchor=)`. 기본값 RandomForest 그대로 → `uv run --frozen fab ta elo` 로 `results/tabarena_elo.csv` 가 바이트 단위로 같음 (2026-11-25 확인) |
@@ -255,6 +255,7 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 
 - `fab fc check all`: 10개 모두 우리 채점 = fev 채점 (위), 정답 = fev `get_ground_truth`, 엉터리 제출 4가지 무효, 누출 0. 누출 검사는 설명 · 시리즈 id · 열 머리 · 코드 묶음 7개 파일 · run.json · 실행 이름. 심은 누출 3가지 (run.json 의 task 이름, cid 의 대회 이름, 원래 시리즈 id) 는 잡음
 - `run_fev.py` 를 로컬 CPU 로 ecdc_ili 에: Seasonal Naive task 평균 SQL 3.7763740396 (공개 3.7763740412) · MASE 4.1680850511 (공개 같음), AutoETS SQL 4.0788004372 (공개 4.0788004375). TabICL-TS 는 SQL 2.290 (공개 결과 없음, CPU 83초). 마지막 window 를 정리 작업의 채점기 (`collect`) 로 다시 채점하면 fev 점수와 같음
+- TabPFN-TS (v2) 를 로컬 CPU 로 ecdc_ili 에: task 평균 SQL 2.3379 (공개 2.3365, 상대 0.06%) · MASE 2.7485 (공개 2.7528), 140초. 가중치는 수락 없이 받음
 - 공개 결과만의 FM 풀 Elo (SQL, 10 task): Chronos-2 1752 · TabPFN-TS-3 1678 · TimesFM-2.5 1638 · TabPFN-TS (v2) 1535 · Chronos-Bolt 1410 · AutoARIMA 1291 · AutoETS 1187 · Seasonal Naive 1000 (우리 실행을 더하기 전, `results/forecast_elo.csv`)
 
 ## 결정 (2026-11-25)
@@ -268,7 +269,7 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 | 3 | 주 지표 | **SQL (보조 MASE)** | fev-bench 의 `eval_metric`, 분위수 예측까지 봄. 점 예측만 잘하는 Agent 는 MASE 로 따로 보임 |
 | 4 | 기준점 | **Seasonal Naive = 1000** | fev-bench skill score 의 기준 (사용자 허락) |
 | 5 | 기존 방법 | **SN · AutoETS · Chronos-2 · Chronos-Bolt · TimesFM-2.5 는 우리가 다시 돌림 (공개 결과는 맞춤 확인 · FM 풀). AutoARIMA 는 공개 결과로 FM 풀에만** | window 별 공개 값이 없음. ARIMA 는 CPU 약 4시간이라 Agent 풀에서 뺌 (사용자) |
-| 6 | FM | **TabPFN-TS 1.4.0 (v3.5) · TabICL 2.2.0 forecaster, 기본 설정** | 공식 둘. 변형 (`~tsfeat`) 은 그다음 |
+| 6 | FM | **TabPFN-TS (fev 래퍼, TabPFN v2) · TabICL 2.2.0 forecaster, 기본 설정.** TabPFN v3.5 는 뺌 (2026-11-25, 사용자: 라이선스 수락이 필요해서) | 공식 둘. 변형 (`~tsfeat`) 은 그다음 |
 | 7 | 채점 | **fev 식을 numpy 로 옮겨 원격 정리 작업에서, fev 와 같은 값인지 로컬 확인** | uv.lock 을 안 바꿈 |
 | 8 | 익명화 | **이름 · 출처 · 원래 id 숨김, 실제 timestamp · 공변량 이름은 줌** | 8 의 표 |
 | 9 | 대회 접두사 · 명령 | **`competitions/fc-<task>/`, `fab fc …`, 익명 id `forecast-p01`…** | TabArena 의 `ta-`·`fab ta`·`tabarena-p01` 자리 |

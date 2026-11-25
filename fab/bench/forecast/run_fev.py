@@ -8,7 +8,8 @@ fab fc fm (fab/bench/forecast/__init__.py) 이 job.json 과 함께 코드 묶음
 
 방법 (docs/forecast.md 6 · 7)
   - fev 래퍼: autogluon/fev @ <fev_commit> 의 models/<래퍼>/model.py · requirements.txt 를 실행할 때 받음 (Apache-2.0)
-  - 이 트랙의 FM: tabpfn_ts (tabpfn-time-series 의 predict_fev, 기본 TabPFN v3.5), tabicl_ts (tabicl 의 TabICLForecaster)
+  - 이 트랙의 FM: tabpfn_ts (fev 의 tabpfn-ts 래퍼 = TabPFN v2 회귀, 라이선스 수락 없음. v3.5 는 뺌, 2026-11-25 사용자),
+    tabicl_ts (tabicl 의 TabICLForecaster, fev 래퍼가 없어 여기서)
 
 출력 (job.json 의 out, Volume): results/<task>/<방법>/
   windows.json  window 마다 fev 의 compute_metrics (SQL · MASE · WQL · WAPE) + cutoff, task 평균 (fev evaluation_summary)
@@ -36,10 +37,10 @@ METHODS = {
     "chronos2": ("chronos-2", {"device": "cuda", "batch_size": 100}, []),
     "chronos_bolt": ("chronos", {"device": "cuda", "batch_size": 256}, []),
     "timesfm25": ("timesfm-2.5", {"device": "auto"}, []),
-    "tabpfn_ts": (None, {}, ["tabpfn-time-series==1.4.0"]),
+    "tabpfn_ts": ("tabpfn-ts", {}, []),  # 공개 결과 TabPFN-TS (v2) 와 같은 래퍼 · 인자 (tabpfn 7.1.1 · tabpfn-time-series 1.0.10)
     "tabicl_ts": (None, {}, ["tabicl[forecast]==2.2.0"]),
 }
-KEEP = {"fev", "statsforecast", "chronos-forecasting", "timesfm", "tabpfn-time-series", "tabicl", "torch"}  # 고정을 안 푸는 패키지
+KEEP = {"fev", "statsforecast", "chronos-forecasting", "timesfm", "tabpfn", "tabpfn-time-series", "tabicl", "torch"}  # 고정을 안 푸는 패키지
 RELAXED: dict[str, list[str]] = {}  # 방법 → 고정을 푼 보조 패키지 (make_venv)
 VERSIONS = ["fev", "tabpfn", "tabpfn-time-series", "tabicl", "chronos-forecasting", "timesfm", "statsforecast", "torch",
             "datasets", "numpy", "pandas"]
@@ -119,7 +120,7 @@ def run(job: dict):
             work.mkdir(parents=True)
             (work / "task.json").write_text(json.dumps(tdef))
             t1 = time.time()
-            env = dict(os.environ, FAB_WEIGHTS=job.get("weights") or "", TQDM_DISABLE="1")
+            env = dict(os.environ, TQDM_DISABLE="1")
             with open(work / "log.txt", "w") as log:
                 try:
                     rc = subprocess.run([str(py), str(Path(__file__).resolve()), "worker", key, str(work / "task.json"),
@@ -148,20 +149,6 @@ def slug(name: str) -> str:
 
 
 # ---------- worker (방법의 venv 안) ----------
-
-def tabpfn_ts(task):
-    from tabpfn_time_series import TabPFNMode, TabPFNTSPipeline
-
-    cfg = {}
-    if w := os.environ.get("FAB_WEIGHTS"):  # 라이선스를 수락해 받은 체크포인트 (Volume 의 weights/, fab fc weights)
-        ckpts = sorted(Path(w, "tabpfn").glob("*.ckpt"))
-        if not ckpts:
-            raise SystemExit(f"{w}/tabpfn/*.ckpt 없음 → 로컬에서 fab fc weights")
-        cfg["model_path"] = str(ckpts[0])
-    pipe = TabPFNTSPipeline(tabpfn_mode=TabPFNMode.LOCAL, tabpfn_model_config=cfg)
-    preds, _ = pipe.predict_fev(task, use_covariates=True)
-    return preds, dict(model_path=cfg.get("model_path", "default (v3.5)"))
-
 
 def tabicl_ts(task):
     import datasets
@@ -222,7 +209,7 @@ def worker(key: str, task_json: str, out: str):
     try:
         task = fev.Task(**json.loads(Path(task_json).read_text()))
         t0 = time.time()
-        preds, extra = {"tabpfn_ts": tabpfn_ts, "tabicl_ts": tabicl_ts}.get(key, lambda t: fev_wrapper(key, t))(task)
+        preds, extra = tabicl_ts(task) if key == "tabicl_ts" else fev_wrapper(key, task)
         status["fit_predict_s"] = round(time.time() - t0, 1)
         status.update(extra)
         metrics = [get_metric(m) for m in [task.eval_metric, *task.extra_metrics]]

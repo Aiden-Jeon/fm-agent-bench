@@ -4,7 +4,6 @@ fev-bench 공개 결과 · Elo. 설계 · 결정은 docs/forecast.md.
     uv run --frozen fab fc prepare redset_1H                 # 마지막 window → competitions/fc-redset-1h/data/ (public), 정답은 FAB_FORECAST
     uv run --frozen fab fc describe redset_1H                # 에이전트용 description.md (describe.py, 덮어씀)
     uv run --frozen fab fc fm all [--methods tabicl_ts]      # FM · 기존 방법 원격 (모든 window) → fab remote kick → results/forecast.csv
-    uv run --frozen fab fc weights                           # TabPFN v3.5 체크포인트 (라이선스 수락) → Volume 의 weights/tabpfn/
     uv run --frozen fab fc check redset_1H                   # 로컬 확인: 우리 채점 = fev 채점, 형식 검사, 누출 검사
     uv run --frozen fab fc reference                         # fev-bench 공개 결과 (10 task) → results/forecast_reference.csv
     uv run --frozen fab fc elo                               # Elo (Seasonal Naive = 1000) → results/forecast_elo.csv
@@ -374,10 +373,9 @@ RUN_FEV = Path(__file__).with_name("run_fev.py")
 FEV_VERSION = "0.10.0"
 # 방법 키 (run_fev.METHODS) → 결과표의 이름. 공개 결과 (REFERENCE_METHODS) 와 같은 이름이면 FM 풀에서 "(ours)" 를 붙임
 METHOD_NAMES = {"snaive": "Seasonal Naive", "autoets": "AutoETS", "chronos2": "Chronos-2", "chronos_bolt": "Chronos-Bolt",
-                "timesfm25": "TimesFM-2.5", "tabpfn_ts": "TabPFN-TS", "tabicl_ts": "TabICL-TS"}
+                "timesfm25": "TimesFM-2.5", "tabpfn_ts": "TabPFN-TS (v2)", "tabicl_ts": "TabICL-TS"}
 # 기본 작업 묶음 (GPU 작업 하나씩 동시에): 오래 걸리는 FM 둘은 따로, 나머지는 한 작업 (docs/forecast.md 10)
 DEFAULT_GROUPS = [["tabpfn_ts"], ["tabicl_ts"], ["snaive", "autoets", "chronos2", "chronos_bolt", "timesfm25"]]
-TABPFN_WEIGHTS = "weights/tabpfn"  # Volume 안. fab fc weights 가 올림 (tabpfn_ts 가 읽음)
 
 
 def submit_fm(methods: list[str], names: list[str], accelerator: str | None, timeout: int, note: str = "",
@@ -394,13 +392,7 @@ def submit_fm(methods: list[str], names: list[str], accelerator: str | None, tim
     n_gpus = re.match(r"GPU_(\d+)x", cfg["accelerator"])
     key = run_key("fc-" + "-".join(m.replace("_", "") for m in methods), "")
     out = f"{cfg['volume']}/runs/{key}"
-    weights = f"{cfg['volume']}/weights" if "tabpfn_ts" in methods else None
-    if weights and not dry_run:
-        from fab.remote import list_names
-
-        if not [n for n in list_names(cfg, TABPFN_WEIGHTS) if n.endswith(".ckpt")]:
-            raise SystemExit(f"{cfg['volume']}/{TABPFN_WEIGHTS}/*.ckpt 없음 → 먼저 fab fc weights (라이선스 수락 · 업로드)")
-    job = dict(methods=methods, tasks={n: task_def(n) for n in names}, out=out, weights=weights, fev_version=FEV_VERSION,
+    job = dict(methods=methods, tasks={n: task_def(n) for n in names}, out=out, fev_version=FEV_VERSION,
                fev_commit=FEV_COMMIT, task_timeout=min(timeout * 60, 6 * 3600))
     work = Path(tempfile.mkdtemp())
     try:
@@ -575,7 +567,6 @@ def main(argv: list[str] | None = None):
     f.add_argument("--timeout", type=int, default=600, help="작업 시간 제한 (분)")
     f.add_argument("--note", default="")
     f.add_argument("--dry-run", action="store_true", help="제출하지 않고 job.json · air.yaml 만 보여 줌")
-    sub.add_parser("weights", help="TabPFN v3.5 체크포인트를 로컬에서 받아 (라이선스 수락) Volume 의 weights/tabpfn/ 로")
     sub.add_parser("agent", help="에이전트 실행 (fab fc agent -h, fab mleb agent 와 같은 명령)")
     args = ap.parse_args(argv)
 
@@ -617,19 +608,6 @@ def main(argv: list[str] | None = None):
         for g in groups:
             submit_fm(g, ts, args.accelerator, args.timeout, args.note)
         print("끝난 뒤 fab remote kick → 회수 · 마지막 window 채점, fab sync 로 results/forecast.csv")
-    elif args.cmd == "weights":
-        py = Path(os.environ.get("FAB_FORECAST_FM_PYTHON", FC_DIR / ".venv-fm" / "bin" / "python"))
-        if not py.exists():
-            sys.exit(f"{py} 없음: uv venv {FC_DIR}/.venv-fm && uv pip install --python {py} tabpfn-time-series==1.4.0")
-        with tempfile.TemporaryDirectory() as d:
-            got = json.loads(subprocess.run([str(py), "-I", str(Path(__file__).with_name("weights.py"))], cwd=d,
-                                            stdout=subprocess.PIPE, text=True, check=True).stdout.strip().splitlines()[-1])
-        from fab.remote import dbx, settings as remote_settings
-
-        cfg = remote_settings()
-        dbx(cfg, "fs", "mkdir", f"dbfs:{cfg['volume']}/{TABPFN_WEIGHTS}")
-        dbx(cfg, "fs", "cp", "--overwrite", got["path"], f"dbfs:{cfg['volume']}/{TABPFN_WEIGHTS}/{got['name']}", timeout=3600)
-        print(f"업로드: {got['path']} ({got['bytes'] / 1e6:.0f} MB) → {cfg['volume']}/{TABPFN_WEIGHTS}/")
     elif args.cmd == "reference":
         reference()
     elif args.cmd == "elo":
