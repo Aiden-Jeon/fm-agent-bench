@@ -326,15 +326,21 @@ def prepare_all(comps: list[Competition], workers: int):
 # --- 실험 정의 · 제출 --------------------------------------------------------------------------------------------
 
 
-def plan(exp: str, tab: str, types: list[str], datasets: list[str] | None, only: str | None = None
-         ) -> tuple[list[Competition], list[str], str]:
-    """only = cpu · gpu 면 그쪽 방법만 (pyod 부분은 E0 를 기다릴 필요가 없음)."""
+def plan(exp: str, tab: str, types: list[str], datasets: list[str] | None, only: str | None = None,
+         keep: list[str] | None = None) -> tuple[list[Competition], list[str], str]:
+    """only = cpu · gpu 면 그쪽 방법만 (pyod 부분은 E0 를 기다릴 필요가 없음). keep: 이 방법들만 (예: Kumo 의 E3 는 trim10 · iftrim10)."""
     from fab.bench.anomaly.methods import is_gpu
 
     comps, methods, label = _plan(exp, tab, types, datasets)
     if only:
         methods = [m for m in methods if is_gpu(m) == (only == "gpu")]
         label += f"-{only}"
+    if keep:
+        if bad := sorted(set(keep) - set(methods)):
+            raise SystemExit(f"{exp} 계획에 없는 방법: {bad} (있는 것: {' '.join(methods)})")
+        methods = [m for m in methods if m in keep]
+    if tab != TAB:
+        label += f"-{tab.split('_')[0]}"
     return comps, methods, label
 
 
@@ -358,11 +364,11 @@ def _plan(exp: str, tab: str, types: list[str], datasets: list[str] | None) -> t
 
 
 def submit(exp: str, tab: str, types: list[str], datasets: list[str] | None, timeout: int, accelerator: str | None,
-           yes: bool, note: str, only: str | None):
+           yes: bool, note: str, only: str | None, keep: list[str] | None = None):
     from fab.bench.anomaly import submit_comps
     from fab.bench.anomaly.methods import is_gpu
 
-    comps, methods, label = plan(exp, tab, types, datasets, only)
+    comps, methods, label = plan(exp, tab, types, datasets, only, keep)
     if not methods:
         raise SystemExit(f"{exp} --only {only}: 낼 방법이 없음")
     gpu = [m for m in methods if is_gpu(m)]
@@ -396,10 +402,28 @@ def read_conditions() -> pd.DataFrame:
     return g
 
 
+def fill_trim(long: pd.DataFrame) -> pd.DataFrame:
+    """정리 변형 (+trim · +iftrim) 이 실패한 칸 = 정리하지 않은 같은 방법의 값 (imputed = 1). 실패는 정리 뒤 context 에서 조건 열이
+    상수가 되어 TabPFN 이 거부한 것 (cardio · yeast, 2026-11-26). 기준점 (IForest) 값으로 채우면 TabPFN 이 크게 지는 cardio 에서
+    정리 변형이 IForest 값을 받아 부풀어 오름 → "정리에 실패하면 정리 안 함" 으로 채움."""
+    from fab.bench.anomaly.methods import base as base_name
+
+    long = long.assign(imputed=0.0)
+    keys = long[["dataset", "split"]].drop_duplicates()
+    add = []
+    for m in [m for m in long.method.unique() if "trim" in m]:
+        have = long[long.method == m][["dataset", "split"]]
+        miss = keys.merge(have, how="left", indicator=True).query("_merge == 'left_only'")[["dataset", "split"]]
+        src = long[long.method == base_name(m)].merge(miss, on=["dataset", "split"])
+        add.append(src.assign(method=m, imputed=1.0))
+    return pd.concat([long, *add], ignore_index=True)
+
+
 def pool_elo(long: pd.DataFrame, anchor: str, name: str, rounds: int) -> pd.DataFrame | None:
     from fab.bench.tabarena import elo
 
-    long = long[["method", "dataset", "split", "metric_error"]].dropna()
+    long = long[["method", "dataset", "split", "metric_error", *(["imputed"] if "imputed" in long else [])]]
+    long = long.dropna(subset=["metric_error"])
     if long.empty or anchor not in set(long.method):
         print(f"{name}: 기준점 {anchor} 가 없음 → 건너뜀")
         return None
@@ -448,6 +472,22 @@ def report(rounds: int, tab: str):
         w = e2.pivot_table(index=["dataset", "rate", "arrange"], columns="model", values="score", aggfunc="mean")
         cols = [c for c in [tab, ANCHOR, "knn", "lof", "ecod", "loda"] if c in w]
         print("\n== E2: 뽑기 평균 AUROC\n" + w[cols].round(3).to_string())
+        if E2_CELLS.exists():  # 칸마다 r = 0 대비 떨어진 몫 대 조작 측정값 (가림 · 모인 정도)
+            from scipy.stats import spearmanr
+
+            cells = pd.read_csv(E2_CELLS)[["comp", "test_masking", "anomaly_pairdist"]]
+            sc = e2.pivot_table(index=["comp", "dataset", "rate", "arrange"], columns="model", values="score").reset_index()
+            r0 = sc[sc.rate == 0].set_index("dataset")
+            sc = sc[sc.rate > 0].merge(cells, on="comp")
+            rows = []
+            for m in [c for c in cols if c in sc]:
+                drop = r0[m].reindex(sc.dataset).to_numpy() - sc[m].to_numpy()
+                ok = ~np.isnan(drop)
+                rows.append(dict(model=m, rho_drop_masking=spearmanr(drop[ok], sc.test_masking[ok])[0],
+                                 rho_drop_rate=spearmanr(drop[ok], sc.rate[ok])[0],
+                                 drop_clump=np.nanmean(drop[(sc.arrange == "clump").to_numpy()]),
+                                 drop_spread=np.nanmean(drop[(sc.arrange == "spread").to_numpy()]), n=int(ok.sum())))
+            print("\n== E2: r = 0 대비 떨어진 AUROC (칸 단위, Spearman)\n" + pd.DataFrame(rows).round(3).to_string(index=False))
 
     # E3: trim 풀 (공식 12 × s1, 기존 10 + TabPFN (순열 같게) + 정리 변형)
     # 같은 순열의 TabPFN 기준 (순열 10 = 공식 tabpfn_unsup 의 s1, 그 밖은 조건 표의 것) + 정리 변형 (+trim · +iftrim)
@@ -456,9 +496,17 @@ def report(rounds: int, tab: str):
     if len(e3):
         base = off[off.model.isin([*PYOD, *([tab] if tab in OFFICIAL else [])]) & (off.split == "s1")]
         g = pd.concat([base, e3], ignore_index=True).rename(columns={"model": "method"})
-        pools.append(pool_elo(g, ANCHOR, "trim", rounds))
+        pools.append(pool_elo(fill_trim(g), ANCHOR, "trim", rounds))
         w = g.pivot_table(index="dataset", columns="method", values="score")
         print("\n== E3: AUROC (s1)\n" + w.round(3).to_string())
+        # 메운 몫 = (정리 − 오염) / (clean − 오염): clean 진단 (train 라벨) 과의 차이 중 라벨 없이 메운 비율
+        cl = off[(off.model == tab + CLEAN) & (off.split == "s1")].set_index("dataset").score
+        if len(cl) and tab in w:
+            gap = (cl - w[tab]).rename("clean_gap")
+            fr = pd.concat([w[tab].rename("contaminated"), cl.rename("clean"), gap,
+                            *[((w[c] - w[tab]) / gap).rename(c.removeprefix(tab)) for c in w if c.startswith(tab + "+")]], axis=1)
+            print("\n== E3: 메운 몫 (정리 − 오염) / (clean − 오염), 빈칸 = 정리 실패\n" + fr.round(2).to_string()
+                  + "\n중앙값\n" + fr.median().round(2).to_string())
 
     # Kumo (우리 래퍼): 공식 대회의 kumo_unsup (조건 표) 와 기존 10 + tabpfn_unsup (공식 표) 을 같은 (데이터셋, split) 에서. +clean 은 표만
     ku = cond[(cond.exp == "base") & cond.model.isin([KUMO, KUMO + CLEAN])]
@@ -494,12 +542,13 @@ def main(argv: list[str]):
         p.add_argument("exp", choices=["e0", "e1", "e2", "e3", "e4"])
         p.add_argument("--types", nargs="+", default=E1_TYPES, choices=E1_TYPES, help="E1 의 이상 종류")
         p.add_argument("--datasets", nargs="+", default=None)
-        p.add_argument("--tabpfn", default=TAB, help=f"조건 실험의 TabPFN (기본 {TAB})")
+        p.add_argument("--tabpfn", default=TAB, help=f"조건 실험의 FM (기본 {TAB}, Kumo 판은 {KUMO})")
         if cmd == "prepare":
             p.add_argument("--workers", type=int, default=1)
         else:
             p.add_argument("--yes", action="store_true")
             p.add_argument("--only", choices=["cpu", "gpu"], default=None, help="그쪽 작업만 (기본: 둘 다)")
+            p.add_argument("--methods", nargs="+", default=None, help="계획 중 이 방법들만")
             p.add_argument("--timeout", type=int, default=360, help="작업 시간 제한 (분)")
             p.add_argument("--accelerator", default=None)
             p.add_argument("--note", default="")
@@ -526,6 +575,6 @@ def main(argv: list[str]):
             e2_cells_table()
     elif args.cmd == "submit":
         submit(args.exp, args.tabpfn, args.types, args.datasets, args.timeout, args.accelerator, args.yes, args.note,
-               args.only)
+               args.only, args.methods)
     elif args.cmd == "report":
         report(args.rounds, args.tabpfn)
