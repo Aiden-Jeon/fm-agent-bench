@@ -21,6 +21,9 @@
   이 중 표 형식 대회 4개 (spaceship·nomad·tps-may-2022·leaf) 를 씀
 - **TabArena** (`autogluon/tabarena` v0.1, 51개): OpenML 고정 분할로 채점하고 공개된 TFM·GBDT 의 split 별 결과와 비교.
   FM (tabicl·kumo 51개, tabpfn_v2 33개) 은 모든 split, Agent 는 1회 1시간이라 16개 (파일럿 2개 × 2회 + #26 10개 × 1회 + 행 추가 kddcup09 · NATICUSdroid · Bioresponse · Diabetes130US 1회씩) 의 r0f0 × 5설정만 ([docs/tabarena.md](docs/tabarena.md))
+- **fev-bench** (`autogluon/fev`, 시계열 예측 100 task 중 단변량 10개): 표 형식 밖 문제에서 tabular FM (TabPFN-TS · TabICL forecaster) 을
+  시계열 FM (Chronos-2 · TimesFM-2.5 등) · 통계 방법 · Agent 와 비교. 지표 SQL (분위수) · MASE, Elo 기준점 Seasonal Naive = 1000.
+  FM · 기존 방법은 모든 window, Agent 는 마지막 window 하나 ([docs/forecast.md](docs/forecast.md))
 
 계획과 단계 (P0~P6, C1·C2 규칙) 는 [docs/plans/roadmap.md](docs/plans/roadmap.md).
 
@@ -136,12 +139,13 @@ fab/
   runner/                         # FM 실행: fab databricks 가 제출 (TFM: AI Runtime GPU, GBDT: serverless CPU), 원격에서 fab run
   submission.py                   # test.npy → 제출 파일 (여러 모델이면 평균, 원격 정리 작업 안에서)
   bench/mlebench/                 # MLE-bench 분할 준비 (로컬 mle-bench 가상환경), 채점 재료 업로드·원격 채점 (remote.py), 공개 에이전트 점수
+  bench/forecast/                 # fev-bench 시계열 예측: 마지막 window 대회 (fab fc), fev 식 채점 (metrics.py), 원격 실행기 (run_fev.py)
   agent/                          # 에이전트 실행: 로컬 런처 (__init__.py) + 원격 실행기 (runner.py: LLM 프록시·형식 검사 서버)
                                   #   C2 (--fm): fm_notes.txt (지시문의 TFM 안내), fm_warmup.py (사전 점검), fm_audit.py (TFM import 기록)
   remote/                         # 원격 상태(Volume 의 state/)·정리 작업 (reconcile.py: 결과 합치기·채점, `fab remote kick` 으로 실행)·fab sync
 docker/air/                       # Databricks 실행 이미지 (FM 패키지 미리 설치)
 results/                          # git 추적 결과 표 (성능 대시보드 아래 설명, TabArena 는 tabarena*.csv). 실행 출력은 Volume 의 outputs/ (fab sync --pull 로 골라 받기)
-docs/                             # mle-bench.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
+docs/                             # mle-bench.md · tabarena.md · forecast.md (결과·결정), remote.md (원격 실행 흐름), known-issues.md, plans/
 ```
 
 ## 준비

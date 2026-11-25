@@ -276,6 +276,38 @@ fev 0.10.0 `metrics.py` 의 정의 그대로. y 는 정답, ŷ 는 점 예측, q
 - 공개 결과와의 차가 모두 6 의 맞춤 기준 (2%) 안. 결정적인 셋 (SN · AutoETS · Chronos-2) 은 같음
 - 운영 기록: 이 kick 은 이상탐지 트랙 (`bench-anomaly`, 머지 전) 의 대기 항목 6개 (agent `anomaly-p04` × 5 · grade 1) 도 이 브랜치 코드로 처리해 시도 1/3 으로 남김 (결과표는 되돌려져 안 다침). 두 트랙이 머지되기 전에는 kick 전에 `fab remote status` 로 상대 트랙 대기 항목을 보고, 있으면 그쪽에 맡김 (이상탐지 세션과 합의)
 
+### 본실행 (10 task, 모든 window, 2026-11-25 13:43 ~ 15:07 KST)
+
+작업 3개 (H100 1장씩): TabPFN-TS (v2) 84분 · TabICL-TS 79분 · 기존 방법 5개 32분, 70 (task, 방법) 모두 성공. 오래 걸린 것은 시리즈가 많은 hospital (767 × 4 window, TabPFN 26분 · TabICL 26분) · redset_1H · solar_1D.
+아래 숫자는 정리 작업 전에 Volume 의 결과 폴더를 로컬로 받아 같은 `collect()` 로 채점한 것 (이상탐지 트랙의 대기 항목이 있어 kick 을 미룸). 공식 표 (`results/forecast.csv`) 는 kick → sync 뒤
+
+맞춤 (task 평균 SQL, 우리 ÷ 공개 − 1): 6개 방법 × 10 task = 60칸 모두 |차| ≤ 0.24% (기준 2%), Seasonal Naive · AutoETS · Chronos-2 는 0.006% 안. TabPFN-TS (v2) 가 가장 큼 (epf_be −0.24%, rohlik +0.13%)
+
+마지막 window SQL ÷ Seasonal Naive (Agent 풀의 단위, 낮을수록 좋음)
+
+| task | AutoETS | Chronos-Bolt | Chronos-2 | TimesFM-2.5 | TabPFN-TS (v2) | TabICL-TS |
+|---|---|---|---|---|---|---|
+| redset_1H | 1.008 | 1.140 | 0.771 | 0.782 | **0.764** | 0.816 |
+| solar_with_weather_1H | 2.203 | 0.421 | **0.380** | 0.449 | 0.494 | 0.518 |
+| ercot_1D | 1.166 | 0.858 | 0.907 | **0.671** | 0.744 | 0.904 |
+| epf_be | 1.532 | 0.916 | 0.794 | **0.429** | 1.021 | 0.917 |
+| rohlik_orders_1D | 0.705 | 0.448 | 0.429 | **0.403** | 0.670 | 1.003 |
+| solar_1D | 0.764 | 0.799 | **0.691** | 0.763 | 0.702 | 0.761 |
+| ecdc_ili | 1.040 | 0.583 | **0.245** | 0.264 | 0.332 | 0.315 |
+| hospital | 0.828 | 0.843 | **0.790** | 0.804 | 0.818 | 0.835 |
+| us_consumption_1M | 0.529 | 0.577 | **0.387** | 0.446 | 0.460 | 0.614 |
+| hospital_admissions_1D | 0.600 | 0.598 | **0.597** | 0.601 | 0.609 | 0.600 |
+
+Elo (SQL, 10 task, Seasonal Naive = 1000, 부트스트랩 200번)
+
+| 풀 | 순서 (Elo) |
+|---|---|
+| FM 풀 (task 평균: 공개 결과 8 + TabICL-TS (ours)) | Chronos-2 1812 · TabPFN-TS-3 1715 · TimesFM-2.5 1690 · TabPFN-TS (v2) 1574 · Chronos-Bolt 1442 · **TabICL-TS 1431** · AutoARIMA 1315 · AutoETS 1210 · Seasonal Naive 1000 |
+| 마지막 window 풀 (우리 실행, Agent 가 들어갈 풀) | Chronos-2 1698 · TimesFM-2.5 1567 · **TabPFN-TS (v2) 1402** · Chronos-Bolt 1307 · **TabICL-TS 1266** · AutoETS 1122 · Seasonal Naive 1000 |
+
+- FM 풀에는 공개 결과에 없는 우리 방법 (TabICL-TS) 만 더함. 재현한 같은 방법을 같이 넣으면 거의 같은 값끼리 부동소수 차로 승패가 갈려 숫자가 흔들림 (같은 값인 Seasonal Naive (ours) 가 1023) → 재현은 위 맞춤 확인에만
+- 읽은 것 (Agent 전, 판단은 약함): tabular FM 둘은 통계 방법보다 확실히 낫지만 시계열 FM (Chronos-2 · TimesFM-2.5) 보다 아래. TabPFN-TS 는 redset_1H 에서 1등, TabICL-TS 는 1등이 없음. 공개 결과에서 TabPFN-TS 가 앞섰던 solar_with_weather_1H 는 마지막 window 에서는 Chronos-2 가 앞섬 (task 평균과 마지막 window 는 다를 수 있음). TabICL-TS 는 rohlik (공변량 13 · 시리즈 7) 에서 Seasonal Naive 와 같은 수준
+
 ## 결정 (2026-11-25)
 
 1~5 는 사용자가 선택지로 정함, 6~9 는 추천안을 그대로 받음. 바꾸려면 여기를 고침.

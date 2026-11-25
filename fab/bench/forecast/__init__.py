@@ -497,7 +497,10 @@ def elo_tables(rounds: int) -> pd.DataFrame:
                  .assign(split="all")}
         if GRADES.exists():
             g = pd.read_csv(GRADES)
-            ours = g[g.window == "all"][["method", "task", metric]].rename(columns={"task": "dataset", metric: "metric_error"})
+            # FM 풀에는 공개 결과에 없는 우리 방법만 (TabICL-TS). 재현한 방법 (같은 이름) 을 같이 넣으면 거의 같은 값끼리
+            # 부동소수 차로 승패가 갈려 숫자가 흔들림 (Seasonal Naive 가 같은 값인데 1023) → 재현은 맞춤 확인 (compare) 에만
+            ours = g[(g.window == "all") & ~g.method.isin(set(ref.method))][["method", "task", metric]].rename(
+                columns={"task": "dataset", metric: "metric_error"})
             pools["fm"] = pd.concat([pools["fm"], ours.assign(method=ours.method + " (ours)", split="all")])
             last = g[g.is_last.eq(True)][["method", "task", "window", metric]].rename(
                 columns={"task": "dataset", "window": "split", metric: "metric_error"})
