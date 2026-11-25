@@ -273,7 +273,23 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 | AIDE × Sonnet | 0.7991 | 0.3497 | 60분 (시간 종료) | |
 
 같은 split 의 기존 방법: LODA 0.9591 · `iforest+clean` 0.9541 · OCSVM 0.9517 · ECOD 0.9463 · COPOD 0.9380 · **IForest 0.9324** · CBLOF 0.8880 · HBOS 0.8785 · KNN 0.7815 · LOF 0.6702.
-Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0.005. 나머지 넷은 IForest 보다 낮음. FM (B) 은 아직.
+Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0.005. 나머지 넷은 IForest 보다 낮음.
+
+### fault Agent (s1, 1회째)
+
+| 설정 | AUROC | AUPRC | 시간 | 메모 |
+|---|---|---|---|---|
+| Codex × GPT | **0.7224** | 0.5267 | 57분 | 최종 = 12개 성분 (조건부 밀도 · MAF · GMM · 오토인코더 · 숲 근접도 등, 파일 50여 개) 을 손으로 정한 가중치로 섞음 (`final_blend.py`). 첫 추론 글에서 "1941 rows and 27 features, likely from the UCI arrhythmia collection" 이라 짐작하고 비교로 ODDS 이름 (cardiotocography · thyroid · pima · vertebral) 을 늘어놓음 → `ad_names_seen` 의 annthyroid · cardio 는 이 거짓 양성, fault 는 못 알아봄. `test_fit_hints` 0 (계보는 다 읽지 않음) |
+| AIDE × GPT | 0.6489 | 0.4842 | 60분 (시간 종료) | |
+| AIDE × Sonnet | 0.6246 | 0.4490 | 60분 (시간 종료) | |
+| Claude Code × Sonnet +cont | 0.6076 | 0.4395 | 62초 | |
+| Claude Code × Sonnet | 0.5866 | 0.4151 | 11초 | |
+
+같은 split 의 기존 방법: **KNN 0.7413** · CBLOF 0.6743 · `iforest+clean` 0.6206 · LOF 0.5774 · **IForest 0.5647** · LODA 0.5515 · OCSVM 0.4414 · HBOS 0.4373 · ECOD 0.4322 · PCA 0.4322 · COPOD 0.4137.
+Agent 다섯 모두 IForest 보다 높지만 최고 (Codex) 도 KNN 보다 −0.019.
+
+- 실행 메모: 13:23 에 다른 체크아웃 (이상탐지 코드 없음) 의 kick 이 이 5개와 B 1회째 채점 요청을 옛 코드로 처리해 시도 1/3 실패 (agent: `mlebench/code.tgz` 없음, grade: `KeyError: 'cid'`). 바로 이 worktree 에서 다시 kick 해 정상 처리. forecast 세션에 kick 전 상대 트랙 대기 항목 확인을 요청함
+- B 1회째 (13:02, run_id 680939975486579) 는 3분 만에 12개 모두 실패: CUDA 에서 TabPFN 회귀의 raw 공간 bar 분포는 float64 (`_place_raw_space_bardist`, MPS 만 float32) 인데 tabpfn-extensions 가 y 를 logits (float32) 에 맞춰 `ignore_init` 의 `y[mask] = borders[0]` 에서 dtype 오류. 로컬 MPS 확인에서는 안 드러남 → `methods.py` 의 `Regressor` 가 full 출력의 logits 를 borders dtype 으로 맞춤. 13:25 다시 냄 (run_id 773094351672969)
 | – | B: `tabpfn_unsup` · `tabpfn_unsup+clean` (s1, v2 가중치) | H100 1장, 어림 1~2.7 시간, 상한 5시간 | 2026-11-25 13:02 제출 (`ad-12datasets-12splits-20261125-130236`, run_id 680939975486579) + 채점 요청 `anomaly__20261125-130244-497071` |
 | – | Agent 파일럿 2: fault (`anomaly-p04`) × 5설정 | | cardio 를 kick · sync 한 뒤 |
 
