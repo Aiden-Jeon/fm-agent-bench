@@ -224,12 +224,12 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 
 ## 9. 비용 어림
 
-| 실행 | 어림 | 근거 |
+| 실행 | 어림 (설계 때) | 잰 값 (2026-11-25) |
 |---|---|---|
-| 기존 10개 | serverless CPU 작업 하나, 수 분 ~ 30분 (12개 × 3 split × 10개) | 로컬 M 시리즈에서 IForest · ECOD · KNN 은 데이터셋 하나 (3 split) 1초 안팎. OCSVM · LOF 가 가장 느림 (재 보지 않음) |
-| `tabpfn_unsup` | TabPFN fit + 예측이 split 마다 순열 10 × 피처 수 번 → 12개 합 1,690번 / split, 3 split 5,070번. H100 1장에서 번당 1~3초로 어림하면 **1.5 ~ 4 GPU 시간** (재 보지 않음). 먼저 `s1` 만 내서 재고 나머지 | 4 의 계산, context ≤ 7,000 행 · 질의 ≤ 3,000 행 |
-| `+clean` 진단 (결정 6) | `tabpfn_unsup` 의 약 0.9배 (context 가 정상 행만) + IForest 몇 초 | |
-| Agent 파일럿 | 2개 × 5설정 × 1회 = **10회 × 1시간** (A10, 노드 대기 포함 상한) + 토큰 | TabArena 와 같음. 같은 엔드포인트 줄은 하나씩 |
+| 기존 10개 + `iforest+clean` | serverless CPU 작업 하나, 수 분 ~ 30분 (12개 × 3 split × 10개) | 작업 18분 (환경 · pyod 설치 포함, 대회 36개를 차례로. 방법 하나는 대회마다 0~3초, CBLOF · HBOS 가 가장 김) |
+| `tabpfn_unsup` | TabPFN fit + 예측이 split 마다 순열 10 × 피처 수 번 → 12개 합 1,690번 / split, 3 split 5,070번. H100 1장에서 번당 1~3초로 어림하면 **1.5 ~ 4 GPU 시간** (재 보지 않음) | **s1 (12개) 에 `+clean` 까지 H100 47분** (`tabpfn_unsup` 만 약 24분, 번당 약 0.85초). 데이터셋마다 25초 (Wilt, 5 피처) ~ 552초 (landsat, 36 피처) |
+| `+clean` 진단 (결정 6) | `tabpfn_unsup` 의 약 0.9배 (context 가 정상 행만) + IForest 몇 초 | `tabpfn_unsup` 의 0.5 ~ 1.0배 (이상이 많은 데이터는 context 가 작아짐) |
+| Agent | 2개 × 5설정 × 1회 = **10회 × 1시간** (A10, 노드 대기 포함 상한) + 토큰 | 파일럿 2개 10회 + Wilt 5회 (+ 플랫폼 오류 다시 내기 1회). AIDE 는 늘 60분 (시간 종료), Codex 49 ~ 57분, Claude Code 10초 ~ 1분 |
 
 ## 로컬 확인 (2026-11-25)
 
@@ -287,6 +287,21 @@ Agent 최고 (Codex) 는 IForest 보다 +0.021, 기존 최고 (LODA) 보다 −0
 
 같은 split 의 기존 방법: **KNN 0.7413** · CBLOF 0.6743 · `iforest+clean` 0.6206 · LOF 0.5774 · **IForest 0.5647** · LODA 0.5515 · OCSVM 0.4414 · HBOS 0.4373 · ECOD 0.4322 · PCA 0.4322 · COPOD 0.4137.
 Agent 다섯 모두 IForest 보다 높지만 최고 (Codex) 도 KNN 보다 −0.019.
+
+### Wilt Agent (s1, 1회째, 2026-11-25 14:21 ~ 15:40)
+
+TabPFN 이 가장 크게 이긴 데이터 (FM 쪽에 유리한 대조, s1 의 TabPFN 결과를 보고 정함). 이상 5.33%, 기존 10개가 모두 0.51 이하.
+
+| 설정 | AUROC | AUPRC | 시간 | 메모 |
+|---|---|---|---|---|
+| Codex × GPT | **0.8006** | 0.1131 | 53분 | **알아봄**: 첫 추론에 "Analyzing Wilt Dataset … 4,819 samples with 5 continuous features and 261 anomalies", 원래 열 (`class, G, R, NIR, Shd, B`) 과 "the AUC for Wilt's models" 를 기억에서 꺼냄. 받기 · 주소 접근 없음. 최종 (`make_candidate_submission.py` + `candidate_v2.py`) = 열 몇 개에 log 변환 → IForest · KNN · MCD · GMM · 밀집도 (GMM 성분 무게) 점수를 train 순위로 맞춰 섞고 작은 "clump" 점수를 더함, train 만 fit. 열 고른 log 변환이 지식에서 왔는지는 가르지 못함 |
+| Claude Code × Sonnet +cont | 0.7380 | 0.0902 | 32초 | 첫 실행은 플랫폼 오류 (노드 시작 때 `env_vars.json` 읽기 실패, 52초, 하네스 시작 전) → 제외 (`fab ad agent exclude`) 후 같은 설정으로 다시 냄 |
+| AIDE × Sonnet | 0.7367 | 0.0883 | 60분 (시간 종료) | |
+| Claude Code × Sonnet | 0.6560 | 0.0690 | 12초 | |
+| AIDE × GPT | 0.6344 | 0.0654 | 60분 (시간 종료) | |
+
+같은 split: **`tabpfn_unsup` 0.7450** · LOF 0.5121 · KNN 0.5027 · IForest 0.4087 … (기존 10개 모두 0.51 이하), `tabpfn+clean` 0.9494.
+Agent 다섯 모두 기존 10개보다 높음 (밀도로 드문 행을 찾는 기본 방법이 라벨과 반대인 데이터). Codex (알아봄) 만 TabPFN 보다 높음 (+0.056), 나머지 넷은 TabPFN 보다 낮음.
 
 ### FM: TabPFN v2 비지도 (s1, 2026-11-25 13:25 ~ 14:12, H100 1장 47분)
 
