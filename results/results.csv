@@ -6973,3 +6973,132 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-25T07:54:48,ads-yeast-s2,tabpfn_unsup+clean,auroc,,,0,28.5,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=clean
 2026-11-25T07:55:23,ads-yeast-s3,tabpfn_unsup,auroc,,,0,31.5,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2
 2026-11-25T07:55:51,ads-yeast-s3,tabpfn_unsup+clean,auroc,,,0,27.7,,ad-fm,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=clean
+2026-11-25T13:13:27,ad-annthyroid,tabpfn_unsup_p3,auroc,,,0,52.5,,adc-e0,databricks,,,,,True,,6.0,n_permutations=3 version=v2
+2026-11-25T13:14:07,ad-cardio,tabpfn_unsup_p3,auroc,,,0,35.0,,adc-e0,databricks,,,,,True,,21.0,n_permutations=3 version=v2
+2026-11-25T13:14:40,ad-cover,tabpfn_unsup_p3,auroc,,,0,30.4,,adc-e0,databricks,,,,,True,,10.0,n_permutations=3 version=v2
+2026-11-25T13:15:30,ad-fault,tabpfn_unsup_p3,auroc,,,0,46.1,,adc-e0,databricks,,,,,True,,27.0,n_permutations=3 version=v2
+2026-11-25T13:18:23,ad-landsat,tabpfn_unsup_p3,auroc,,,0,170.3,,adc-e0,databricks,,,,,True,,36.0,n_permutations=3 version=v2
+2026-11-25T13:18:57,ad-magic-gamma,tabpfn_unsup_p3,auroc,,,0,30.5,,adc-e0,databricks,,,,,True,,10.0,n_permutations=3 version=v2
+2026-11-25T13:19:17,ad-mammography,tabpfn_unsup_p3,auroc,,,0,17.1,,adc-e0,databricks,,,,,True,,6.0,n_permutations=3 version=v2
+2026-11-25T13:19:41,ad-pageblocks,tabpfn_unsup_p3,auroc,,,0,20.5,,adc-e0,databricks,,,,,True,,10.0,n_permutations=3 version=v2
+2026-11-25T13:20:11,ad-shuttle,tabpfn_unsup_p3,auroc,,,0,26.9,,adc-e0,databricks,,,,,True,,9.0,n_permutations=3 version=v2
+2026-11-25T13:20:56,ad-waveform,tabpfn_unsup_p3,auroc,,,0,42.1,,adc-e0,databricks,,,,,True,,21.0,n_permutations=3 version=v2
+2026-11-25T13:21:10,ad-wilt,tabpfn_unsup_p3,auroc,,,0,10.6,,adc-e0,databricks,,,,,True,,5.0,n_permutations=3 version=v2
+2026-11-25T13:21:26,ad-yeast,tabpfn_unsup_p3,auroc,,,0,13.0,,adc-e0,databricks,,,,,True,,8.0,n_permutations=3 version=v2
+2026-11-25T13:25:54,ad-annthyroid,iforest+trim10,auroc,,,0,1.1,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:25:54,ad-annthyroid,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:25:57,ad-annthyroid,ocsvm+trim10,auroc,,,0,2.6,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:25:57,ad-annthyroid,lof+trim10,auroc,,,0,0.2,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:26:00,ad-annthyroid,cblof+trim10,auroc,,,0,3.6,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:26:04,ad-annthyroid,hbos+trim10,auroc,,,0,4.0,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:26:04,ad-annthyroid,knn+trim10,auroc,,,0,0.2,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:26:06,ad-annthyroid,copod+trim10,auroc,,,0,1.1,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:26:06,ad-annthyroid,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:26:06,ad-annthyroid,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:26:11,ad-cardio,iforest+trim10,auroc,,,0,0.9,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:26:11,ad-cardio,ocsvm+trim10,auroc,,,0,0.2,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:26:11,ad-cardio,lof+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:26:14,ad-cardio,cblof+trim10,auroc,,,0,3.3,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:26:18,ad-cardio,hbos+trim10,auroc,,,0,4.0,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:26:18,ad-cardio,knn+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:26:19,ad-cardio,copod+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:26:19,ad-cardio,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:26:19,ad-cardio,loda+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:26:24,ad-cover,iforest+trim10,auroc,,,0,0.8,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:26:24,ad-cover,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:26:29,ad-cover,ocsvm+trim10,auroc,,,0,4.7,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:26:29,ad-cover,lof+trim10,auroc,,,0,0.5,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:26:32,ad-cover,cblof+trim10,auroc,,,0,3.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:26:36,ad-cover,hbos+trim10,auroc,,,0,4.3,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:26:37,ad-cover,knn+trim10,auroc,,,0,0.4,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:26:38,ad-cover,copod+trim10,auroc,,,0,1.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:26:38,ad-cover,ecod+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:26:38,ad-cover,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:26:43,ad-fault,iforest+trim10,auroc,,,0,0.7,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:26:43,ad-fault,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:26:43,ad-fault,ocsvm+trim10,auroc,,,0,0.2,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:26:43,ad-fault,lof+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:26:47,ad-fault,cblof+trim10,auroc,,,0,3.3,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:26:51,ad-fault,hbos+trim10,auroc,,,0,3.8,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:26:51,ad-fault,knn+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:26:51,ad-fault,copod+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:26:51,ad-fault,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:26:51,ad-fault,loda+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,27.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:26:56,ad-landsat,iforest+trim10,auroc,,,0,0.8,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:26:56,ad-landsat,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:26:59,ad-landsat,ocsvm+trim10,auroc,,,0,2.7,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:26:59,ad-landsat,lof+trim10,auroc,,,0,0.4,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:27:03,ad-landsat,cblof+trim10,auroc,,,0,3.3,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:27:07,ad-landsat,hbos+trim10,auroc,,,0,4.3,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:27:07,ad-landsat,knn+trim10,auroc,,,0,0.2,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:27:08,ad-landsat,copod+trim10,auroc,,,0,0.7,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:27:08,ad-landsat,ecod+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:27:08,ad-landsat,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,36.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:27:14,ad-magic-gamma,iforest+trim10,auroc,,,0,0.7,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:27:14,ad-magic-gamma,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:27:18,ad-magic-gamma,ocsvm+trim10,auroc,,,0,4.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:27:18,ad-magic-gamma,lof+trim10,auroc,,,0,0.4,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:27:21,ad-magic-gamma,cblof+trim10,auroc,,,0,2.9,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:27:24,ad-magic-gamma,hbos+trim10,auroc,,,0,3.4,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:27:25,ad-magic-gamma,knn+trim10,auroc,,,0,0.3,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:27:25,ad-magic-gamma,copod+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:27:25,ad-magic-gamma,ecod+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:27:25,ad-magic-gamma,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:27:30,ad-mammography,iforest+trim10,auroc,,,0,0.7,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:27:30,ad-mammography,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:27:34,ad-mammography,ocsvm+trim10,auroc,,,0,3.9,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:27:34,ad-mammography,lof+trim10,auroc,,,0,0.3,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:27:37,ad-mammography,cblof+trim10,auroc,,,0,3.1,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:27:41,ad-mammography,hbos+trim10,auroc,,,0,3.6,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:27:41,ad-mammography,knn+trim10,auroc,,,0,0.2,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:27:42,ad-mammography,copod+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:27:42,ad-mammography,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:27:42,ad-mammography,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,6.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:27:46,ad-pageblocks,iforest+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:27:46,ad-pageblocks,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:27:47,ad-pageblocks,ocsvm+trim10,auroc,,,0,1.2,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:27:47,ad-pageblocks,lof+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:27:50,ad-pageblocks,cblof+trim10,auroc,,,0,3.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:27:54,ad-pageblocks,hbos+trim10,auroc,,,0,3.4,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:27:54,ad-pageblocks,knn+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:27:54,ad-pageblocks,copod+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:27:54,ad-pageblocks,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:27:54,ad-pageblocks,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,10.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:27:59,ad-shuttle,iforest+trim10,auroc,,,0,0.7,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:27:59,ad-shuttle,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:28:03,ad-shuttle,ocsvm+trim10,auroc,,,0,4.3,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:28:04,ad-shuttle,lof+trim10,auroc,,,0,0.2,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:28:06,ad-shuttle,cblof+trim10,auroc,,,0,2.7,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:28:10,ad-shuttle,hbos+trim10,auroc,,,0,3.5,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:28:10,ad-shuttle,knn+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:28:10,ad-shuttle,copod+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:28:10,ad-shuttle,ecod+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:28:11,ad-shuttle,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,9.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:28:15,ad-waveform,iforest+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:28:15,ad-waveform,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:28:16,ad-waveform,ocsvm+trim10,auroc,,,0,0.5,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:28:16,ad-waveform,lof+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:28:20,ad-waveform,hbos+trim10,auroc,,,0,3.9,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:28:20,ad-waveform,knn+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:28:20,ad-waveform,copod+trim10,auroc,,,0,0.4,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:28:20,ad-waveform,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:28:20,ad-waveform,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,21.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:28:24,ad-wilt,iforest+trim10,auroc,,,0,0.7,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:28:24,ad-wilt,pca+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=pca k=10 rounds=1
+2026-11-25T13:28:25,ad-wilt,ocsvm+trim10,auroc,,,0,0.9,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:28:25,ad-wilt,lof+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:28:28,ad-wilt,cblof+trim10,auroc,,,0,2.7,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:28:32,ad-wilt,hbos+trim10,auroc,,,0,3.4,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:28:32,ad-wilt,knn+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:28:32,ad-wilt,copod+trim10,auroc,,,0,0.5,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:28:32,ad-wilt,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:28:32,ad-wilt,loda+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,5.0,default context=trim by=loda k=10 rounds=1
+2026-11-25T13:28:36,ad-yeast,iforest+trim10,auroc,,,0,0.6,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=iforest k=10 rounds=1
+2026-11-25T13:28:37,ad-yeast,ocsvm+trim10,auroc,,,0,0.1,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=ocsvm k=10 rounds=1
+2026-11-25T13:28:37,ad-yeast,lof+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=lof k=10 rounds=1
+2026-11-25T13:28:40,ad-yeast,cblof+trim10,auroc,,,0,2.9,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=cblof k=10 rounds=1
+2026-11-25T13:28:43,ad-yeast,hbos+trim10,auroc,,,0,3.4,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=hbos k=10 rounds=1
+2026-11-25T13:28:43,ad-yeast,knn+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=knn k=10 rounds=1
+2026-11-25T13:28:43,ad-yeast,copod+trim10,auroc,,,0,0.5,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=copod k=10 rounds=1
+2026-11-25T13:28:43,ad-yeast,ecod+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=ecod k=10 rounds=1
+2026-11-25T13:28:44,ad-yeast,loda+trim10,auroc,,,0,0.0,,adc-e3-cpu,databricks-cpu,,,,,True,,8.0,default context=trim by=loda k=10 rounds=1

@@ -52,6 +52,8 @@ NPZ = AD_DIR / "src" / "adbench" / "adbench" / "datasets" / "Classical"
 ANSWERS = AD_DIR / "data" / "answers"
 TRAIN_LABELS = AD_DIR / "data" / "train_labels"
 GRADES = RESULTS / "anomaly.csv"  # 우리 채점 (git 추적, 원격 정리 작업이 씀)
+# 조건 실험 (docs/anomaly.md "TFM 이 이득을 보는 조건") 의 채점: 조건 대회 (설정에 anomaly.condition) 나 변형 방법. 공식 표와 안 섞음
+CONDITIONS = RESULTS / "anomaly_conditions.csv"
 RUNS = RESULTS / "anomaly_runs.csv"  # 에이전트 실행별 채점 (git 추적, 원격 정리 작업이 씀. fab.agent 의 표)
 ELO = RESULTS / "anomaly_elo.csv"  # IForest = 1000 Elo (git 추적, fab ad elo)
 REFERENCE = RESULTS / "anomaly_reference.csv"  # ADBench 논문 Table D4 (AUROC) · D5 (AUPRC) 의 12개 행 (git 추적)
@@ -140,10 +142,11 @@ def load_npz(dataset: str) -> tuple[np.ndarray, np.ndarray]:
     return np.asarray(d["X"], dtype=float), np.asarray(d["y"]).astype(int)
 
 
-def adbench_split(X: np.ndarray, y: np.ndarray, seed: int):
+def adbench_split(X: np.ndarray, y: np.ndarray, seed: int, synth=None):
     """ADBench DataGenerator.generator (비지도, la=0, 잡음 없음) 의 분할 → (X_train, X_test, y_train, y_test), MinMax 는 train 으로.
     순서도 원문과 같게: set_seed → (1만 행 넘으면 set_seed 다시 → 1만 행 비복원 표본) → train_test_split (random_state 없음 =
-    numpy 전역 상태). 1,000 행 미만의 복원 추출 불리기는 그런 데이터셋을 고르지 않아 (docs/anomaly.md 1 의 b) 여기 없음."""
+    numpy 전역 상태). 1,000 행 미만의 복원 추출 불리기는 그런 데이터셋을 고르지 않아 (docs/anomaly.md 1 의 b) 여기 없음.
+    synth: 합성 이상 (조건 실험 E1) 의 자리 = ADBench generator 의 realistic_synthetic_mode 와 같이 표본 뒤 · 나누기 앞. (X, y) → (X, y)."""
     import random
 
     from sklearn.model_selection import train_test_split
@@ -158,6 +161,8 @@ def adbench_split(X: np.ndarray, y: np.ndarray, seed: int):
         random.seed(seed)
         idx = np.random.choice(np.arange(len(y)), MAX_ROWS, replace=False)
         X, y = X[idx], y[idx]
+    if synth is not None:
+        X, y = synth(X, y)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, shuffle=True, stratify=y)
     scaler = MinMaxScaler().fit(X_train)
     return scaler.transform(X_train), scaler.transform(X_test), y_train, y_test
@@ -183,7 +188,12 @@ def prepare(comp: Competition):
     행 순서는 ADBench 분할이 내놓은 순서 그대로 (train_test_split 이 섞은 무작위 순서라 라벨 정보 없음). TabArena 처럼 id 순으로
     다시 놓으면 IForest 처럼 행 순서로 표본을 뽑는 방법이 ADBench 와 달라짐 (2026-11-25 로컬: cardio IForest 0.9315 대 0.9319)."""
     ad = comp.anomaly
-    X_train, X_test, y_train, y_test, id_train, id_test = split_with_ids(ad["dataset"], ad["seed"])
+    if ad.get("condition"):  # 조건 실험 대회 (합성 이상 · context 칸): fab/bench/anomaly/conditions.py
+        from fab.bench.anomaly.conditions import condition_split
+
+        X_train, X_test, y_train, y_test, id_train, id_test = condition_split(comp)
+    else:
+        X_train, X_test, y_train, y_test, id_train, id_test = split_with_ids(ad["dataset"], ad["seed"])
     cols = feature_names(X_train.shape[1])
     train = pd.DataFrame(X_train, columns=cols).assign(**{ID_COL: id_train, LABEL_COL: y_train})
     test = pd.DataFrame(X_test, columns=cols).assign(**{ID_COL: id_test, LABEL_COL: y_test})
@@ -198,7 +208,7 @@ def prepare(comp: Competition):
     test[[ID_COL, LABEL_COL]].to_csv(ANSWERS / f"{comp.name}.csv", index=False)
     train[[ID_COL, LABEL_COL]].to_csv(TRAIN_LABELS / f"{comp.name}.csv", index=False)
     info = dict(comp=comp.name, dataset=ad["dataset"], adbench=ad["adbench"], split=ad["split"], seed=ad["seed"],
-                metric="auroc", n_train=len(train), n_test=len(test), d=len(cols),
+                **({"condition": ad["condition"]} if ad.get("condition") else {}), metric="auroc", n_train=len(train), n_test=len(test), d=len(cols),
                 train_anomalies=int(y_train.sum()), test_anomalies=int(y_test.sum()))
     (ANSWERS / f"{comp.name}.json").write_text(json.dumps(info, indent=1))
     print(f"{comp.name}: train {len(train)} · test {len(test)} (이상 {info['test_anomalies']}) · 피처 {len(cols)} → "
@@ -355,7 +365,27 @@ def score_submission(sub_csv: Path, answers_csv: Path) -> dict:
     return score_frame(sub, read_answers(answers_csv))
 
 
+def is_condition_row(comp: Competition, model: str) -> bool:
+    """조건 실험의 채점 행인지 (→ CONDITIONS): 조건 대회이거나 공식 풀 밖 변형 방법 (순열 3 · 정리)."""
+    from fab.bench.anomaly.methods import is_variant
+
+    return bool(comp.anomaly.get("condition")) or is_variant(model)
+
+
+def condition_label(comp: Competition) -> tuple[str, str]:
+    """(실험, 조건 글). 조건이 없는 공식 대회는 ('base', '')."""
+    c = comp.anomaly.get("condition") or {}
+    return c.get("exp", "base"), " ".join(f"{k}={v}" for k, v in c.items() if k != "exp")
+
+
 def grade_row(comp: Competition, model: str, report: dict, note: str, info: dict) -> dict:
+    if is_condition_row(comp, model):  # 조건 표에만 있는 열 (공식 표의 열은 그대로)
+        exp, cond = condition_label(comp)
+        return dict(grade_row_base(comp, model, report, note, info), exp=exp, cond=cond)
+    return grade_row_base(comp, model, report, note, info)
+
+
+def grade_row_base(comp: Competition, model: str, report: dict, note: str, info: dict) -> dict:
     ad = comp.anomaly
     return dict(timestamp=pd.Timestamp.now("UTC").tz_localize(None).isoformat(timespec="seconds"), comp=comp.name,
                 dataset=ad["dataset"], split=ad["split"], seed=ad["seed"], model=model, metric="auroc",
@@ -369,7 +399,7 @@ def grade(comps: list[str], models: list[str], note: str, grader, timer: dict | 
     TabArena 의 grade 와 같은 꼴 (reconcile 의 grade_split_bench 가 같이 부름)."""
     from fab.core.results import OUTPUTS, test_info
 
-    rows, errors = [], {}
+    rows, cond_rows, errors = [], [], {}
     for name in comps:
         comp = load_competition(name)
         infos = {m: test_info(name, m) for m in models}
@@ -393,10 +423,12 @@ def grade(comps: list[str], models: list[str], note: str, grader, timer: dict | 
             if not report.get("valid_submission"):
                 errors[f"{name}/{m}"] = f"채점 실패: {report.get('error')}"
                 continue
-            rows.append(grade_row(comp, m, report, note, infos[m]))
+            (cond_rows if is_condition_row(comp, m) else rows).append(grade_row(comp, m, report, note, infos[m]))
     if rows:
         append_rows(pd.DataFrame(rows), GRADES)
-    return rows, errors
+    if cond_rows:
+        append_rows(pd.DataFrame(cond_rows), CONDITIONS)
+    return rows + cond_rows, errors
 
 
 def request_grade(comps: list[str], models: list[str], note: str = ""):
@@ -427,6 +459,15 @@ def submit_fm(todo: list[tuple[str, list[str]]], methods: list[str], note: str, 
               grade_after: bool = True) -> list[dict]:
     """데이터셋 (이름, split) 들의 대회를 CPU 작업 하나 (pyod) + GPU 작업 하나 (TabPFN) 로. 작업 안에서 대회마다 `fab run`
     (fab/runner/databricks.py 의 RUNNER 그대로 → fab/runner/run.py 가 anomaly 대회는 run.py 로 넘김). 결과는 정리 작업의 fm 단계가 합침."""
+    check_methods(methods)
+    comps = [c for ds, splits in todo for c in make_comps(ds, splits)]
+    label = f"ad-{slug(todo[0][0])}-{len(comps)}splits" if len(todo) == 1 else f"ad-{len(todo)}datasets-{len(comps)}splits"
+    return submit_comps(comps, methods, note, timeout, accelerator, grade_after, label)
+
+
+def submit_comps(comps: list[Competition], methods: list[str], note: str, timeout: int, accelerator: str | None,
+                 grade_after: bool, label: str) -> list[dict]:
+    """대회들 (준비된 것) 을 CPU 작업 하나 (pyod) + GPU 작업 하나 (TabPFN) 로. submit_fm 과 조건 실험 (conditions.py) 이 같이 씀."""
     from fab.bench.anomaly.methods import is_clean, is_gpu
     from fab.bench.anomaly.remote import train_labels_dir, upload_train_labels
     from fab.bench.tabarena.remote import upload_data
@@ -434,7 +475,6 @@ def submit_fm(todo: list[tuple[str, list[str]]], methods: list[str], note: str, 
     from fab.runner.databricks import settings as dbx_settings
 
     check_methods(methods)
-    comps = [c for ds, splits in todo for c in make_comps(ds, splits)]
     cfg = dbx_settings(argparse.Namespace(accelerator=accelerator, image=None))
     gpu = [m for m in methods if is_gpu(m)]
     cpu = [m for m in methods if not is_gpu(m)]
@@ -443,7 +483,6 @@ def submit_fm(todo: list[tuple[str, list[str]]], methods: list[str], note: str, 
         upload_train_labels(cfg, [c.name for c in comps])
         extra += ["--train-labels", train_labels_dir(cfg)]
     data = upload_data(cfg, comps)
-    label = f"ad-{slug(todo[0][0])}-{len(comps)}splits" if len(todo) == 1 else f"ad-{len(todo)}datasets-{len(comps)}splits"
     runs = []
     for ms, is_cpu in ((cpu, True), (gpu, False)):
         if not ms:
@@ -501,11 +540,11 @@ def agent_runs(runs: pd.DataFrame, grades: pd.DataFrame) -> pd.DataFrame:
 def elo_tables(rounds: int) -> pd.DataFrame:
     """두 풀 → results/anomaly_elo.csv. fm: 12개 × split 3개 (기존 10개 + FM), agent: Agent 를 돌린 데이터셋의 s1 (+ Agent).
     +clean 진단은 안 넣음 (train 라벨을 씀). 기준점 IForest = 1000 (elo.py 의 elo(anchor=...))."""
-    from fab.bench.anomaly.methods import ANCHOR, CLEAN, FM, PYOD
+    from fab.bench.anomaly.methods import ANCHOR, CLEAN, OFFICIAL
     from fab.bench.tabarena import elo
 
     grades = latest_grades(pd.read_csv(GRADES))
-    grades = grades[grades.model.isin([*PYOD, *FM]) & ~grades.model.str.endswith(CLEAN) & grades.metric_error.notna()]
+    grades = grades[grades.model.isin(OFFICIAL) & ~grades.model.str.endswith(CLEAN) & grades.metric_error.notna()]
     long = grades[["model", "dataset", "split", "metric_error"]].rename(columns={"model": "method"})
     if missing := sorted(set(DATASETS) - set(long[long.method == ANCHOR].dataset)):
         print(f"경고: 기준점 {ANCHOR} 가 없는 데이터셋 {missing} → 그 데이터셋은 풀에서 빠짐")
@@ -549,6 +588,10 @@ def main(argv: list[str] | None = None):
         from fab.agent import main as agent_main
 
         return agent_main(argv[1:], bench="anomaly")
+    if argv[:1] == ["cond"]:
+        from fab.bench.anomaly.conditions import main as cond_main
+
+        return cond_main(argv[1:])
     ap = argparse.ArgumentParser(prog="fab ad", description="표 이상탐지 (ADBench, docs/anomaly.md)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init", help="competitions/ad-<이름>/ (s1) 의 config.yaml · description.md 를 없으면 만듦")
@@ -573,6 +616,7 @@ def main(argv: list[str] | None = None):
     e = sub.add_parser("elo", help="IForest = 1000 Elo: fm 풀 (12개 × 3 split) · agent 풀 (s1) → results/anomaly_elo.csv")
     e.add_argument("--rounds", type=int, default=200)
     sub.add_parser("agent", help="에이전트 실행 (fab ad agent -h, fab ta agent 와 같은 명령)")
+    sub.add_parser("cond", help="TFM 이 이득을 보는 조건 실험 (fab ad cond -h, docs/anomaly.md)")
     args = ap.parse_args(argv)
 
     def names(xs):

@@ -23,6 +23,7 @@ from fab.remote import TABLES, dbx, list_names, settings
 ROW_KEYS = {"results.csv": ["timestamp", "comp", "model"], "mlebench.csv": ["timestamp", "mlebench", "model"],
             "mlebench_runs.csv": ["key"], "tabarena.csv": ["timestamp", "comp", "model"], "tabarena_runs.csv": ["key"],
             "anomaly.csv": ["timestamp", "comp", "model"], "anomaly_runs.csv": ["key"],
+            "anomaly_conditions.csv": ["timestamp", "comp", "model"],
             "forecast.csv": ["timestamp", "task", "method", "window"], "forecast_runs.csv": ["key"]}
 
 

@@ -5,6 +5,8 @@ competitions/*/data
 competitions/tas-*/
 # 이상탐지 생성 split 대회 (fab/bench/anomaly 의 split_comp)
 competitions/ads-*/
+# 이상탐지 조건 실험 대회 (fab/bench/anomaly/conditions.py)
+competitions/adc-*/
 results/*/
 !results/results.csv
 competitions/*/folds.csv
