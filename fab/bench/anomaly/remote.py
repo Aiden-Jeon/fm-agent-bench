@@ -4,6 +4,7 @@ Volume (databricks.local.yaml 의 volume, 내 신원) 자리:
     data/<대회>/                    public (train.csv · test.csv · sample_submission.csv · description.md). FM 작업이 읽음
     anomaly/answers/<대회>.csv      정답 (test 행의 id · label) + <대회>.json. 정리 작업만 읽음
     anomaly/train_labels/<대회>.csv train 행의 라벨. 깨끗한 context 진단 (+clean) 의 FM 작업만 읽음
+    anomaly/train_labels/<대회>.la.csv  la 마다 고른 PU 라벨 (라벨을 쓰는 분류기 +la<k>, docs/anomaly.md "라벨이 있는 이상탐지")
 에이전트는 다른 곳: SP 의 scratch Volume 의 data/<익명 id>-<해시>.tgz (public 만, fab/agent). SP 는 내 Volume 스키마 권한이 없음.
 """
 
@@ -36,10 +37,12 @@ def upload_answers(cfg, comps: list[str]):
     _upload_files(cfg, ANSWERS, ANSWERS_REL, [f"{c}.{ext}" for c in comps for ext in ("csv", "json")], "정답")
 
 
-def upload_train_labels(cfg, comps: list[str]):
+def upload_train_labels(cfg, comps: list[str], la: bool = False):
+    """la: 분류기용 <대회>.la.csv 도 (fab ad sup prepare 가 만듦)."""
     from fab.bench.anomaly import TRAIN_LABELS
 
-    _upload_files(cfg, TRAIN_LABELS, TRAIN_LABELS_REL, [f"{c}.csv" for c in comps], "train 라벨")
+    files = [f"{c}.csv" for c in comps] + ([f"{c}.la.csv" for c in comps] if la else [])
+    _upload_files(cfg, TRAIN_LABELS, TRAIN_LABELS_REL, files, "train 라벨")
 
 
 def train_labels_dir(cfg) -> str:

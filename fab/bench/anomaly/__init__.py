@@ -54,6 +54,8 @@ TRAIN_LABELS = AD_DIR / "data" / "train_labels"
 GRADES = RESULTS / "anomaly.csv"  # 우리 채점 (git 추적, 원격 정리 작업이 씀)
 # 조건 실험 (docs/anomaly.md "TFM 이 이득을 보는 조건") 의 채점: 조건 대회 (설정에 anomaly.condition) 나 변형 방법. 공식 표와 안 섞음
 CONDITIONS = RESULTS / "anomaly_conditions.csv"
+# 라벨이 있는 이상탐지 (docs/anomaly.md "라벨이 있는 이상탐지"): 분류기 (+la<k>) 행과 S3 (처음 보는 이상) 대회의 모든 행
+SUPERVISED = RESULTS / "anomaly_supervised.csv"
 RUNS = RESULTS / "anomaly_runs.csv"  # 에이전트 실행별 채점 (git 추적, 원격 정리 작업이 씀. fab.agent 의 표)
 ELO = RESULTS / "anomaly_elo.csv"  # IForest = 1000 Elo (git 추적, fab ad elo)
 REFERENCE = RESULTS / "anomaly_reference.csv"  # ADBench 논문 Table D4 (AUROC) · D5 (AUPRC) 의 12개 행 (git 추적)
@@ -191,9 +193,10 @@ def prepare(comp: Competition):
     if ad.get("condition"):  # 조건 실험 대회 (합성 이상 · context 칸): fab/bench/anomaly/conditions.py
         from fab.bench.anomaly.conditions import condition_split
 
-        X_train, X_test, y_train, y_test, id_train, id_test = condition_split(comp)
+        X_train, X_test, y_train, y_test, id_train, id_test, *group = condition_split(comp)
     else:
         X_train, X_test, y_train, y_test, id_train, id_test = split_with_ids(ad["dataset"], ad["seed"])
+        group = []
     cols = feature_names(X_train.shape[1])
     train = pd.DataFrame(X_train, columns=cols).assign(**{ID_COL: id_train, LABEL_COL: y_train})
     test = pd.DataFrame(X_test, columns=cols).assign(**{ID_COL: id_test, LABEL_COL: y_test})
@@ -205,7 +208,9 @@ def prepare(comp: Competition):
         shutil.copy(comp.dir / "description.md", comp.data_dir / "description.md")
     for d in (ANSWERS, TRAIN_LABELS):
         d.mkdir(parents=True, exist_ok=True)
-    test[[ID_COL, LABEL_COL]].to_csv(ANSWERS / f"{comp.name}.csv", index=False)
+    # S3 (supervised.py): 정답에 group (test 이상의 종류, 정상은 normal) → 채점이 종류마다 한 행
+    (test[[ID_COL, LABEL_COL]].assign(group=group[0]) if group else test[[ID_COL, LABEL_COL]]).to_csv(
+        ANSWERS / f"{comp.name}.csv", index=False)
     train[[ID_COL, LABEL_COL]].to_csv(TRAIN_LABELS / f"{comp.name}.csv", index=False)
     info = dict(comp=comp.name, dataset=ad["dataset"], adbench=ad["adbench"], split=ad["split"], seed=ad["seed"],
                 **({"condition": ad["condition"]} if ad.get("condition") else {}), metric="auroc", n_train=len(train), n_test=len(test), d=len(cols),
@@ -366,10 +371,23 @@ def score_submission(sub_csv: Path, answers_csv: Path) -> dict:
 
 
 def is_condition_row(comp: Competition, model: str) -> bool:
-    """조건 실험의 채점 행인지 (→ CONDITIONS): 조건 대회이거나 공식 풀 밖 변형 방법 (순열 3 · 정리)."""
+    """조건 실험의 채점 행인지 (→ CONDITIONS · SUPERVISED 의 열): 조건 대회이거나 공식 풀 밖 변형 방법 (순열 3 · 정리 · 분류기)."""
     from fab.bench.anomaly.methods import is_variant
 
     return bool(comp.anomaly.get("condition")) or is_variant(model)
+
+
+def is_supervised_row(comp: Competition, model: str) -> bool:
+    """→ SUPERVISED: 라벨을 쓰는 분류기이거나 S3 대회 (train 이상 종류 A · test 종류 B, 비지도 방법도 같은 표에서 나란히)."""
+    from fab.bench.anomaly.methods import is_supervised
+
+    return is_supervised(model) or (comp.anomaly.get("condition") or {}).get("exp") == "s3"
+
+
+def table_of(comp: Competition, model: str) -> Path:
+    if is_supervised_row(comp, model):
+        return SUPERVISED
+    return CONDITIONS if is_condition_row(comp, model) else GRADES
 
 
 def condition_label(comp: Competition) -> tuple[str, str]:
@@ -399,7 +417,7 @@ def grade(comps: list[str], models: list[str], note: str, grader, timer: dict | 
     TabArena 의 grade 와 같은 꼴 (reconcile 의 grade_split_bench 가 같이 부름)."""
     from fab.core.results import OUTPUTS, test_info
 
-    rows, cond_rows, errors = [], [], {}
+    rows, errors = {GRADES: [], CONDITIONS: [], SUPERVISED: []}, {}
     for name in comps:
         comp = load_competition(name)
         infos = {m: test_info(name, m) for m in models}
@@ -413,22 +431,30 @@ def grade(comps: list[str], models: list[str], note: str, grader, timer: dict | 
         except Exception as e:  # noqa: BLE001
             errors |= {f"{name}/{m}": f"채점 실패: {e!r}"[:500] for m in todo}
             continue
+        # 정답에 group 열이 있으면 (S3: test 이상의 종류) 종류마다 test 정상 + 그 종류 이상만으로 한 행씩 (cond 에 test=<종류>)
+        groups = sorted(set(ans["group"]) - {"normal"}) if "group" in ans else [None]
         for m in todo:
             try:
-                s = np.load(OUTPUTS / name / m / "test.npy")
-                report = score_frame(pd.DataFrame({ID_COL: ids, SCORE_COL: s}), ans)
+                sub = pd.DataFrame({ID_COL: ids, SCORE_COL: np.load(OUTPUTS / name / m / "test.npy")})
+                reports = {}
+                for g in groups:
+                    a = ans if g is None else ans[(ans[LABEL_COL] == 0) | (ans["group"] == g)]
+                    reports[g] = score_frame(sub if g is None else sub[sub[ID_COL].isin(a[ID_COL])], a[[ID_COL, LABEL_COL]])
             except Exception as e:  # noqa: BLE001
                 errors[f"{name}/{m}"] = f"채점 실패: {e!r}"[:500]
                 continue
-            if not report.get("valid_submission"):
-                errors[f"{name}/{m}"] = f"채점 실패: {report.get('error')}"
+            if bad := [r for r in reports.values() if not r.get("valid_submission")]:
+                errors[f"{name}/{m}"] = f"채점 실패: {bad[0].get('error')}"
                 continue
-            (cond_rows if is_condition_row(comp, m) else rows).append(grade_row(comp, m, report, note, infos[m]))
-    if rows:
-        append_rows(pd.DataFrame(rows), GRADES)
-    if cond_rows:
-        append_rows(pd.DataFrame(cond_rows), CONDITIONS)
-    return rows + cond_rows, errors
+            for g, report in reports.items():
+                row = grade_row(comp, m, report, note, infos[m])
+                if g is not None:
+                    row["cond"] = f"{row['cond']} test={g}".strip()
+                rows[table_of(comp, m)].append(row)
+    for table, rs in rows.items():
+        if rs:
+            append_rows(pd.DataFrame(rs), table)
+    return [r for rs in rows.values() for r in rs], errors
 
 
 def request_grade(comps: list[str], models: list[str], note: str = ""):
@@ -468,7 +494,7 @@ def submit_fm(todo: list[tuple[str, list[str]]], methods: list[str], note: str, 
 def submit_comps(comps: list[Competition], methods: list[str], note: str, timeout: int, accelerator: str | None,
                  grade_after: bool, label: str) -> list[dict]:
     """대회들 (준비된 것) 을 CPU 작업 하나 (pyod) + GPU 작업 하나 (TabPFN) 로. submit_fm 과 조건 실험 (conditions.py) 이 같이 씀."""
-    from fab.bench.anomaly.methods import is_clean, is_gpu
+    from fab.bench.anomaly.methods import is_clean, is_gpu, is_supervised
     from fab.bench.anomaly.remote import train_labels_dir, upload_train_labels
     from fab.bench.tabarena.remote import upload_data
     from fab.runner.databricks import record, submit, submit_cpu
@@ -479,8 +505,8 @@ def submit_comps(comps: list[Competition], methods: list[str], note: str, timeou
     gpu = [m for m in methods if is_gpu(m)]
     cpu = [m for m in methods if not is_gpu(m)]
     extra = []
-    if any(is_clean(m) for m in methods):  # 깨끗한 context 진단: train 라벨 (내 Volume, 에이전트 SP 는 못 읽음)
-        upload_train_labels(cfg, [c.name for c in comps])
+    if any(is_clean(m) or is_supervised(m) for m in methods):  # 깨끗한 context 진단 · 분류기: train 라벨 (내 Volume, 에이전트 SP 는 못 읽음)
+        upload_train_labels(cfg, [c.name for c in comps], la=any(is_supervised(m) for m in methods))
         extra += ["--train-labels", train_labels_dir(cfg)]
     data = upload_data(cfg, comps)
     runs = []
@@ -592,6 +618,10 @@ def main(argv: list[str] | None = None):
         from fab.bench.anomaly.conditions import main as cond_main
 
         return cond_main(argv[1:])
+    if argv[:1] == ["sup"]:
+        from fab.bench.anomaly.supervised import main as sup_main
+
+        return sup_main(argv[1:])
     ap = argparse.ArgumentParser(prog="fab ad", description="표 이상탐지 (ADBench, docs/anomaly.md)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init", help="competitions/ad-<이름>/ (s1) 의 config.yaml · description.md 를 없으면 만듦")
@@ -617,6 +647,7 @@ def main(argv: list[str] | None = None):
     e.add_argument("--rounds", type=int, default=200)
     sub.add_parser("agent", help="에이전트 실행 (fab ad agent -h, fab ta agent 와 같은 명령)")
     sub.add_parser("cond", help="TFM 이 이득을 보는 조건 실험 (fab ad cond -h, docs/anomaly.md)")
+    sub.add_parser("sup", help="라벨이 있는 이상탐지 (지도 · 반지도) · FoMo-0D (fab ad sup -h, docs/anomaly.md)")
     args = ap.parse_args(argv)
 
     def names(xs):
