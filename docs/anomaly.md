@@ -25,6 +25,7 @@
 - [로컬 확인 (2026-11-25)](#로컬-확인-2026-11-25)
 - [결과 (12개 × 3 seed, Agent 3개 · s1, 2026-11-25)](#결과-12개--3-seed-agent-3개--s1-2026-11-25)
 - [TFM 이 이득을 보는 조건 (2026-11-25 설계, 사용자 확인)](#tfm-이-이득을-보는-조건-2026-11-25-설계-사용자-확인)
+- [라벨이 있는 이상탐지 (지도 · 반지도) 와 FoMo-0D 기준점 (2026-11-26 설계, 사용자 확인)](#라벨이-있는-이상탐지-지도--반지도-와-fomo-0d-기준점-2026-11-26-설계-사용자-확인)
 - [실행 기록](#실행-기록)
 - [결정 (2026-11-25)](#결정-2026-11-25)
 - [확인 못 한 것](#확인-못-한-것)
@@ -43,6 +44,7 @@
 | 격리 | 정답 (test 라벨) 은 로컬 캐시와 채점용 내 Volume 에만. 데이터셋 이름·출처는 안 알림 (익명 id `anomaly-p01`…). 공개 데이터라 알아본 흔적은 사후 검사 (7) |
 | 범위 밖 | C1·C2 (Agent 결과를 보고 정함), 결측값·생성·밀도, tabicl 로 chain rule 래퍼 새로 만들기 (후속). Kumo 래퍼는 조건 조사에서 만듦 (2026-11-25, "TFM 이 이득을 보는 조건") |
 | **답 (2026-11-25)** | **반쯤 먹힘.** TabPFN 비지도는 IForest 와 Elo 가 같은 수준 (966 대 1000, 구간이 겹침). 4개에서는 11개 중 1등 (Wilt 는 기존 방법이 모두 0.51 이하인데 0.730), 3개 (cover · cardio · PageBlocks) 에서는 꼴찌로 무너짐. 무너지는 까닭은 **context 에 섞인 이상점**: 정상 행만 context 로 주면 12개 모두 오르고 (+0.02 ~ +0.41) 8개에서 기존 최고와 같거나 나음. Agent 는 Codex × GPT 만 뚜렷이 강함 (3개 Agent 풀 Elo 1531, TabPFN 1041) 이지만 3개 중 2개 (cardio · Wilt) 에서 데이터셋을 알아봄 → "결과" |
+| **라벨 · FoMo-0D (2026-11-26)** | 라벨을 쓰면 판이 바뀜 ("라벨이 있는 이상탐지"): **Kumo 분류기는 train 이상의 1% (1 ~ 25개) 에만 라벨을 줘도 12개 평균 0.879** (비지도 최고 IForest 0.722), 10 / 12 에서 test 로 고른 비지도 최고보다 높음. 라벨을 다 주면 분류기 넷 0.95 ~ 0.97. 처음 보는 종류의 이상에서는 GBDT · TabPFN 분류기가 무너지고 비지도 TFM 이 메움 (dependency 0.56 ~ 0.91 대 0.97), Kumo 분류기는 둘 다 강함. **FoMo-0D (이상탐지 전용 PFN, MIT) 는 cluster 실패를 못 고침** (0.552 대 TabPFN 0.776, clean 이면 0.999): prior 의 context 가 정상뿐이라 오염 context 에서 12개 평균 0.587, 공식 풀 Elo 787 |
 | **조건 (2026-11-26)** | 통제 실험 ("TFM 이 이득을 보는 조건"): **열 사이 관계가 깨진 이상에서 TFM 이 이기고 (합성 dependency 에서 10 / 10 기존 방법보다 높음), 서로 닮은 이상이 train 에 섞이면 무너짐** (비율보다 test 이상과 닮은 이상이 context 에 있는지, cover 는 0.5% 로도). 이상의 성질을 모르면 IForest 가 기본, 정상 행만 모을 수 있으면 TFM 이 첫 후보 (KNN · LOF 와 구간 겹침). 라벨 없는 context 정리로는 못 고침. Kumo (우리 래퍼) 도 같은 모양 → TFM 일반 쪽 |
 
 ## 출처
@@ -53,6 +55,8 @@
 | ADBench 논문: Han et al., "ADBench: Anomaly Detection Benchmark", NeurIPS 2022 D&B, [arXiv:2206.09426](https://arxiv.org/abs/2206.09426) | Table B1 (데이터셋·분야), Table D4 (비지도 14개 AUROC, seed 3개 평균) |
 | tabpfn-extensions [`PriorLabs/tabpfn-extensions` @ a049fd7](https://github.com/PriorLabs/tabpfn-extensions/tree/a049fd76afa0593a616156e1008b5482e9c905da) (v0.6.3, Apache-2.0) | `src/tabpfn_extensions/unsupervised/unsupervised.py` (`outliers`), `utils.py` (`infer_categorical_features`) |
 | TabPFN 가중치 라이선스 (HF 모델 카드) | v2 (`Prior-Labs/TabPFN-v2-clf`·`-reg`): Prior Labs License 1.1 (Apache-2.0 + 표시 조항), 동의 없이 받음. 3.5 (`Prior-Labs/tabpfn_3_5`): TABPFN-3.5 Non-Commercial License, 받을 때 동의 (브라우저 또는 `TABPFN_TOKEN`) |
+| ADBench 의 지도 · 반지도 (같은 커밋의 `data_generator.py` 의 `generator(la=…)` · `run.py` · `baseline/Supervised.py`, 논문 3.3.1 · 4.2 · 그림 6 · Table D6 ~ D19) | "라벨이 있는 이상탐지": la 규약 (PU), GBDT 기본값, 공개값 (`results/anomaly_reference_supervised.csv`, 논문 PDF 에서 옮김) |
+| FoMo-0D: Shen · Wen · Akoglu, TMLR 2025, [arXiv:2409.05672](https://arxiv.org/abs/2409.05672), 저장소 [`A-Chicharito-S/FoMo-0D` @ 34d4339](https://github.com/A-Chicharito-S/FoMo-0D/tree/34d4339e318d96ac744850188a547b62387a718c) (MIT), 가중치 HF `YuchenShen/FoMo-0D` @ d0638ef (MIT) | `fomo_hub.py` · `zero_shot_on_adbench.py` · `data_prior/feature_transform.py` · `data_prior/parallel_generator.py` · `configuration/*.yaml`. 논문 본문은 못 읽음 (부록 C.2 는 README 의 언급만) |
 | TACTIC, [arXiv:2603.14171](https://arxiv.org/abs/2603.14171) | 학습 context 에 이상점이 섞이면 TabPFN 식 이상탐지가 "불안정" 하다는 것까지만 원문 확인 (그 밖의 내용은 확인 못 함) |
 
 ## 1. 데이터셋
@@ -285,6 +289,7 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 | fm: 12개 × 3 split (36 단위), 부트스트랩 200번 | IForest **1000** (+96 / −88) · ECOD 969 (+182 / −125) · **tabpfn_unsup 966** (+200 / −169) · LODA 946 · KNN 939 · CBLOF 927 · COPOD 919 · PCA 912 · LOF 876 · HBOS 850 · OCSVM 824 |
 | agent: cardio · fault · Wilt 의 s1 (3 단위, 구간 없음) | **Codex × GPT 1531** · AIDE × GPT 1129 · Claude Code × Sonnet +cont 1110 · AIDE × Sonnet 1041 · KNN 1041 · **tabpfn_unsup 1041** · Claude Code × Sonnet 1008 · CBLOF 1008 · IForest 1000 · LODA 992 · ECOD 943 · LOF 909 · OCSVM 909 · PCA 901 · COPOD 857 · HBOS 756 |
 
+- 위 표는 FoMo-0D 를 넣기 전 (2026-11-25). 2026-11-26 부터 `anomaly_elo.csv` 의 두 풀에 `fomo0d` 가 있음 (결정 19): fm 풀 IForest 1000 · TabPFN 968 · ECOD 961 · KNN 948 · LODA 945 · CBLOF 932 · COPOD 920 · PCA 911 · LOF 888 · HBOS 855 · OCSVM 816 · **FoMo-0D 787** (참가자가 늘어 다른 값도 ±12 안에서 바뀜, 순서는 TabPFN 이 ECOD 위로). FoMo-0D 를 빼고 계산하면 위 표와 바이트 단위로 같음 ("F0 ~ F2 결과")
 - fm 풀: TabPFN 은 IForest · ECOD 와 구간이 겹침 → 기존 방법보다 낫다고 말할 수 없음. 이길 때 크게 이기고 질 때 크게 져서 구간이 가장 넓음
 - CBLOF (waveform s1) · PCA (cardio s1 · s3) 의 실패 칸은 IForest 값 (imputed 0.028 · 0.056)
 - agent 풀은 데이터셋 3개라 순서는 단단하지 않음. Codex 는 세 곳 모두 IForest · TabPFN 보다 높고 (0.954 · 0.722 · 0.801), 나머지 Agent 넷은 섞임
@@ -638,6 +643,8 @@ cover 0.5% 에서 0.956 → 0.687 / 0.627 (모임 / 흩어짐), cardio 5% 에서
 | 라벨 없는 train 뿐 + 이상의 성질을 모름 | **IForest 를 기본**으로. TFM 은 이길 때 크게 이기고 질 때 크게 짐 | 공식 fm 풀 Elo: IForest 1000 · TabPFN 966 · (kumo 풀) Kumo 906, 구간 겹침. 꼴찌 셋에서 −0.18 ~ −0.42 |
 | 오염된 context 를 라벨 없이 고쳐 TFM 을 쓰려 함 (상위 k% 빼고 다시) | **기대하지 말 것** | E3: 미리 정한 `+trim10` 은 clean 과의 차이를 중앙값 7% (Kumo 5%) 만 메움. IForest 로 고르면 무너지는 데이터는 고치지만 TFM 이 이기는 데이터를 망침 |
 | 이웃 기반 기존 방법 (KNN · LOF) | 오염에 약한 것은 TFM 과 같음 → 위 "되풀이되는 이상" 에서는 같이 피할 것 | E4: 오염 → clean 평균 AUROC LOF +0.14 · TabPFN +0.14 · KNN +0.10 · IForest +0.05. E1 cluster 에서 KNN 0.794 · LOF 0.439 |
+| **이상 라벨이 몇 개라도 있음** (2026-11-26 더함) | **비지도 대신 TFM 분류기 (특히 Kumo)**, 처음 보는 종류가 걱정되면 비지도 TFM 을 같이 | S2: 라벨 1% 로 Kumo 분류기 0.879 (비지도 최고 IForest 0.722). S3: 처음 보는 dependency 에서 GBDT · TabPFN 분류기 0.56 ~ 0.91 대 비지도 TFM 0.97. 자세히는 아래 "판단 기준에 더함: 라벨이 있을 때" |
+| 이상탐지 전용 PFN (FoMo-0D) (2026-11-26 더함) | 정상 행만 모을 수 있을 때만. 오염 context 의 비지도로는 쓰지 말 것 | F0: 오염 12개 평균 0.587 · 공식 풀 Elo 787, 정상만 0.817. F1 cluster 0.552 (TabPFN 0.776 보다 나쁨) |
 
 - **TFM 일반**: 위 모양은 TabPFN 과 Kumo 에서 같음 (K0 ~ K2: 이기는 · 무너지는 데이터, clean 효과, 오염 민감도 · 흩어짐이 더 해침, 정리가 안 됨) → 특정 모델이 아니라 "context 의 이웃으로 조건부 밀도를 매기는 방식" 의 성질로 봄. Kumo 쪽은 우리 래퍼 · 분위수 근사라는 단서가 붙음
 - 실무 확인: 이상 예가 몇 개라도 있으면 그것끼리 닮았는지 (같은 유형인지) 를 보면 위 표의 어느 칸인지 가를 수 있음 (라벨 없는 진단은 이번에 검증하지 않음 → 남은 것)
@@ -672,6 +679,276 @@ cover 0.5% 에서 0.956 → 0.687 / 0.627 (모임 / 흩어짐), cardio 5% 에서
 | 12 | E3 의 주 지표 | k = 10 고정 | 라벨 없이 고를 수 있는 값이어야 실무 답이 됨 |
 | 13 | Kumo 연속 열의 밀도 | 999 분위수 → 선형 CDF + 지수 꼬리, 폭 2h 구간 확률 (h = 0.005) | 위 "Kumo". 분위수만 나오므로 근사가 필요. 알려진 밀도로 확인 |
 
+## 라벨이 있는 이상탐지 (지도 · 반지도) 와 FoMo-0D 기준점 (2026-11-26 설계, 사용자 확인)
+
+질문 (multitask TFM 을 스크래치부터 학습하는 방향의 설계 근거):
+
+1. 이상탐지를 **라벨 있는 매우 불균형한 분류** 로 보면 TFM 분류기 (TabPFN v2 · Kumo) 가 얼마나 잘하나, 라벨이 몇 개면 비지도 최고를 넘나, 처음 보는 종류의 이상에서는 어떻게 되나
+2. **이상탐지 전용으로 학습된 PFN (FoMo-0D)** 이 cluster 실패 (위 E1 · E2: context 에 test 이상과 닮은 이상이 있으면 무너짐) 를 고치나 → multitask 모델이 넘어야 할 기준점
+
+- 학습은 안 함 (공개 가중치 그대로). FM 은 TabPFN v2 · Kumo (3.5 안 씀), FoMo-0D 는 공개 체크포인트. Agent 는 안 돌림. minipfn 은 안 건드림
+- **기존 결과표 행은 안 바꿈.** 라벨을 쓰는 설정은 새 표 (`results/anomaly_supervised.csv`) · 새 풀. FoMo-0D 는 비지도라 **공식 `fm` · `agent` 풀에 넣음** (결정 19, 사용자) →
+  `results/anomaly_elo.csv` 는 FoMo-0D 행만큼 바뀜. 확인: `anomaly.csv` 는 행이 더해지기만 하고, FoMo-0D 를 뺀 Elo 가 지금 파일과 바이트 단위로 같음. 조건 실험 표 · Elo (`anomaly_conditions_elo.csv`) 는 FoMo-0D 를 빼고 계산해 그대로
+- 읽는 법: S1 ~ S3 = 라벨 실험, F0 ~ F2 = FoMo-0D 실험, H = 가설. 결정 번호는 아래 "결정 (2026-11-25)" 표에 이어서 (14 ~)
+
+### ADBench 의 지도 · 반지도 규약 (원문 확인)
+
+`adbench/datasets/data_generator.py` 의 `generator(la=..., at_least_one_labeled=True)` 와 `adbench/run.py` (출처 표의 커밋 3dac822), 논문 3.3.1 · 4.2 · Table D6 ~ D19
+
+| 항목 | ADBench | 우리 |
+|---|---|---|
+| `la` (γl) | train 이상 중 라벨을 주는 **비율** (`rla_list = [0, 0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 1.00]`). 개수 모드 (`nla_list = [0, 1, 5, 10, 25, 50, 75, 100]`) 도 있음 | 비율 모드, la ∈ {0.01, 0.05, 0.1, 0.25, 0.5, 1} (작업 지시. 0.75 는 뺌) |
+| 몇 개 | `at_least_one_labeled=True` (run.py 가 늘 줌) → `ceil(la × train 이상 수)` 개 → 0 이 아니면 적어도 1개 | 같음. 개수는 결과표 `opts` 에 (`n_labeled=`) |
+| 고르는 법 | 분할 · MinMax 뒤 numpy 전역 상태로 `np.random.choice(idx_anomaly, k, replace=False)` (같은 seed 에서 la 마다 새로) | 같은 호출 (분할 함수 `adbench_split` 바로 뒤). numpy 의 비복원 choice 는 `permutation(n)[:k]` 라 **la 가 커질수록 앞 집합을 포함** (la 1% ⊂ 5% ⊂ …) |
+| 라벨 없는 행 | "unlabel data = normal data + unlabeled anomalies (which is considered as contamination)" → `y_train[idx_unlabeled] = 0`, 라벨 준 이상만 1 = **PU 꼴** (라벨 없는 이상을 정상 0 으로 둠) | **같음 (결정 14)**. 분류기는 이 0/1 을 그대로 받음 |
+| 분할 | la 와 상관없이 같은 분할 (라벨 고르기가 분할 뒤) | 공식 대회 (s1 ~ s3) 를 그대로 씀 → train · test 행이 비지도 결과와 같음 |
+| 지도 방법 | `Supervised.py`: LR · NB · SVM · MLP · RF · LGB · XGB · CatB 를 **라이브러리 기본값** (`random_state=seed` 만) 으로 `fit(X_train, y_train)` → `predict_proba[:, 1]`, + ResNet · FTTransformer. 반지도 7개 (DeepSAD · DevNet · XGBOD …) | GBDT 기준선은 같은 꼴 (LightGBM · CatBoost 기본값, 결정 15). TFM 은 우리 `fab/models` 래퍼 (refit = train 전체로 한 번 fit) |
+| 결과 | Table D6 · D8 · D10 · D12 · D14 · D16 · D18 = γl 1 · 5 · 10 · 25 · 50 · 75 · 100% 의 AUROC (16개 방법, seed 3개 평균). 우리 12개 행 있음 | 맞춤 확인에 씀 (LGB · CatB, `results/anomaly_reference_supervised.csv`) |
+
+논문이 말하는 것 (원문): 지도 방법은 대부분 γl = 10% 가 되어야 비지도 최고를 넘고 (반지도는 1% 로도), γl = 1% 의 지도 중앙값 AUROC 60.84%. 합성 이상 (그림 6) 에서 라벨을 쓰는 방법은 **local · global · dependency 에서 각 종류의 비지도 최고 (LOF · KNN · KNN) 보다 못하고, cluster 에서만 이김** ("few labeled anomalies can already represent similar behaviors in the clustered anomalies"). → 우리 E1 의 "비지도 TFM 은 cluster 에서 무너짐" 과 정확히 반대쪽. 이번 S1 ~ S3 은 이것이 TFM 분류기에도 맞는지, 처음 보는 종류로 넘어가면 어떻게 되는지를 봄.
+
+ADBench Table D18 (γl = 100%) 의 우리 12개: LGB · CatB 는 cover · shuttle · annthyroid · cardio · PageBlocks 0.99 이상, Wilt 0.99, landsat 0.97, magic.gamma 0.93, mammography 0.93 ~ 0.96, Waveform 0.95, fault 0.90, yeast 0.78 ~ 0.79 → 라벨을 다 주면 비지도 (위 "결과": 최고 0.45 ~ 0.99) 를 거의 모든 곳에서 크게 넘음. γl = 1% 에서는 LGB 가 cover 0.43 · mammography 0.39 처럼 무너지고 CatB 는 덜 무너짐 (cover 0.98).
+
+### FoMo-0D (원문 확인)
+
+Shen, Wen, Akoglu, "FoMo-0D: A Foundation Model for Zero-shot Tabular Outlier Detection", TMLR 2025, [arXiv:2409.05672](https://arxiv.org/abs/2409.05672). 저장소 [`A-Chicharito-S/FoMo-0D` @ 34d4339](https://github.com/A-Chicharito-S/FoMo-0D/tree/34d4339e318d96ac744850188a547b62387a718c) (2025-10-08), 가중치 [HF `YuchenShen/FoMo-0D` @ d0638ef](https://huggingface.co/YuchenShen/FoMo-0D)
+
+| 항목 | 원문 | 우리 |
+|---|---|---|
+| 라이선스 | 저장소 **MIT** (2025 Yuchen Shen), 안에 든 DTE 코드 MIT, HF 모델 카드 `license: mit` | 쓸 수 있음 (상업 이용 · 수정 가능, 표시 조항). 문서 · 결과표에 출처 표시 |
+| 무엇 | PFN (TabPFN 1 계열 `pfns` 코드) 을 합성 GMM prior (정상 = GMM, 이상 = GMM 에서 멀리 떨어진 점, 피처 2 ~ 100, 무리 ≤ 5) 로 학습. 입력 = 라벨 없는 context (`train_y=None`) + 질의 행 → 2 클래스 logit. 점수 = P(이상) | 그대로, 학습 없음 |
+| 체크포인트 | 저장소의 `ckpt.zip` 과 HF (`model.safetensors`, `config.json`: num_features 100 · emsize 256 · nhid 512 · 4층 · 4 head · router 500 · seq_len 5000). 4.89M 파라미터 | **HF 의 고정 revision** (`FoMo0DHub.from_pretrained(..., revision=d0638ef)`). ckpt.zip 과 같은 가중치인지는 확인 못 함 |
+| 입력 제약 | 피처 100: 적으면 `x / (d / 100)` 로 키운 뒤 0 을 채움, 많으면 무작위로 100개 고름 (PFN 방식, 논문 부록 C.2). context ≤ 5,000 (`inf_len=5000` → train 이 많으면 4,999 행 무작위) | 우리 12개는 피처 ≤ 36 → 0 채움. train > 4,999 (cover · magic.gamma · mammography · shuttle · annthyroid) 은 seed 로 4,999 행 표본 (원문과 같음) |
+| 전처리 | `pfn_inference_transform(..., 'quantile', normalize_with_test=True)`: 평균 · 표준편차 정규화 (**train + test 로**), 열마다 `QuantileTransformer(output_distribution='normal')` (train 으로 fit), 크기 맞춤 · 0 채움 | 원문 함수를 그대로 부르되 **`normalize_with_test=False`** (정규화도 train 만, 결정 17): 이 트랙의 규칙 (train 으로만 fit, 4 · 6) 과 같게 |
+| 추론 | test 행을 하나씩 (context 와 함께) 넣음 | test 행을 묶어 넣음 (efficient eval masking: 질의끼리 안 봄). 로컬에서 하나씩 넣은 것과 최대 차 1e-6 |
+| 원문의 ADBench 평가 | DTE `DataGenerator(test_size=0.5, normal=True)`: **train = 정상 행의 절반만** (이상 없음), test = 나머지 정상 + 모든 이상, seed 0 ~ 4 | → 원문의 "zero-shot" 수치는 **깨끗한 context** (우리 `+clean`) 설정. 오염된 context (우리 비지도 설정) 에서의 성능은 원문에 없음 → F0 에서 둘 다 |
+| 호환 | `pfns/layer.py` 가 `torch.nn.modules.transformer` 에서 `Optional` 을 import (요즘 torch 에 없음) | 실행 때 그 이름만 채워 넣음 (원문 파일은 안 고침) |
+
+로컬 형식 확인 (2026-11-26, CPU, 옆 가상환경 torch 2.15. 결과표 밖): 합성 (정규 10차원, 평균 4 옮긴 이상 20) AUROC 1.0. s1 의 cardio · cover · Wilt 에서 오염 context **0.56 · 0.69 · 0.71**, 정상만 context 0.97 · 0.99 · 0.98, 대회마다 1초 안.
+→ 한 번 본 단서: FoMo-0D 도 TabPFN 처럼 오염 context 에서 무너짐 (cover · cardio). F0 ~ F2 로 확인.
+
+### 실험 설계
+
+공통: 지표 AUROC (주) · AUPRC (보조), 같은 test 행에서 비교. 이상이 적은 데이터 (test 이상 cover 28 · Waveform 30 · mammography 68 · Wilt 77 개, train 이상 cover 67 → la 1% 면 1개) 는 split 사이 표준편차와 la 마다의 라벨 개수를 같이 적음.
+
+| # | 무엇 | 데이터 · 격자 | 방법 | 가설 |
+|---|---|---|---|---|
+| S1 | 완전 지도 (la = 1) | 공식 12개 × s1 ~ s3 (36) | `tabpfn_clf` (TabPFN v2 분류기) · `kumo_clf` (Kumo 분류기) · `lgbm_clf` · `catboost_clf` (라이브러리 기본값), 모두 `+la100`. 참고 (이미 있음): `tabpfn_unsup` · `kumo_unsup` · IForest · KNN · 기존 최고 | H5: 라벨을 다 주면 TFM 분류기가 GBDT 와 같은 수준 (ADBench D18 의 0.9 ~ 1.0) 이고 비지도를 12개 모두에서 넘음. 이상이 적은 데이터 (cover · Waveform) 에서 TFM 이 GBDT 보다 안정 (split 사이 표준편차가 작음) |
+| S2 | 반지도 (PU) | 같은 36 | 같은 4개 × la ∈ {1, 5, 10, 25, 50}% (`+la1` … `+la50`) | H6: TFM 분류기는 GBDT (특히 LightGBM) 보다 적은 라벨로 비지도 최고를 넘음 (ADBench 지도 방법은 대개 10%). 넘는 지점을 비율 · 개수로 |
+| S3 | 처음 보는 이상 | 아래 생성, 데이터 10개 (E1 에서 4종이 모두 생성된 것) × seed 1. train = 정상 + **A 종류** 이상 (la = 1 로 라벨), test = 정상 + **B 종류** 이상, 4 × 4 (대각선 = 본 종류) | 분류기 4개 (`+la100`) + 비지도 `tabpfn_unsup` · IForest · KNN · LOF (같은 train 을 context 로 = A 이상이 섞인 오염) + `fomo0d` | H7: 대각선은 분류기가 이김. 대각선 밖은 분류기가 무너지고 (특히 A = cluster → B = 다른 종류), **비지도 TFM 이 dependency · local 쪽을 메움**. cluster 를 본 분류기 / cluster 에서 무너지는 비지도는 서로 보완 |
+| F0 | FoMo-0D 기본 비교 | 공식 12개 × s1 ~ s3 | `fomo0d` (오염 context = 비지도 설정) · `fomo0d+clean` (정상만 = 원문의 평가 설정) | H8: FoMo-0D 도 오염 context 에서 cover · cardio · PageBlocks 가 무너짐 (prior 가 "정상 무리 + 멀리 떨어진 이상" 이라, 이상이 무리를 이루면 정상으로 봄) |
+| F1 | FoMo-0D × 이상 종류 | E1 46개 (위) | `fomo0d` · `fomo0d+clean` | H8 의 통제 판: cluster 에서 TabPFN · Kumo 처럼 무너지는지 (고치면 multitask 의 기준점) |
+| F2 | FoMo-0D × 오염 비율 · 배치 | E2 94칸 | `fomo0d` | 같은 칸에서 하락이 TabPFN (0.051 / 0.064) 보다 작은지, 가림과의 상관 |
+
+S3 의 생성 (E1 과 다른 점): E1 은 종류마다 정상도 따로 뽑음 (local · global · cluster = GMM, dependency = vine copula) 이라 종류를 섞을 수 없음.
+S3 은 **정상 하나에 네 종류의 이상을 같이** 만든다: ADBench `generate_realistic_synthetic` 와 같은 순서 (set_seed → 1만 행 표본 → 정상 행으로 GMM (BIC 로 성분 1 ~ 9, `random_state=seed`)) 로 정상 `gm.sample(n_정상)` 하나,
+이상은 원래 이상 수만큼 종류마다: local = 공분산 × 5, cluster = 평균 × 5, global = 각 열 [min × 1.1, max × 1.1] 균등, dependency = 원래 정상 행의 열마다 `GaussianKDE` (copulas) 로 독립 표본 (E1 과 같은 식이지만 **정상은 vine copula 가 아니라 GMM**: GMM 도 열 사이 상관을 담으므로 독립으로 뽑은 이상은 여전히 "관계가 깨진 행", vine copula 표본이 느려서 · 셋과 정상을 같게 하려고, 결정 18).
+정상 · 각 종류의 이상을 70/30 으로 나눔 (seed 고정, 층화와 같은 비율) → 대회 = train 종류 A 하나 (train = 정상 70% + A 이상 70%), test 는 넷이 같음 (정상 30% + 네 종류 이상 30% 씩), MinMax 는 그 대회의 train 으로.
+채점은 B 마다 (test 정상 + B 이상만) AUROC 한 행씩 (`cond` 에 `train=A test=B`). 대각선 (A = B) 은 E1 의 해당 종류와 비슷해야 함 (확인용: 정상이 GMM 인 local · global · cluster 는 E1 과 거의 같은 분포).
+
+### 이름 · 표 · 풀
+
+| 자리 | 정한 것 |
+|---|---|
+| 분류기 이름 | `<모델>_clf+la<k>` (k = 라벨 비율 %, 1 · 5 · 10 · 25 · 50 · 100). `tabpfn_clf` = `fab/models` 의 `tabpfn_v2` (v2 가중치, `n_estimators` 기본), `kumo_clf` = `kumo` (앙상블 8 · 청크 8192), `lgbm_clf` · `catboost_clf` = ADBench `Supervised.py` 와 같은 라이브러리 기본값 + `random_state=seed`. 입력 피처는 모두 수치 (범주 열 표시 없음, 대회 파일 그대로) |
+| FoMo-0D 이름 | `fomo0d`, `fomo0d+clean` (기존 `+clean` 규칙: train 라벨로 정상만) |
+| 라벨 파일 | 로컬 `FAB_ANOMALY/data/train_labels/<대회>.la.csv` (`id` + la 마다 0/1 열, ADBench 와 같은 고르기) → 내 Volume `anomaly/train_labels/` (FM · CPU 작업만 읽음). 정답 · 라벨은 이 두 곳에만 |
+| 결과표 | **새 `results/anomaly_supervised.csv`**: 분류기 (`_clf`) 행과 S3 대회의 모든 행 (열은 조건 표와 같음 + `cond` 의 la · train/test 종류). FoMo-0D 의 공식 · E1 · E2 행은 `results/anomaly_conditions.csv` (비지도 변형) |
+| 풀 (Elo) | `sup:la<k>` (k 마다): 공식 12개 × 3 split, 분류기 4개 (그 la) + 비지도 참고 (IForest · KNN · `tabpfn_unsup` · `kumo_unsup` · `fomo0d`), **기준점 `lgbm_clf+la<k>` = 1000** (결정 16). FoMo-0D: **공식 `fm` 풀** (`fab ad elo`, 결정 19) + E1 종류마다 `f1:<종류>` (조건 보고의 `e1:<종류>` 풀에 FoMo-0D 를 더함). S3: 칸 (A → B) 마다 `s3:A>B` (IForest = 1000). 모두 `results/anomaly_supervised_elo.csv` |
+| 명령 | `fab ad sup prepare|submit|report <s12 · s3 · f0 · f1 · f2>` (`fab/bench/anomaly/supervised.py`). S1 · S2 는 한 계획 (`s12`) |
+
+### 비용 어림 (잰 값 기준, 2026-11-26)
+
+| 실행 | 단위 | 잰 값 | 어림 |
+|---|---|---|---|
+| S1 + S2 GBDT | CPU 작업 하나: 36 대회 × 2 모델 × la 6개 = 432 fit | 로컬 cardio (1,281 행) LightGBM 0.5초 · CatBoost 0.8초 | 7,000 행에서 fit 당 1 ~ 5초 → **20 ~ 40분** (환경 · 설치 포함, E 실험의 CPU 작업이 18 ~ 40분) |
+| S1 + S2 TFM 분류기 | GPU 작업 하나: 36 × 2 모델 × la 6 = 432 fit | TabPFN v2 분류기 로컬 CPU 5.7초 (cardio). 비지도 확장의 fit 1번 (같은 크기 context) 이 H100 에서 약 0.85초 | TabPFN 216 fit × 1 ~ 3초 ≈ 5 ~ 10분, Kumo 는 1.7배 → **H100 약 30분** |
+| S3 | 10 데이터 × A 4 = 대회 40개 (test 는 정상 + 4종) | E1 의 `tabpfn_unsup` 대회당 평균 76초 (10개 평균, 25 ~ 136초) | GPU: `tabpfn_unsup` 약 55분 + 분류기 2개 약 5분 + FoMo-0D 몇 분 ≈ **H100 1시간**. CPU: GBDT · pyod 4개 약 20분 |
+| F0 ~ F2 | 36 × 2 + 46 × 2 + 94 + (S3 40) ≈ 300 실행 | 로컬 CPU 대회당 1초 안 (context 4,999 · test 3,000) | GPU 작업에 같이 넣으면 **10분 안** (설치 · 가중치 받기 포함) |
+| **합** | | | **H100 약 1.5 ~ 2시간 + CPU 약 1시간** (노드 대기 · 설치 제외, 지금까지 작업마다 10 ~ 60분 더). 선택 (아래 결정 20): S3 의 `kumo_unsup` 약 2시간 더 |
+| **잰 값 (2026-11-26 실행)** | 작업 9개 | 작업 시간 (대기 · 설치 포함) / 실행기 안 방법 시간 | S1 · S2 CPU 15분 / CatBoost 9.2 · LightGBM 0.5분. S1 · S2 GPU 16분 / TabPFN 5.2 · Kumo 5.9분. S3 CPU 6 · 4분. S3 GPU (TabPFN) 57분 / `tabpfn_unsup` 45 · 분류기 3.4 · FoMo-0D 0.2분. S3 GPU (Kumo) 122분 / `kumo_unsup` 114 · 분류기 4.3분. F0 · F1 · F2 5 · 6 · 9분 / FoMo-0D 1.6 · 2.0 · 3.4분. **H100 약 3.6시간 + CPU 25분** (작업 시간 합, 여럿이 동시에) |
+
+### 로컬 확인 (2026-11-26, 결과표 밖)
+
+| 확인 | 결과 |
+|---|---|
+| la 라벨 (`fab ad sup prepare s12`) | 36 대회 × la 6개. 라벨 수 = ceil(la × train 이상) (예: cover s1 1 · 4 · 7 · 17 · 34 · 68, Waveform 1 · 4 · 7 · 18 · 35 · 70). la100 = train 라벨과 같음 |
+| ADBench 맞춤 (로컬 CPU, 우리 `lgbm_clf` · `catboost_clf` 를 36 대회 × la 6개, seed 평균 대 Table D6 ~ D18) | **144칸 중 142칸이 \|차\| ≤ 0.002** (CatBoost 72 / 72, LightGBM 70 / 72). 다른 둘은 LightGBM 의 cover la 5% (−0.041) · 10% (−0.104): 라벨 4 ~ 9 개에서 LightGBM 이 흔들리는 곳 (버전 차로 봄, 확인 안 함) → 분할 · 라벨 고르기가 ADBench 와 행 단위로 같음. 시간: 432 fit 에 310초 (LightGBM 0.4초 · CatBoost 1.1초 / fit) |
+| S3 생성 (`fab ad sup prepare s3`, 옆 가상환경) | 40 대회, 12초. 대각선이 E1 과 비슷 (IForest local · global · dependency · cluster 0.864 · 0.999 · 0.710 · 0.989 대 E1 0.847 · 0.998 · 0.782 · 0.989, LOF 0.924 · 0.841 · 0.851 · 0.451 대 0.921 · 0.854 · 0.872 · 0.439). dependency 의 차는 정상이 GMM 이라서 (결정 18) |
+| 실행 경로 (저장소를 임시 폴더에 복사해 `FAB_REMOTE=1 fab run` → `grade`) | 분류기 4개 · `fomo0d` · `+clean` · S3 대회의 pyod. 행이 맞는 표로 감 (`fomo0d` → `anomaly.csv`, `_clf` → `anomaly_supervised.csv`, S3 → `anomaly_supervised.csv` 에 test 종류마다 한 행). `opts` 에 `n_labeled`. 라벨 1개 (cover la 1%) 도 TabPFN (CPU 20초) · Kumo (CPU 114초) 가 받음 |
+| 공식 Elo · 조건 Elo | FoMo-0D 행이 없는 지금 `fab ad elo` · `fab ad cond report` → `anomaly_elo.csv` · `anomaly_conditions_elo.csv` 차이 없음 |
+| macOS | LightGBM 과 torch (pyod · TabPFN) 를 한 프로세스에서 쓰면 segfault (docs/known-issues.md 의 알려진 것) → 로컬 확인은 나눠서. 원격 S3 의 CPU 작업도 GBDT 와 pyod 를 다른 작업으로 (Linux 에서 섞은 적이 없음) |
+
+### 결정 (2026-11-26 사용자 확인)
+
+| # | 정할 것 | 추천 | 까닭 |
+|---|---|---|---|
+| 14 | 라벨 없는 행 | ADBench 그대로: 라벨 준 이상 = 1, 나머지 (정상 + 라벨 없는 이상) = 0 (PU) | 원문 코드 · 논문 정의. 공개 결과 (D6 ~ D18) 와 맞춤 확인이 됨 |
+| 15 | GBDT 기준선 설정 | 라이브러리 기본값 (ADBench `Supervised.py`) | "기본 설정", ADBench 표와 같은 설정 → 맞춤 확인 |
+| 16 | 지도 풀 기준점 | `lgbm_clf` (LightGBM 기본) = 1000, la 마다 | ADBench 지도 목록의 GBDT, 가장 흔하고 빠름. CatBoost 는 la 가 작을 때 훨씬 강해 (D6) 기준점이 la 에 따라 흔들리기 덜 하지만, "기본 기준선" 으로는 LightGBM |
+| 17 | FoMo-0D 정규화 | train 만 (원문은 train + test) | 이 트랙의 inductive 규칙. 원문 설정 (test 포함) 은 안 돌림 |
+| 18 | S3 생성 | 정상 = GMM 하나, 네 종류 이상을 같이. dependency 이상도 GMM 정상 옆에 | 종류를 섞으려면 정상이 같아야 함. vine copula 는 느리고 (landsat 3시간 넘음) 정상이 달라짐 |
+| 19 | FoMo-0D 를 공식 `fm` 풀에 넣을지 | 추천은 "안 넣음" → **넣음 (사용자)**: `fomo0d` 는 공식 표 (`anomaly.csv`) · `fm` · `agent` 풀, `fomo0d+clean` 은 다른 `+clean` 처럼 공식 표 (Elo 밖) | 비지도 설정이라 같은 풀에서 겨룸. `anomaly_elo.csv` 가 바뀜 (위 확인 방법) |
+| 20 | S3 의 비지도 FM | 추천은 `tabpfn_unsup` 만 → **`kumo_unsup` 도 (사용자)** | TFM 일반인지 S3 에서도 봄. 약 2 GPU 시간 더 |
+
+결정 14 ~ 18 은 추천안 그대로 (사용자). 고르지 않은 선택: S2 에서 라벨 준 이상을 context 에서 빼는 비지도 변형, S3 의 la = 10% (안 함).
+
+### S1 · S2 결과: 분류기 × 라벨 비율 (공식 12개 × 3 split, 2026-11-26)
+
+`uv run --frozen fab ad sup report` → `results/anomaly_supervised.csv` (864행, 실패 0) · `results/anomaly_supervised_elo.csv`. ADBench 맞춤 (원격 값): CatBoost 72 / 72 칸, LightGBM 70 / 72 칸이 Table D6 ~ D18 과 \|차\| ≤ 0.01 (로컬 확인과 같은 두 칸만 다름) → 기준선이 ADBench 와 같음.
+
+12개 평균 AUROC (괄호 AUPRC). 비지도 참고 (같은 split, 12개 평균): IForest 0.722 · TabPFN 비지도 0.704 · KNN 0.704 · Kumo 비지도 0.688 · FoMo-0D 0.587
+
+| la | 라벨 수 (cover · magic.gamma) | `kumo_clf` | `tabpfn_clf` | `catboost_clf` | `lgbm_clf` |
+|---|---|---|---|---|---|
+| 1% | 1 · 25 | **0.879** (0.598) | 0.796 (0.492) | 0.807 (0.491) | 0.590 (0.290) |
+| 5% | 4 ~ 5 · 124 | **0.921** (0.771) | 0.895 (0.688) | 0.884 (0.647) | 0.780 (0.492) |
+| 10% | 7 ~ 9 · 247 | **0.932** (0.803) | 0.914 (0.737) | 0.906 (0.701) | 0.825 (0.568) |
+| 25% | 17 ~ 21 · 618 | **0.948** (0.844) | 0.938 (0.801) | 0.928 (0.761) | 0.887 (0.672) |
+| 50% | 34 ~ 41 · 1,235 | **0.957** (0.874) | 0.950 (0.844) | 0.940 (0.807) | 0.924 (0.761) |
+| 100% | 67 ~ 81 · 2,450 ~ 2,484 | **0.967** (0.906) | 0.963 (0.893) | 0.956 (0.868) | 0.952 (0.857) |
+
+비지도 최고 (데이터셋마다 비지도 15개 = 기존 10 + TabPFN · Kumo · FoMo-0D 의 split 평균 중 최고, **test 를 보고 고른 상한**) 를 넘는 가장 작은 la
+
+| 데이터셋 | 비지도 최고 | `kumo_clf` | `tabpfn_clf` | `catboost_clf` | `lgbm_clf` |
+|---|---|---|---|---|---|
+| PageBlocks | 0.915 (ECOD) | 1% (4개) | 1% (4) | 1% (4) | 5% (18) |
+| annthyroid | 0.883 (TabPFN 비지도) | 1% (4) | 1% (4) | 1% (4) | 5% (19) |
+| cover | 0.942 (LODA) | 1% (1) | 1% (1) | 1% (1) | 50% (36) |
+| landsat | 0.644 (Kumo 비지도) | 1% (10) | 1% (10) | 1% (10) | 1% (10) |
+| yeast | 0.499 (FoMo-0D) | 1% (4) | 1% (4) | 1% (4) | 1% (4) |
+| Wilt | 0.730 (TabPFN 비지도) | 1% (2) | 1% (2) | 5% (9) | 5% (9) |
+| shuttle | 0.996 (IForest) | 1% (5) | 1% (5) | 50% (243) | 25% (121) |
+| Waveform | 0.750 (COPOD) | 1% (1) | 5% (4) | 5% (4) | 10% (7) |
+| mammography | 0.908 (ECOD) | 1% (2) | 5% (9) | 5% (9) | 100% (163) |
+| magic.gamma | 0.839 (TabPFN 비지도) | 1% (25) | 5% (124) | 10% (247) | 25% (618) |
+| cardio | 0.954 (PCA) | 5% (7) | 5% (7) | 5% (7) | 25% (31) |
+| fault | 0.730 (KNN) | 5% (24) | 10% (48) | 10% (48) | 10% (48) |
+
+| 풀 (기준점 `lgbm_clf+la<k>` = 1000) | 순서 (Elo, 95% 구간) |
+|---|---|
+| `sup:la1` | **Kumo 분류기 1659** (+154 / −95) · TabPFN 분류기 1365 (+150 / −101) · CatBoost 1343 · TabPFN 비지도 1201 (+119 / −135) · KNN 1158 · IForest 1156 · Kumo 비지도 1131 · LightGBM 1000 · FoMo-0D 981 |
+| `sup:la5` · `la10` · `la25` · `la50` | 늘 Kumo > TabPFN > CatBoost > LightGBM (la 5% 부터 비지도는 모두 LightGBM 아래). 거의 모든 단위에서 이겨 Elo 크기 · 위 구간이 부풂 → 순위 · AUROC 로 읽음 |
+| `sup:la100` | Kumo 1595 · TabPFN 1345 · CatBoost 1142 · LightGBM 1000 · 비지도는 모두 −1,700 아래 (라벨을 다 주면 비지도는 거의 모든 단위에서 짐) |
+
+- **H5 확인 (완전 지도)**: 라벨을 다 주면 분류기 넷 모두 12개 모두에서 비지도 최고를 넘음 (12개 평균 0.95 ~ 0.97 대 비지도 0.72). TFM 분류기가 GBDT 보다 조금 위 (Kumo 0.967 · TabPFN 0.963 · CatBoost 0.956 · LightGBM 0.952), 차가 큰 곳은 fault (Kumo 0.950 · TabPFN 0.942 대 GBDT 0.90) · landsat (0.990 · 0.982 대 0.968). yeast 만 0.78 ~ 0.79 로 모두 같음
+- **안정성 (이상이 적은 데이터)**: la 100% 에서는 모두 split 사이 표준편차 0.03 안 (cover 0). 라벨이 몇 개뿐인 la 1% 에서 갈림: LightGBM 은 표준편차가 0.18 ~ 0.19 (annthyroid · cardio · PageBlocks) 로 흔들리고 cover 0.43 · mammography 0.39 처럼 0.5 아래, Kumo 는 12개 중 7개가 0.025 안 (가장 큰 것 yeast 0.10 · Waveform 0.09). **라벨 1개** (cover · Waveform 의 la 1%): Kumo 0.988 · 0.866, TabPFN 0.979 · **0.463**, CatBoost 0.979 · 0.663, LightGBM 0.432 · 0.528
+- **H6 는 Kumo 만 확인**: Kumo 분류기는 12개 중 10개에서 **라벨 1% (1 ~ 25개)** 로 비지도 최고 (test 로 고른 상한) 를 넘고, 나머지 둘도 5%. TabPFN 분류기는 7개가 1%, CatBoost 와 거의 같음 (la 1% 평균 0.796 대 0.807, 5% 부터 TabPFN 이 조금 위). ADBench 의 "지도 방법은 대개 10% 가 필요" 는 LightGBM 기본값 (우리 재현에서도 la 5 ~ 25%) 에 맞고 CatBoost 에는 덜 맞음
+- 비지도 TFM 하나 (TabPFN 비지도, 데이터셋을 보고 고르지 않은 것) 와 견주면: la 1% 에서 Kumo 분류기 12 / 12, TabPFN 분류기 9 / 12, CatBoost 8 / 12 가 더 높음. la 5% 면 Kumo · TabPFN 12 / 12
+
+### F0 ~ F2 결과: FoMo-0D (2026-11-26)
+
+FoMo-0D 의 학습 prior 를 원문 코드로 다시 확인 (`data_prior/parallel_generator.py` 의 `get_batch_for_NdMclusterGaussian`): **context 는 정상 (inlier) 만**, 이상은 질의 쪽에만 → 오염된 context 는 학습 분포 밖. 위 "원문의 ADBench 평가" 와 같음.
+
+F0 (공식 12개 × 3 split, split 평균 AUROC)
+
+| 데이터셋 | `fomo0d` (오염 context) | 순위 (기존 10 + FoMo-0D) | `fomo0d+clean` | `tabpfn_unsup` · `+clean` | `kumo_unsup` · `+clean` | IForest |
+|---|---|---|---|---|---|---|
+| cover | 0.768 | 11 | **0.993** | 0.521 · 0.927 | 0.576 · 0.974 | 0.867 |
+| Wilt | 0.690 | 1 | **0.965** | 0.730 · 0.937 | 0.722 · 0.914 | 0.419 |
+| Waveform | 0.655 | 9 | 0.720 | 0.701 · 0.772 | 0.696 · 0.789 | 0.715 |
+| annthyroid | 0.641 | 8 | 0.827 | 0.883 · 0.949 | 0.874 · 0.933 | 0.820 |
+| magic.gamma | 0.622 | 10 | 0.840 | 0.839 · 0.884 | 0.828 · 0.876 | 0.732 |
+| cardio | 0.607 | 11 | **0.978** | 0.522 · 0.869 | 0.463 · 0.884 | 0.932 |
+| PageBlocks | 0.563 | 11 | 0.921 | 0.732 · 0.901 | 0.725 · 0.876 | 0.896 |
+| landsat | 0.539 | 4 | 0.647 | 0.603 · 0.779 | 0.644 · 0.803 | 0.476 |
+| fault | 0.529 | 6 | 0.720 | 0.660 · 0.805 | 0.681 · 0.843 | 0.570 |
+| yeast | 0.499 | 1 | 0.554 | 0.418 · 0.457 | 0.380 · 0.464 | 0.378 |
+| shuttle | 0.497 | 11 | 0.994 | 0.968 · 1.000 | 0.846 · 0.991 | 0.996 |
+| mammography | 0.436 | 11 | 0.650 | 0.869 · 0.888 | 0.824 · 0.869 | 0.864 |
+| **12개 평균** | **0.587** | | 0.817 | 0.704 · 0.847 | 0.688 · 0.868 | 0.722 |
+
+- 공식 `fm` 풀 (결정 19, `results/anomaly_elo.csv`): IForest 1000 · TabPFN 비지도 968 · … · **FoMo-0D 787** (+140 / −185, 평균 순위 8.5 / 12). FoMo-0D 를 뺀 Elo 는 이전 파일과 바이트 단위로 같음. `agent` 풀 (s1 의 3개) 에서 FoMo-0D 899
+- **오염 context 에서는 TabPFN · Kumo 보다 나쁨** (12개 평균 0.587 대 0.704 · 0.688, 5개 (cover · cardio · PageBlocks · shuttle · mammography) 에서 11개 중 꼴찌). 정상만 주면 크게 오름 (+0.23, cover 0.993 · cardio 0.978 · Wilt 0.965 로 그 셋에서는 clean TabPFN · Kumo 보다 높음) → 원문의 평가 설정 (정상만) 에서는 좋은 모형이고, 비지도 설정은 학습 분포 밖
+
+F1 (E1 이상 종류, 데이터셋 평균 AUROC)
+
+| 종류 | `fomo0d` | `fomo0d+clean` | TabPFN 비지도 · clean | Kumo 비지도 · clean | IForest | 기존 최고 |
+|---|---|---|---|---|---|---|
+| local | 0.903 | 0.926 | 0.896 · 0.911 | 0.886 · 0.910 | 0.847 | LOF 0.921 |
+| global | 0.921 | 0.996 | 0.999 · 1.000 | 0.999 · 0.999 | 0.998 | KNN 1.000 |
+| dependency | 0.921 | 0.958 | **0.986** · 0.992 | **0.992** · 0.995 | 0.782 | KNN 0.922 |
+| **cluster** | **0.552** | 0.999 | 0.776 · 1.000 | 0.739 · 1.000 | 0.989 | OCSVM 0.995 |
+
+- `f1:<종류>` 풀 (IForest = 1000): local 에서 FoMo-0D 1328 (LOF 1415 다음 2위), global 589 (꼴찌), dependency 1352 (TabPFN 4221 · Kumo 4151 · KNN 1469 다음), **cluster −166 (LOF 위 꼴찌 둘째)**
+- **H8 확인: FoMo-0D 는 cluster 실패를 고치지 못하고 더 나쁨** (0.552 대 TabPFN 0.776 · IForest 0.989). clean context 면 0.999 → 원인이 TabPFN · Kumo 와 같음 (context 의 이상 무리가 서로를 정상으로 만듦). dependency 에서도 일반 TFM 보다 약함 (0.921 대 0.986 ~ 0.992): FoMo-0D 의 prior (GMM 정상 + 멀리 떨어진 이상) 에 "열 사이 관계만 깨진 이상" 이 없음
+
+F2 (E2 94칸, r = 0 대비 떨어진 AUROC, 칸 88개)
+
+| 방법 | 평균 하락 (모임 / 흩어짐) | 하락 ~ 가림 (Spearman) | 하락 ~ 비율 |
+|---|---|---|---|
+| **fomo0d** | **0.067 / 0.111** | **0.80** | 0.55 |
+| tabpfn_unsup | 0.051 / 0.064 | 0.52 | 0.27 |
+| kumo_unsup | 0.053 / 0.072 | 0.57 | 0.23 |
+| LOF · KNN · IForest | 0.027 / 0.024 · 0.016 / 0.015 · 0.021 / 0.014 | 0.87 · 0.73 · 0.11 | 0.69 · 0.59 · 0.39 |
+
+- FoMo-0D 가 오염에 가장 민감 (같은 칸에서 TabPFN 의 1.3 ~ 1.7배, IForest 의 3 ~ 8배). 흩어짐이 더 해치고 하락이 가림과 가장 잘 맞는 것은 TabPFN · Kumo 와 같은 모양 (위 E2 의 고친 해석). PageBlocks 5% 흩어짐 0.913 → 0.640, annthyroid 5% 0.841 → 0.680
+
+### S3 결과: 처음 보는 이상 (train 종류 A → test 종류 B, 10개 × seed 1, 2026-11-26)
+
+행 = 그 대회의 train 에 있는 이상 종류 (분류기는 그 이상에 모두 라벨, 비지도는 같은 train 을 라벨 없이 context 로), 열 = test 이상 종류. 데이터셋 평균 AUROC. 대각선 = 본 종류.
+`tabpfn_unsup` 은 fault 의 train = local · cluster 두 대회가 실패 (아래) → 그 두 행은 9개 평균.
+
+| 방법 | 대각선 평균 (최저) | 대각선 밖 평균 (최저) | 대각선 밖, test = global 뺌 |
+|---|---|---|---|
+| `kumo_clf` | **0.988** (0.964) | **0.973** (0.888) | **0.965** |
+| `tabpfn_clf` | 0.980 (0.935) | 0.920 (0.767) | 0.896 |
+| `catboost_clf` | 0.973 (0.917) | 0.878 (0.705) | 0.851 |
+| `lgbm_clf` | 0.971 (0.912) | 0.808 (0.562) | 0.776 |
+| `tabpfn_unsup` | 0.921 (0.834) | 0.970 (0.905) | 0.960 |
+| `kumo_unsup` | 0.901 (0.763) | 0.969 (0.909) | 0.959 |
+| `fomo0d` | 0.823 (0.589) | 0.957 (0.878) | 0.943 |
+| LOF · KNN · IForest | 0.767 · 0.890 · 0.890 | 0.955 · 0.936 · 0.891 | 0.941 · 0.915 · 0.856 |
+
+칸별 (가장 크게 갈리는 곳)
+
+| train → test | `kumo_clf` | `tabpfn_clf` | `catboost_clf` | `lgbm_clf` | `tabpfn_unsup` | `kumo_unsup` | `fomo0d` | IForest | LOF |
+|---|---|---|---|---|---|---|---|---|---|
+| cluster → cluster (본 것) | 1.000 | 1.000 | 1.000 | 1.000 | **0.834** | **0.763** | **0.589** | 0.989 | 0.451 |
+| cluster → dependency | **0.977** | 0.767 | 0.748 | 0.562 | 0.970 | 0.961 | 0.922 | 0.696 | 0.888 |
+| cluster → local | 0.950 | 0.796 | 0.845 | 0.599 | 0.905 | 0.909 | 0.910 | 0.860 | 0.930 |
+| global → dependency | 0.974 | 0.866 | 0.765 | 0.665 | 0.973 | 0.968 | 0.878 | 0.693 | 0.892 |
+| local → dependency | 0.970 | 0.905 | 0.842 | 0.822 | 0.968 | 0.967 | 0.943 | 0.744 | 0.908 |
+| dependency → local | 0.888 | 0.874 | 0.705 | 0.709 | 0.910 | 0.911 | 0.929 | 0.858 | 0.925 |
+| dependency → dependency (본 것) | 0.989 | 0.986 | 0.975 | 0.971 | 0.955 | 0.946 | 0.874 | 0.710 | 0.851 |
+
+- **H7 대체로 확인.** 본 종류 (대각선) 에서는 분류기가 이김 (0.97 ~ 0.99, cluster 도 1.000). 처음 보는 종류에서 GBDT 와 TabPFN 분류기는 무너짐: dependency 이상을 본 적 없으면 LightGBM 0.56 ~ 0.82 · CatBoost 0.75 ~ 0.84 · TabPFN 0.77 ~ 0.91. 같은 칸에서 비지도 TFM 은 0.96 ~ 0.97 → **"처음 보는 dependency · local 은 비지도 TFM 이, 되풀이되는 cluster 는 분류기가"** 의 보완이 그대로 나옴 (TabPFN: 데이터셋 × 칸 152개 중 99개에서 비지도가 분류기보다 높음)
+- **예외: Kumo 분류기는 처음 보는 종류에도 강함** (대각선 밖 0.973, 비지도 TFM 0.970 과 같은 수준이면서 cluster 도 1.000). 가장 약한 칸 dependency → local 0.888 (비지도 TFM 0.91, LOF 0.925 보다 낮음). 같은 Kumo 인데 비지도 래퍼 (chain rule) 보다 분류기 쪽이 일반화가 좋은 까닭은 이번에 가르지 않음 (가설: 분류기 head 가 정상 쪽 밀도를 넓게 배움 — 확인 안 함)
+- cluster → cluster 의 비지도 실패는 E1 과 같은 크기 (TabPFN 0.834 · Kumo 0.763 · FoMo-0D 0.589 · LOF 0.451, IForest 0.989). train 의 이상이 다른 종류면 비지도 TFM 의 cluster test 는 1.000 → 해치는 것은 "test 이상과 닮은 이상이 context 에" (E2 의 고친 해석) 그대로
+- **"정상 / 이상 / 모름" 의 단서**: 같은 train 에서 라벨을 쓰면 cluster 를 고치고 (1.000), 라벨을 안 쓰면 처음 보는 종류에 넓게 강함 → 한 모델이 라벨 있는 행은 분류기처럼, 라벨 없는 행은 context 의 밀도로 쓰면 두 장점을 다 가질 수 있음 (S2: 라벨 1% 로도 분류기가 비지도를 넘음). 이번에 그런 모델을 돌린 것은 아님 (아래 "시사점")
+- 실패: `tabpfn_unsup` 의 `adc-s3-local-fault-s1` · `adc-s3-cluster-fault-s1` (같은 작업의 나머지 118칸은 됨, 작업 상태 INTERNAL_ERROR = 방법 실패로 종료 코드 1, 조건 실험 E3 과 같은 꼴). 점수 몇 행이 무한대 (아래 "남은 것")
+
+### 판단 기준에 더함: 라벨이 있을 때 (2026-11-26)
+
+위 "판단 기준" 표 (비지도) 에 이어서. 분류기 = TFM 분류기 (TabPFN v2 · Kumo, `fab/models` 래퍼 그대로) · GBDT (ADBench 기본값).
+
+| 상황 | 쓸 것 | 근거 |
+|---|---|---|
+| **이상 라벨이 조금이라도 있음** (train 이상의 1% = 1 ~ 25개, 나머지는 라벨 없이 정상으로 둠) | **TFM 분류기, 특히 Kumo** (비지도보다 먼저) | S2: Kumo 분류기는 la 1% 에서 12개 평균 0.879 (비지도 최고 방법 IForest 0.722), 12개 중 10개에서 test 로 고른 비지도 최고를 넘음. TabPFN 분류기는 1% 에서 7개 · CatBoost 5개, 5% 면 대부분 |
+| 라벨이 1 ~ 5개뿐 | LightGBM 기본값은 쓰지 말 것 (CatBoost · TFM 분류기) | la 1%: LightGBM 0.590, split 사이 표준편차 0.18 ~ 0.19, cover 0.43 · mammography 0.39. 라벨 1개 (Waveform): Kumo 0.866 · CatBoost 0.663 · TabPFN 0.463 |
+| 라벨이 넉넉함 (la ≥ 25%) | 분류기 아무거나 (차는 0.01 ~ 0.02) | S1 · S2: la 100% 에서 0.952 ~ 0.967, 12개 모두 비지도보다 높음 |
+| 라벨은 있지만 **앞으로 처음 보는 종류의 이상이 올 수 있음** | Kumo 분류기, 또는 TabPFN 분류기 · GBDT 를 쓸 때는 **비지도 TFM 을 같이** (점수 섞기 · 둘 중 하나라도 높으면 경보) | S3: 처음 보는 dependency 이상에서 GBDT 0.56 ~ 0.84 · TabPFN 분류기 0.77 ~ 0.91 대 비지도 TFM 0.96 ~ 0.97, Kumo 분류기 0.97. 섞는 방법 자체는 검증 안 함 |
+| 같은 종류 이상이 되풀이됨 + 라벨 몇 개 | 분류기 (비지도 TFM · FoMo-0D 는 무너짐) | S3 대각선 cluster: 분류기 넷 1.000 대 TabPFN 비지도 0.834 · FoMo-0D 0.589. ADBench 그림 6d 와 같은 방향 |
+| 라벨 없음 + FoMo-0D 를 쓰려 함 | **정상 행만 모을 수 있을 때만** | F0: 오염 context 에서 12개 평균 0.587 (공식 풀 Elo 787, 꼴찌 쪽), 정상만이면 0.817 (cover 0.993 · cardio 0.978). FoMo-0D 의 prior 는 context 가 정상뿐 |
+
+### multitask prior 설계에 주는 시사점 (2026-11-26)
+
+데이터로 뒷받침되는 것과 아닌 것을 나눠 적음 (학습 실험은 안 함).
+
+1. **context 행의 라벨을 "정상 / 이상 / 모름" 으로 두고 라벨 비율을 0 ~ 100% 섞는 방향은 뒷받침됨.** 라벨의 가치가 매우 큼 (S2: 1% 로 비지도를 넘고 1 → 100% 에서 0.88 → 0.97), 지금의 TFM 분류기는 "모름" 을 정상 0 으로 받는 PU 꼴로도 이미 잘 함. 그러나 모름 = 0 은 라벨 없는 이상을 정상으로 가르치는 것이라, 라벨이 0% 일 때 비지도 (밀도) 로 자연스럽게 넘어가지 못함 → "모름" 을 따로 두어야 la = 0 에서 비지도 TFM, la > 0 에서 분류기처럼 되는 한 모델이 됨
+2. **prior 의 context 에 이상을 섞어야 함 (오염 context).** FoMo-0D 는 정상만 context 로 학습해 오염 context 에서 무너짐 (F0 0.587, F2 에서 가장 민감). 비지도 TFM (TabPFN · Kumo) 도 같은 방향으로 약함 (E2). 실제 비지도 설정은 늘 오염 → 학습 데이터의 "모름" 행에 이상을 0 ~ 수십 % 섞고, 특히 **test 이상과 닮은 이상이 "모름" 으로 context 에 있는 경우** (cluster, E2 의 가림) 를 prior 에 넣어야 함. 이것이 비지도 cluster 실패를 고칠 수 있는지는 학습해 봐야 앎
+3. **cluster 와 처음 보는 이상의 상충.** 라벨을 쓰는 쪽은 본 종류 (cluster 포함) 에 강하고 처음 보는 종류에 약하며 (GBDT · TabPFN 분류기), 밀도 쪽은 그 반대 (S3). multitask 모델의 목표는 두 칸을 같이: 라벨 있는 이상과 닮은 행은 이상으로, 라벨 없는 드문 행 · 관계가 깨진 행도 이상으로. Kumo 분류기가 이미 둘 다 잘 하는 것 (S3 대각선 밖 0.973 · cluster 1.000) 은 분류 prior 만으로도 상당 부분 된다는 단서 → multitask 모델이 넘어야 할 기준점: **비지도 (la = 0)** TabPFN 비지도 · IForest (공식 풀), **라벨 있음** Kumo 분류기, **오염 context 의 cluster** IForest 0.989
+4. prior 의 이상 종류: FoMo-0D 의 prior (GMM 정상 + 멀리 떨어진 이상) 로는 dependency 이상이 약함 (F1 0.921 대 TabPFN 0.986) → "열 사이 관계만 깨진 이상" 을 prior 에 넣을 것
+
+### 남은 것 (라벨 실험 · FoMo-0D)
+
+- `tabpfn_unsup` 의 S3 fault 두 대회 실패: 로컬 (CPU, 같은 대회 · 같은 seed) 에서 다시 돌려 **test 1,189행 중 9행의 점수가 유한하지 않음** (`scores` 의 NaN/inf 검사에서 거부). 멀리 떨어진 행 (local 이상은 공분산 × 5, MinMax 로 −0.6 ~ 2.0) 의 밀도가 0 으로 내려간 것으로 봄 (확인 안 함, tabpfn-extensions 의 `outliers()` 그대로). 무한대를 가장 큰 점수로 다루는 변형으로 다시 돌릴지는 사용자. 이 두 칸이 빠져 위 S3 표의 `tabpfn_unsup` train = local · cluster 행은 9개 평균
+- S3 은 seed 1 · 데이터 10개 · la 100% 만. 처음 보는 종류 + 라벨 조금 (la 10%) 은 안 함
+- 분류기 + 비지도 점수 섞기 (S3 의 보완을 실제로 쓰는 법), 라벨 준 이상을 context 에서 빼는 비지도 변형 (반지도의 다른 꼴) — 안 함
+- Kumo 분류기가 처음 보는 종류에 강한 까닭, TabPFN 분류기가 라벨 1개에서 흔들리는 까닭 (Waveform 0.463) — 안 가름
+- ADBench 의 반지도 전용 방법 (DeepSAD · DevNet · XGBOD 등) 은 안 돌림 (공개값은 `results/anomaly_reference_supervised.csv` 에 있음)
+- FoMo-0D 의 원문 설정 (정규화에 test 행 포함) 은 안 돌림 (결정 17)
+
 ## 실행 기록
 
 | 때 (KST) | 무엇 | 대상 | 상태 |
@@ -704,6 +981,19 @@ cover 0.5% 에서 0.956 → 0.687 / 0.627 (모임 / 흩어짐), cardio 5% 에서
 | 2026-11-26 09:56 · 10:2x | Kumo K1 (2시간 34분) · K2-E3 (2시간 33분) SUCCESS → kick (이 worktree, 대기 항목은 모두 이 트랙 것) → `fab sync` | | `anomaly_conditions.csv` +72행 (K1 48 · E3 24, 실패 0) |
 | 2026-11-26 11:20 · 11:3x | Kumo K2-E2 SUCCESS (3시간 57분) → kick (이 worktree) → `fab sync` | | `anomaly_conditions.csv` +94행 (실패 0) |
 | 2026-11-26 12:10 · 12:2x | Kumo K2-E1 SUCCESS (4시간 47분) → kick (이 worktree) → `fab sync` | | `anomaly_conditions.csv` +92행 (실패 0), 대기 항목 0 |
+| 2026-11-26 15:5x | 라벨 실험 · FoMo-0D (사용자: 9개 모두). 내기 전 `fab remote status` 대기 0. 커밋 62b0592 (이 worktree `Aiden-Jeon/anomaly-supervised`, 채점 규칙이 바뀌어 **머지 전 kick 은 이 worktree 에서만**) | | |
+| 2026-11-26 15:54 | S1 · S2 CPU: `lgbm_clf` · `catboost_clf` × la 6개 | 공식 12 × 3 (36), CPU (`ads-s12-cpu-cpu-20261126-155424`, run_id 950851320429318) + `anomaly__20261126-155707-831272` | 제출 |
+| 2026-11-26 15:57 | S1 · S2 GPU: `tabpfn_clf` · `kumo_clf` × la 6개 | 36, H100 (run_id 846520635233947) + `anomaly__20261126-155719-732197` | 제출 |
+| 2026-11-26 15:58 | S3 CPU: `lgbm_clf+la100` · `catboost_clf+la100` | S3 40, CPU (`ads-s3-cpu-cpu-20261126-155807`, run_id 1075519448614385) + `anomaly__20261126-160100-031741` | 제출 |
+| 2026-11-26 16:01 | S3 CPU: IForest · KNN · LOF (GBDT 와 다른 작업) | S3 40, CPU (`ads-s3-cpu-cpu-20261126-160104`, run_id 260927421721915) + `anomaly__20261126-160344-928790` | 제출 |
+| 2026-11-26 16:03 | S3 GPU: `tabpfn_clf+la100` · `tabpfn_unsup` · `fomo0d` | S3 40, H100 (`ads-s3-20261126-160349`, run_id 1066214145652480) + `anomaly__20261126-160356-785024` | 제출 |
+| 2026-11-26 16:04 | S3 GPU: `kumo_clf+la100` · `kumo_unsup` | S3 40, H100 (`ads-s3-20261126-160401`, run_id 901039862601176, 480분) + `anomaly__20261126-160409-015958` | 제출 |
+| 2026-11-26 16:04 | F0: `fomo0d` · `fomo0d+clean` | 공식 36, H100 (`ads-f0-20261126-160423`, run_id 1044864325949517) + `anomaly__20261126-160430-140643` | 제출 |
+| 2026-11-26 16:04 | F1: `fomo0d` · `fomo0d+clean` | E1 46 (Volume 의 2026-11-25 데이터), H100 (`ads-f1-20261126-160435`, run_id 473846640347786) + `anomaly__20261126-160441-403769` | 제출 |
+| 2026-11-26 16:04 | F2: `fomo0d` | E2 94 (같음), H100 (`ads-f2-20261126-160445`, run_id 427240956337902) + `anomaly__20261126-160452-601829` | 제출 |
+| 2026-11-26 16:06 ~ 16:13 | S1 · S2 CPU (15분) · GPU (16분) · S3 CPU 둘 (6 · 4분) · F0 · F1 · F2 (5 · 6 · 9분) 모두 SUCCESS → kick (이 worktree, 대기 9개 모두 이 작업 것) → `fab sync` | | `anomaly.csv` +72 (F0, 기존 행 그대로), `anomaly_conditions.csv` +186 (F1 92 · F2 94), `anomaly_supervised.csv` 1,664행, 실패 0. 같이 받은 `mlebench_runs.csv` 변경은 되돌림 |
+| 2026-11-26 17:01 | S3 GPU (TabPFN) `INTERNAL_ERROR/FAILED` (57분): 40 대회 끝까지, `tabpfn_unsup` 이 fault 의 local · cluster 두 대회에서 실패 → 종료 코드 1 (나머지 118칸은 됨). 원격 로그는 API 로 못 받음 → 로컬 (CPU) 에서 `adc-s3-local-fault-s1` 을 다시 돌려 재현: test 9행의 점수가 NaN/inf | | 다시 안 냄 |
+| 2026-11-26 18:05 · 18:1x | S3 GPU (Kumo) SUCCESS (122분) → kick (이 worktree) → `fab sync` | | `anomaly_supervised.csv` +792 (198 실행 × test 종류 4), 대기 0. `fab ad elo`: FoMo-0D 를 뺀 Elo 가 이전 `anomaly_elo.csv` 와 바이트 단위로 같음 확인 → FoMo-0D 를 넣어 다시 씀. `fab ad cond report` → `anomaly_conditions_elo.csv` 그대로 |
 | 2026-11-25 15:4x · 18:20 | kick 두 번 (Wilt Agent · 제외, 그다음 TabPFN s2 · s3 채점). forecast 세션과 "상대 트랙 grade 대기 없음 + 상대 agent 대기 항목이 모두 아직 RUNNING" 일 때만 kick 하기로 합의. 18:20 kick 때는 forecast agent 둘이 끝난 채 대기 중이라 그쪽 제안대로 이쪽이 먼저 (그 둘은 시도 1/3, forecast 브랜치 kick 으로 처리) | | SUCCESS, 이상탐지 대기 항목 0 |
 
 ### 기존 방법 맞춤 (원격, 12개 × 3 seed)

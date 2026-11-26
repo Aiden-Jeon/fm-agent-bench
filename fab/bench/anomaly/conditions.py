@@ -256,6 +256,10 @@ def condition_split(comp: Competition):
         return e1_split(ad["dataset"], c["type"], int(ad["seed"]))
     if c["exp"] == "e2":
         return e2_split(ad["dataset"], c)
+    if c["exp"] == "s3":  # 처음 보는 이상 (supervised.py): 7번째 = test 행의 이상 종류
+        from fab.bench.anomaly.supervised import s3_split
+
+        return s3_split(comp)
     raise ValueError(f"알 수 없는 조건 실험: {c}")
 
 
@@ -436,10 +440,15 @@ def pool_elo(long: pd.DataFrame, anchor: str, name: str, rounds: int) -> pd.Data
 
 
 def report(rounds: int, tab: str):
-    from fab.bench.anomaly.methods import ANCHOR, CLEAN, OFFICIAL, PYOD
+    from fab.bench.anomaly.methods import ANCHOR, CLEAN, PYOD, is_fomo
 
+    # 이 보고의 풀 · 표는 FoMo-0D 전 (2026-11-26 까지) 참가자 그대로: FoMo-0D 는 공식 풀 (fab ad elo) 과 fab ad sup report (F0 ~ F2)
+    # 에서 봄 → anomaly_conditions_elo.csv 가 FoMo-0D 행이 생겨도 그대로
+    OFFICIAL = [*PYOD, "tabpfn_unsup"]
     off = latest_grades(pd.read_csv(GRADES))
+    off = off[~off.model.map(is_fomo)]
     cond = read_conditions()
+    cond = cond[~cond.model.map(is_fomo)]
     pools = []
     pd.set_option("display.width", 250)
     pd.set_option("display.max_columns", 40)

@@ -164,6 +164,8 @@ FM = tabpfn-extensions `TabPFNUnsupervisedModel.outliers()` (TabPFN v2 가중치
 - `uv run --frozen fab ad elo` → `results/anomaly_elo.csv`, 채점 `results/anomaly.csv` · `results/anomaly_runs.csv`, ADBench 공개값 비교 `fab ad compare` (기준점 IForest 는 12개 모두 공개값과 같음)
 - **TFM 이 이득을 보는 조건** (통제 실험, [docs/anomaly.md](docs/anomaly.md) 의 "TFM 이 이득을 보는 조건"): 열 사이 관계가 깨진 이상 (ADBench 합성 dependency) 에서 TabPFN · Kumo 가 기존 10개를 모두 앞섬 (10 / 10), 서로 닮은 이상이 train 에 섞이면 0.5% 로도 무너짐 (cluster 0.78 대 IForest 0.99) → 이상의 성질을 모르면 IForest 가 기본, 정상 행만 모을 수 있으면 TFM 이 첫 후보 (KNN · LOF 와 구간 겹침). 라벨 없는 context 정리는 차이를 거의 못 메움. Kumo (우리 chain rule 래퍼) 도 같은 모양
   → `fab ad cond …`, 결과 `results/anomaly_conditions*.csv` (공식 풀 · `anomaly_elo.csv` 와 따로)
+- **라벨이 있는 이상탐지 · FoMo-0D** ([docs/anomaly.md](docs/anomaly.md) 의 "라벨이 있는 이상탐지"): ADBench 의 la (train 이상 중 라벨 비율, 나머지는 정상 0) 로 TFM 분류기 (TabPFN v2 · Kumo) 와 GBDT. Kumo 분류기는 라벨 1% (1 ~ 25개) 로 12개 평균 0.879 (비지도 최고 IForest 0.722), 처음 보는 종류의 이상에서는 GBDT · TabPFN 분류기가 무너지고 비지도 TFM 이 메움. 이상탐지 전용 PFN FoMo-0D 는 cluster 실패를 못 고침 (공식 풀 Elo 787)
+  → `fab ad sup …`, 결과 `results/anomaly_supervised*.csv` (FoMo-0D 는 공식 `anomaly.csv` · fm 풀)
 
 ### Forecast (fev-bench, 시계열 예측)
 
@@ -195,7 +197,7 @@ fab/
   runner/                         # FM 실행: fab databricks 가 제출 (TFM: AI Runtime GPU, GBDT: serverless CPU), 원격에서 fab run
   submission.py                   # test.npy → 제출 파일 (여러 모델이면 평균, 원격 정리 작업 안에서)
   bench/mlebench/                 # MLE-bench 분할 준비 (로컬 mle-bench 가상환경), 채점 재료 업로드·원격 채점 (remote.py), 공개 에이전트 점수
-  bench/anomaly/                  # 이상탐지 (ADBench): 분할 재현·대회 준비, pyod·TabPFN 비지도 원격 실행 (run.py), AUROC 채점, Elo (IForest = 1000)
+  bench/anomaly/                  # 이상탐지 (ADBench): 분할 재현·대회 준비, pyod·TabPFN 비지도 원격 실행 (run.py), AUROC 채점, Elo (IForest = 1000), 조건 실험 (conditions.py), 라벨 · FoMo-0D (supervised.py)
   bench/forecast/                 # fev-bench 시계열 예측: 마지막 window 대회 (fab fc), fev 식 채점 (metrics.py), 원격 실행기 (run_fev.py)
   agent/                          # 에이전트 실행: 로컬 런처 (__init__.py) + 원격 실행기 (runner.py: LLM 프록시·형식 검사 서버)
                                   #   C2 (--fm): fm_notes.txt (지시문의 TFM 안내), fm_warmup.py (사전 점검), fm_audit.py (TFM import 기록)

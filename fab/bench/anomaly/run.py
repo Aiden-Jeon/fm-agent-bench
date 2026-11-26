@@ -4,7 +4,8 @@ results.csv 에 행. fab/runner/run.py 의 main 이 anomaly 대회를 여기로 
 
     fab run <대회> <방법...> --note <글> [--train-labels <Volume 경로>]
 
---train-labels: +clean 방법 (깨끗한 context 진단) 이 읽는 train 라벨 폴더 (내 Volume, remote.py).
+--train-labels: +clean 방법 (깨끗한 context 진단) 이 읽는 train 라벨 폴더 (내 Volume, remote.py). 라벨을 쓰는 분류기 (`_clf+la<k>`) 는
+같은 폴더의 <대회>.la.csv (id + la 마다 ADBench 와 같이 고른 PU 라벨 열 la<k>) 를 읽음.
 TabPFN 가중치는 v2 (동의 없이 받음, methods.FM). 실행기가 모델 캐시 (Volume 의 cache/models.tar) 에 남김.
 """
 
@@ -67,23 +68,33 @@ def main(argv: list[str]):
     for m in args.methods:
         t0 = time.time()
         try:
-            X_fit = X_train
-            if M.is_clean(m):  # 깨끗한 context 진단: train 의 정상 행만 (train 라벨을 씀 → Elo 밖)
+            X_fit, extra = X_train, ""
+            if M.is_supervised(m):  # 라벨을 쓰는 분류기: PU 라벨 (라벨 준 이상 1, 나머지 0)
+                if not args.train_labels:
+                    raise RuntimeError("+la 분류기는 --train-labels 가 필요")
+                la = pd.read_csv(Path(args.train_labels) / f"{comp.name}.la.csv").set_index(ID_COL)[f"la{M.la_spec(m)}"]
+                y = la.loc[train[ID_COL]].to_numpy().astype(int)
+                s = M.clf_scores(m, X_train, y, X_test, seed)
+                if s.shape != (len(X_test),) or not np.isfinite(s).all():
+                    raise ValueError(f"{m}: 점수 모양 {s.shape} 또는 NaN/inf")
+                extra = f" n_labeled={int(y.sum())}"
+            elif M.is_clean(m):  # 깨끗한 context 진단: train 의 정상 행만 (train 라벨을 씀 → Elo 밖)
                 if not args.train_labels:
                     raise RuntimeError("+clean 은 --train-labels 가 필요")
                 lab = pd.read_csv(Path(args.train_labels) / f"{comp.name}.csv").set_index(ID_COL)[LABEL_COL]
                 X_fit = X_train[lab.loc[train[ID_COL]].to_numpy() == 0]
             elif M.trim_spec(m):  # 라벨 없는 정리 (E3): 비지도 그대로
                 X_fit = trim_context(m, X_train, seed, cache)
-            s = M.scores(m, X_fit, X_test, seed)
+            if not M.is_supervised(m):
+                s = M.scores(m, X_fit, X_test, seed)
             out = OUTPUTS / comp.name / m
             out.mkdir(parents=True, exist_ok=True)
             clear_test_info(out)
             np.save(out / "test.npy", s)
             run = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
-            write_test_info(out, run, float("nan"), 0, None, M.opts(m))
+            write_test_info(out, run, float("nan"), 0, None, M.opts(m) + extra)
             rows.append(dict(timestamp=run, comp=comp.name, model=m, metric="auroc", cv=None, n_folds=0,
-                             seconds=round(time.time() - t0, 1), note=args.note, test=True, opts=M.opts(m),
+                             seconds=round(time.time() - t0, 1), note=args.note, test=True, opts=M.opts(m) + extra,
                              n_features=len(feats)))
             print(f"[anomaly] {comp.name} {m}: {time.time() - t0:.1f}s (context {len(X_fit)}행, test {len(X_test)}행)",
                   flush=True)

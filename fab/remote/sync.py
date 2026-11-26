@@ -24,6 +24,7 @@ ROW_KEYS = {"results.csv": ["timestamp", "comp", "model"], "mlebench.csv": ["tim
             "mlebench_runs.csv": ["key"], "tabarena.csv": ["timestamp", "comp", "model"], "tabarena_runs.csv": ["key"],
             "anomaly.csv": ["timestamp", "comp", "model"], "anomaly_runs.csv": ["key"],
             "anomaly_conditions.csv": ["timestamp", "comp", "model"],
+            "anomaly_supervised.csv": ["timestamp", "comp", "model", "cond"],  # S3 는 같은 실행에서 test 종류마다 한 행
             "forecast.csv": ["timestamp", "task", "method", "window"], "forecast_runs.csv": ["key"]}
 
 

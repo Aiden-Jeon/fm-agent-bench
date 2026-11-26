@@ -5,6 +5,9 @@
 이름 뒤 `+trim<k>` · `+trim<k>x<n>` · `+iftrim<k>` = 라벨 없는 context 정리 (docs/anomaly.md "TFM 이 이득을 보는 조건" E3):
 train 점수 상위 k% 를 context 에서 빼고 (n 번 반복) 남은 train 으로 fit. 점수는 그 방법 자신 (trim) 또는 IForest (iftrim).
 공식 풀 밖의 변형 (`is_variant`) 은 채점 행이 results/anomaly_conditions.csv 로 감 (fab/bench/anomaly 의 grade).
+`<모델>_clf+la<k>` = 라벨을 쓰는 분류기 (docs/anomaly.md "라벨이 있는 이상탐지"): train 이상 중 k% 에만 라벨 (ADBench la, 나머지는
+정상 0 = PU) → fit(X_train, y) → P(이상). 채점 행은 results/anomaly_supervised.csv (`is_supervised`).
+`fomo0d` = FoMo-0D (이상탐지 전용 PFN, 공개 체크포인트 그대로). 비지도 → 공식 풀 (2026-11-26 사용자, 결정 19).
 
 무거운 import (pyod · torch · tabpfn) 는 함수 안 (로컬 제출 명령이 이 파일을 읽어도 설치가 필요 없게).
 """
@@ -41,7 +44,20 @@ ANCHOR = "iforest"  # Elo 기준점 = 1000 (docs/anomaly.md 결정 7)
 FM = {"tabpfn_unsup": dict(version="v2", n_permutations=10),
       "tabpfn_unsup_p3": dict(version="v2", n_permutations=3),
       "kumo_unsup": dict(model="kumo", n_permutations=10, n_estimators=8, h=0.005)}
-OFFICIAL = [*PYOD, "tabpfn_unsup"]  # 공식 풀 (fm · agent) 의 참가자. 나머지 FM 이름 · 정리 변형은 조건 실험 표로
+# FoMo-0D (Shen · Wen · Akoglu, TMLR 2025, MIT): 저장소 코드 (모델 정의 · 전처리) 와 HF 가중치를 고정 커밋으로. 피처 100 (적으면 0 채움),
+# context ≤ 4,999 행 (원문 inf_len 5000), 전처리는 원문 pfn_inference_transform('quantile') 을 train 으로만 정규화 (결정 17)
+FM["fomo0d"] = dict(model="fomo0d", code="34d4339", weights="d0638ef", max_context=4999, transform="quantile")
+FOMO_REPO, FOMO_SHA = "A-Chicharito-S/FoMo-0D", "34d4339e318d96ac744850188a547b62387a718c"
+FOMO_HF, FOMO_REV = "YuchenShen/FoMo-0D", "d0638efa3cc7ec93ffcc9f9aa2ed6d15030e1161"
+FOMO_PIP = [["einops==0.8.2"], ["safetensors==0.8.0"]]  # 이미지에 있으면 실행기가 건너뜀 (torch · huggingface_hub 는 있음)
+# 공식 풀 (fm · agent) 의 참가자. 나머지 FM 이름 · 정리 변형은 조건 실험 표로. fomo0d 는 2026-11-26 사용자 결정으로 넣음 (결정 19)
+OFFICIAL = [*PYOD, "tabpfn_unsup", "fomo0d"]
+# 라벨을 쓰는 분류기: 이름 → (fab/models 의 모델 또는 ADBench 기본 GBDT, GPU 여부). +la<k> 가 꼭 붙음
+CLF = {"tabpfn_clf": ("tabpfn_v2", True), "kumo_clf": ("kumo", True), "lgbm_clf": ("lgbm", False),
+       "catboost_clf": ("catboost", False)}
+LA = re.compile(r"\+la(\d+)$")
+LA_LEVELS = [1, 5, 10, 25, 50, 100]  # % (ADBench rla_list 중 0.75 를 뺀 것, 작업 지시)
+SUP_ANCHOR = "lgbm_clf"  # 지도 풀 기준점 = 1000 (la 마다, 결정 16)
 TRIM = re.compile(r"\+(if)?trim(\d+)(?:x(\d+))?$")  # +trim10 · +trim10x2 · +iftrim10
 PYOD_PIP = [["pyod==3.6.8"]]  # 로컬 재현 확인 (docs/anomaly.md 2) 과 같은 버전
 FM_PIP = [["tabpfn==9.2.0"], ["tabpfn-extensions==0.6.3"]]  # tabpfn 은 FM 실행 이미지 (docker/air) 와 같은 버전
@@ -51,7 +67,21 @@ MAX_UNIQUE_CAT, MIN_ROWS_PER_CAT, MAX_CLASSES = 40, 10, 10
 
 
 def base(name: str) -> str:
-    return TRIM.sub("", name.removesuffix(CLEAN))
+    return LA.sub("", TRIM.sub("", name.removesuffix(CLEAN)))
+
+
+def la_spec(name: str) -> int | None:
+    """+la<k> → k (%). 분류기가 아니면 None."""
+    return int(m[1]) if (m := LA.search(name)) else None
+
+
+def is_supervised(name: str) -> bool:
+    """라벨을 쓰는 분류기 (+la<k>). 채점 행은 results/anomaly_supervised.csv."""
+    return base(name) in CLF and la_spec(name) is not None
+
+
+def is_fomo(name: str) -> bool:
+    return FM.get(base(name), {}).get("model") == "fomo0d"
 
 
 def is_clean(name: str) -> bool:
@@ -71,11 +101,13 @@ def is_variant(name: str) -> bool:
 
 
 def is_known(name: str) -> bool:
-    return base(name) in PYOD or base(name) in FM
+    if base(name) in CLF:
+        return la_spec(name) in LA_LEVELS and not is_clean(name) and trim_spec(name) is None
+    return la_spec(name) is None and (base(name) in PYOD or base(name) in FM)
 
 
 def is_gpu(name: str) -> bool:
-    return base(name) in FM
+    return base(name) in FM or CLF.get(base(name), (None, False))[1]
 
 
 def is_kumo(name: str) -> bool:
@@ -85,7 +117,12 @@ def is_kumo(name: str) -> bool:
 def remote_pip(names: list[str]) -> list[list[str]]:
     out = []
     for n in names:
-        need = ((KUMO_PIP + FM_PIP if is_kumo(n) else FM_PIP) if is_gpu(n) else []) + (PYOD_PIP if base(n) in PYOD else [])
+        if base(n) in CLF:  # GBDT 는 CPU 작업 환경 · 이미지에 있음. TFM 분류기는 fab/models 와 같은 패키지
+            need = {"tabpfn_clf": [["tabpfn==9.2.0"]], "kumo_clf": KUMO_PIP}.get(base(n), [])
+        elif is_fomo(n):
+            need = list(FOMO_PIP)
+        else:
+            need = ((KUMO_PIP + FM_PIP if is_kumo(n) else FM_PIP) if is_gpu(n) else []) + (PYOD_PIP if base(n) in PYOD else [])
         if (t := trim_spec(n)) and t[0] in PYOD:  # +iftrim: TabPFN 작업에서도 IForest 로 정리 점수
             need += PYOD_PIP
         for a in need:
@@ -97,6 +134,8 @@ def remote_pip(names: list[str]) -> list[list[str]]:
 def opts(name: str) -> str:
     """결과표의 opts 열: 그 방법의 설정 (pyod 는 기본 = 'default', FM 은 가중치 버전 · 순열 수)."""
     b = base(name)
+    if b in CLF:
+        return f"model={CLF[b][0]} la={la_spec(name) / 100:g}"
     s = " ".join(f"{k}={v}" for k, v in sorted(FM[b].items())) if b in FM else "default"
     if t := trim_spec(name):
         return f"{s} context=trim by={t[0]} k={t[1]} rounds={t[2]}"
@@ -276,8 +315,105 @@ def kumo_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int, c
     return -(mx + np.log(np.exp(L - mx).mean(0)))
 
 
+_FOMO = {}
+
+
+def fomo_model():
+    """FoMo-0D 모델 (한 프로세스에 한 번). 코드: FAB_FOMO0D (로컬: 받아 둔 저장소 폴더) 가 없으면 고정 커밋의 tarball 을 임시 폴더에
+    받아 풂 (원격). 가중치: HF 고정 revision (실행기의 HF 캐시에 남음). 원문 pfns/layer.py 가 torch.nn.modules.transformer 에서
+    Optional 을 import 하는데 요즘 torch 에 없음 → 그 이름만 채워 넣음 (원문 파일은 안 고침)."""
+    if "model" in _FOMO:
+        return _FOMO["model"], _FOMO["ft"]
+    import sys
+    import tarfile
+    import tempfile
+    import typing
+    import urllib.request
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    import torch
+    import torch.nn.modules.transformer as tt
+
+    code = os.environ.get("FAB_FOMO0D")
+    if not code:
+        root = Path(tempfile.gettempdir()) / f"fomo0d-{FOMO_SHA[:7]}"
+        code = root / f"FoMo-0D-{FOMO_SHA}"
+        if not code.exists():
+            root.mkdir(parents=True, exist_ok=True)
+            tgz = root / "src.tgz"
+            urllib.request.urlretrieve(f"https://codeload.github.com/{FOMO_REPO}/tar.gz/{FOMO_SHA}", tgz)
+            with tarfile.open(tgz) as t:
+                t.extractall(root, filter="data")
+    if not hasattr(tt, "Optional"):
+        tt.Optional = typing.Optional
+    sys.path.insert(0, str(code))
+    from data_prior.feature_transform import FeatureTransform
+    from fomo_hub import FoMo0DHub
+
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    model = FoMo0DHub.from_pretrained(FOMO_HF, revision=FOMO_REV, map_location=dev).to(dev).eval()
+    gmm = SimpleNamespace(max_feature_dim=model.config["num_features"])
+    _FOMO.update(model=model, ft=FeatureTransform(SimpleNamespace(prior=SimpleNamespace(gmm=gmm))))
+    return _FOMO["model"], _FOMO["ft"]
+
+
+def fomo_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int, chunk: int = 1000) -> np.ndarray:
+    """FoMo-0D 점수 = P(이상) (2 클래스 logit 의 softmax). context 가 상한 (4,999) 을 넘으면 seed 로 비복원 표본 (행 순서 유지, 원문은
+    np.random.choice). 전처리는 원문 FeatureTransform.pfn_inference_transform (평균 · 표준편차 정규화 → 열마다 QuantileTransformer
+    (normal) 를 context 로 fit → 크기 맞춤 · 0 채움) 을 normalize_with_test=False 로 (원문은 True = test 행도 정규화에 씀, 결정 17).
+    질의 행은 묶어 넣음 (efficient eval masking 이라 질의끼리 안 봄: 하나씩 넣은 것과 최대 차 1e-6, 로컬 2026-11-26)."""
+    import torch
+
+    cfg = FM[base(name)]
+    model, ft = fomo_model()
+    dev = next(model.parameters()).device
+    ctx = X_train
+    if len(ctx) > cfg["max_context"]:
+        ctx = ctx[np.sort(np.random.default_rng(seed).choice(len(ctx), cfg["max_context"], replace=False))]
+    z = ft.pfn_inference_transform(np.concatenate([ctx, X_test]).astype(np.float64), cfg["transform"], len(ctx),
+                                   normalize_with_test=False)
+    tr = torch.tensor(z[:len(ctx)], dtype=torch.float32, device=dev).unsqueeze(1)
+    te = torch.tensor(z[len(ctx):], dtype=torch.float32, device=dev)
+    with torch.no_grad():
+        out = torch.cat([model(tr, te[i:i + chunk].unsqueeze(1)) for i in range(0, len(te), chunk)]).squeeze(1)
+    return out.float().softmax(-1)[:, 1].cpu().numpy().astype(float)
+
+
+def clf_scores(name: str, X_train: np.ndarray, y: np.ndarray, X_test: np.ndarray, seed: int) -> np.ndarray:
+    """라벨을 쓰는 분류기 → P(이상). y = PU 라벨 (라벨 준 이상 1, 나머지 0). TFM 은 fab/models 래퍼 (refit: train 전체로 한 번 fit,
+    TabPFN v2 · Kumo 앙상블 8), GBDT 는 ADBench Supervised.py 와 같은 라이브러리 기본값 + random_state=seed (결정 15)."""
+    import pandas as pd
+
+    model, _ = CLF[base(name)]
+    y = np.asarray(y).astype(int)
+    if model == "lgbm":
+        from fab.models.gbdt import import_omp
+
+        clf = import_omp("lightgbm").LGBMClassifier(random_state=seed, verbose=-1)
+    elif model == "catboost":
+        from catboost import CatBoostClassifier
+
+        clf = CatBoostClassifier(random_state=seed, verbose=0, allow_writing_files=False)
+    else:
+        from fab.models import make_model
+
+        os.environ.setdefault("TABPFN_NO_BROWSER", "1")
+        os.environ.setdefault("TABPFN_DISABLE_TELEMETRY", "1")
+        cols = [f"f{j}" for j in range(X_train.shape[1])]
+        set_seed(seed)
+        clf = make_model(model, "binary", [], seed)
+        clf.fit(pd.DataFrame(X_train, columns=cols), y)
+        return np.asarray(clf.predict_proba(pd.DataFrame(X_test, columns=cols)), dtype=float)[:, 1]
+    clf.fit(X_train, y)
+    return np.asarray(clf.predict_proba(X_test), dtype=float)[:, 1]
+
+
 def scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int) -> np.ndarray:
-    fn = (kumo_scores if is_kumo(name) else tabpfn_scores) if is_gpu(name) else pyod_scores
+    if is_fomo(name):
+        fn = fomo_scores
+    else:
+        fn = (kumo_scores if is_kumo(name) else tabpfn_scores) if is_gpu(name) else pyod_scores
     s = fn(name, X_train, X_test, seed)
     if s.shape != (len(X_test),) or not np.isfinite(s).all():
         raise ValueError(f"{name}: 점수 모양 {s.shape} 또는 NaN/inf {int((~np.isfinite(s)).sum())}개")
