@@ -41,8 +41,9 @@
 | FM | `TabPFNUnsupervisedModel.outliers(n_permutations=10)` 기본, 점수 = −log 밀도. 가중치는 TabPFN v2 (Prior Labs License 1.1, 동의 없이 받음, 결정 2) (4) |
 | Agent | 기존 5설정 × 1시간 · A10, 라벨 없는 train · test + 설명 → `id,score`. train 으로만 fit (결정 4). 파일럿 cardio · fault (`s1`) (6) |
 | 격리 | 정답 (test 라벨) 은 로컬 캐시와 채점용 내 Volume 에만. 데이터셋 이름·출처는 안 알림 (익명 id `anomaly-p01`…). 공개 데이터라 알아본 흔적은 사후 검사 (7) |
-| 범위 밖 | C1·C2 (Agent 결과를 보고 정함), 결측값·생성·밀도, kumo·tabicl 로 chain rule 래퍼 새로 만들기 (후속) |
+| 범위 밖 | C1·C2 (Agent 결과를 보고 정함), 결측값·생성·밀도, tabicl 로 chain rule 래퍼 새로 만들기 (후속). Kumo 래퍼는 조건 조사에서 만듦 (2026-11-25, "TFM 이 이득을 보는 조건") |
 | **답 (2026-11-25)** | **반쯤 먹힘.** TabPFN 비지도는 IForest 와 Elo 가 같은 수준 (966 대 1000, 구간이 겹침). 4개에서는 11개 중 1등 (Wilt 는 기존 방법이 모두 0.51 이하인데 0.730), 3개 (cover · cardio · PageBlocks) 에서는 꼴찌로 무너짐. 무너지는 까닭은 **context 에 섞인 이상점**: 정상 행만 context 로 주면 12개 모두 오르고 (+0.02 ~ +0.41) 8개에서 기존 최고와 같거나 나음. Agent 는 Codex × GPT 만 뚜렷이 강함 (3개 Agent 풀 Elo 1531, TabPFN 1041) 이지만 3개 중 2개 (cardio · Wilt) 에서 데이터셋을 알아봄 → "결과" |
+| **조건 (2026-11-26)** | 통제 실험 ("TFM 이 이득을 보는 조건"): **열 사이 관계가 깨진 이상에서 TFM 이 이기고 (합성 dependency 에서 10 / 10 기존 방법보다 높음), 서로 닮은 이상이 train 에 섞이면 무너짐** (비율보다 test 이상과 닮은 이상이 context 에 있는지, cover 는 0.5% 로도). 이상의 성질을 모르면 IForest 가 기본, 정상 행만 모을 수 있으면 TFM 이 첫 후보 (KNN · LOF 와 구간 겹침). 라벨 없는 context 정리로는 못 고침. Kumo (우리 래퍼) 도 같은 모양 → TFM 일반 쪽 |
 
 ## 출처
 
@@ -302,8 +303,8 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 
 ### 후속 (이번 범위 밖)
 
-- context 의 이상점을 줄이는 비지도 방법 (예: 1차 점수로 상위 몇 % 를 context 에서 빼고 다시 점수) — clean 진단이 가리키는 개선 여지. 라벨 없이 되는지 확인할 것
-- kumo · tabicl 로 같은 chain rule 래퍼 (작업 지시의 후속)
+- context 의 이상점을 줄이는 비지도 방법 (예: 1차 점수로 상위 몇 % 를 context 에서 빼고 다시 점수) — clean 진단이 가리키는 개선 여지. 라벨 없이 되는지 확인할 것 → **"TFM 이 이득을 보는 조건" 의 E3 에서 확인: 거의 못 메움**
+- tabicl 로 같은 chain rule 래퍼 (작업 지시의 후속). Kumo 래퍼는 "TFM 이 이득을 보는 조건" 에서 만듦
 - Agent 를 알아보기 어려운 데이터 (열을 섞고 값을 바꾼 것, TabArena 의 obfuscate 처럼) 로 다시
 
 ## TFM 이 이득을 보는 조건 (2026-11-25 설계, 사용자 확인)
@@ -363,7 +364,7 @@ TabArena 와 같은 틀. 새 코드는 `fab/bench/anomaly/` 에 (`__init__.py` �
 우선순위: E2 (오염 비율 × 모임) 와 E3 (라벨 없는 정리) 가 위 단서를 직접 가름 → 1차에 넣음. E1 (이상 종류) 은 H1a 를 통제된 데이터로 보는 것 → 1차.
 E4 (정상 데이터가 있는 설정) 는 CPU 만 들고 공정 비교의 빈칸 → 1차. 데이터셋 늘리기 (조건 5) 는 1차 결과를 보고 2차.
 
-### 실험 설계 (초안)
+### 실험 설계 (2026-11-25, 사용자 확인)
 
 공통: 지표 AUROC (주) · AUPRC (보조). 같은 test 행에서 방법끼리 비교. 기존 방법 = pyod 기본 10개 (3). TabPFN = `tabpfn_unsup` (v2, 순열 10 — E0 를 통과하면 순열 3).
 결과는 `results/anomaly_conditions.csv` (행 = 실험 · 데이터셋 · split · 조건 · 방법), 조건별 Elo 는 `results/anomaly_conditions_elo.csv` (풀마다 IForest 또는 IForest+clean = 1000).
@@ -420,7 +421,7 @@ MinMax 는 s1 그대로 (칸마다 다시 맞추지 않음 → 척도가 칸 사
 - 기존 방법 (pyod) 은 모든 실험에서 CPU 작업 하나씩 (작업마다 20 ~ 40분 어림)
 - 격자가 큰 2차 (E1 의 seed 2 · 3, 데이터셋 늘리기) 는 1차 결과로 정함
 
-### 연동 (구현 계획)
+### 연동
 
 - 코드: `fab/bench/anomaly/conditions.py` (`fab ad cond …`): 생성 (E1) · context 칸 (E2) 은 **로컬에서 대회 폴더로** 만듦 (`competitions/adc-<실험>-<…>/`, git 제외, 설정에 `anomaly.condition`). 정답 · train 라벨은 지금처럼 `FAB_ANOMALY` 와 내 Volume 에만
 - 정리 (E3) · 순열 (E0) 은 방법 이름 (`tabpfn_unsup+trim10`, `tabpfn_unsup_p3` 등) 으로 `methods.py` · `run.py` 에 더함. 실행 · 채점 경로는 지금 것 그대로 (`fab databricks` 실행기 → 정리 작업 `grade bench=anomaly`)
@@ -490,15 +491,16 @@ split 평균 AUROC, 기존 최고 = 기존 10개 `+clean` 중
 
 데이터셋 평균 AUROC (local · global · cluster 12개, dependency 10개). 기존 최고 = 오염된 train 으로 fit 한 기존 10개 중 평균이 가장 높은 것.
 
-| 종류 | `tabpfn_unsup` | `tabpfn+clean` | IForest | KNN | LOF | 기존 최고 | TabPFN 순위 (11개, Elo) |
-|---|---|---|---|---|---|---|---|
-| local (공분산 × 5) | 0.896 | 0.911 | 0.847 | 0.879 | **0.921** | LOF 0.921 | 2 (LOF 1483 · TabPFN 1252 · KNN 1234) |
-| global (균등, 범위 × 1.1) | 0.999 | 1.000 | 0.998 | **1.000** | 0.854 | KNN 1.000 | 2 (KNN 1249 · TabPFN 1214) |
-| **dependency** (열 독립, KDE) | **0.986** | 0.992 | 0.782 | 0.922 | 0.872 | KNN 0.922 | **1 (10개 모두 1등)** |
-| **cluster** (평균 × 5) | **0.776** | **1.000** | 0.989 | 0.794 | 0.439 | OCSVM 0.995 | **10** (위는 OCSVM 1158 · IForest 1000 … TabPFN 376 · KNN 357 · LOF −2408) |
+| 종류 | `tabpfn_unsup` | `tabpfn+clean` | `kumo_unsup` | `kumo+clean` | IForest | KNN | LOF | 기존 최고 | Elo 위 (12개 풀: 기존 10 + 두 FM, IForest = 1000) |
+|---|---|---|---|---|---|---|---|---|---|
+| local (공분산 × 5) | 0.896 | 0.911 | 0.886 | 0.910 | 0.847 | 0.879 | **0.921** | LOF 0.921 | LOF 1404 · TabPFN 1242 · KNN 1199 · Kumo 1166 |
+| global (균등, 범위 × 1.1) | 0.999 | 1.000 | 0.999 | 0.999 | 0.998 | **1.000** | 0.854 | KNN 1.000 | KNN 1230 · TabPFN 1202 · Kumo 1193 |
+| **dependency** (열 독립, KDE) | **0.986** | 0.992 | **0.992** | 0.995 | 0.782 | 0.922 | 0.872 | KNN 0.922 | **TabPFN 4194 · Kumo 4123** · KNN 1505 (TabPFN 은 기존 10개보다 10 / 10 에서 높음) |
+| **cluster** (평균 × 5) | **0.776** | **1.000** | **0.739** | **1.000** | 0.989 | 0.794 | 0.439 | OCSVM 0.995 | OCSVM 1158 · IForest 1000 … **TabPFN 375 (평균 순위 9.2) · Kumo 39 (10.7)** · LOF 맨 아래 |
 
-- **H1a 확인**: 열 사이 관계만 깬 dependency 이상에서 TabPFN 이 10개 모두 1등 (0.986, 다음 KNN 0.922). 주변분포 · 분할 방법 (ECOD · COPOD · HBOS · PCA 0.62 ~ 0.66, IForest 0.78) 은 거의 못 잡음
+- **H1a 확인**: 열 사이 관계만 깬 dependency 이상에서 TabPFN 이 10개 모두 기존 10개보다 높음 (0.986, 기존 최고 KNN 0.922). 주변분포 · 분할 방법 (ECOD · COPOD · HBOS · PCA 0.62 ~ 0.66, IForest 0.78) 은 거의 못 잡음
 - **H1b 확인**: 멀리 떨어진 무리 (cluster) 는 IForest · OCSVM 이 0.99 로 거의 다 잡는데 TabPFN 은 0.776. clean context 면 1.000 → 무너지는 까닭은 **context 에 같은 무리가 있어 서로를 "정상" 으로 만듦**. 같은 일이 이웃 기반 KNN (0.794 → 0.998) · LOF (0.439 → 0.998) 에도 남 (ADBench 그림 5d 와 같은 방향)
+- **Kumo (우리 래퍼) 도 같음**: dependency 0.992 (TabPFN 과 함께 Elo 1 · 2위), cluster 0.739 (평균 순위 10.7 / 12) → clean 1.000, local 0.886 · global 0.999
 - local 은 LOF 다음 2등, global 은 모두 거의 1.0. Elo 는 거의 완벽히 갈리는 단위가 많아 크기가 부풂 (dependency · cluster) → 순위 · AUROC 로 읽음
 - 뺀 칸: dependency 의 landsat · PageBlocks (위 생성 절). 실패: CBLOF 가 cluster 의 cardio · Waveform 에서 클러스터 실패 (Elo 에서 IForest 값)
 
@@ -588,7 +590,32 @@ K0 결과 (공식 12개 × s1, 2026-11-26 00:07 끝, H100 1장 77분: `kumo_unsu
 - `kumo` 풀 Elo (s1, IForest = 1000): tabpfn_unsup 990 (+207 / −174) · kumo_unsup 929 (+174 / −196) → 둘 다 IForest 와 구간이 겹침. s1 하나라 판단은 약함
 - 첫 단서: 위 조건 (오염 context 가 해침 · 라벨의 이상이 밀도로 드물지 않은 데이터에서 이김) 은 TabPFN 만의 것이 아니라 **"context 로 조건부 밀도를 매기는 TFM" 일반** 쪽
 
-실험 (K0 끝, K1 · K2 는 확인 전, 아래 비용)
+K0 + K1 (공식 12개 × 3 split, seed 평균, 2026-11-26)
+
+| 데이터셋 | `tabpfn_unsup` | `kumo_unsup` | `tabpfn+clean` | `kumo+clean` | IForest |
+|---|---|---|---|---|---|
+| Wilt | 0.730 | 0.722 | 0.937 | 0.914 | 0.419 |
+| annthyroid | 0.883 | 0.874 | 0.949 | 0.933 | 0.820 |
+| magic.gamma | 0.839 | 0.828 | 0.884 | 0.876 | 0.732 |
+| landsat | 0.603 | 0.644 | 0.779 | 0.803 | 0.476 |
+| fault | 0.660 | 0.681 | 0.805 | 0.843 | 0.570 |
+| Waveform | 0.701 | 0.696 | 0.772 | 0.789 | 0.715 |
+| mammography | 0.869 | 0.824 | 0.888 | 0.869 | 0.864 |
+| yeast | 0.418 | 0.380 | 0.457 | 0.464 | 0.378 |
+| shuttle | 0.968 | 0.846 | 1.000 | 0.991 | 0.996 |
+| PageBlocks | 0.732 | 0.725 | 0.901 | 0.876 | 0.896 |
+| cardio | 0.522 | 0.463 | 0.869 | 0.884 | 0.932 |
+| cover | 0.521 | 0.576 | 0.927 | 0.974 | 0.867 |
+
+- `kumo` 풀 Elo (12개 × 3 split, IForest = 1000, 부트스트랩 200번): tabpfn_unsup 979 (+176 / −159) · **kumo_unsup 906** (+158 / −178) · ECOD 972 · KNN 947 … OCSVM 836. 둘 다 IForest 와 구간이 겹침 (공식 fm 풀과 같은 결론, 풀이 달라 TabPFN 값은 966 과 조금 다름)
+- 두 FM 의 데이터셋별 차는 shuttle (−0.12) · cardio (−0.06) · mammography (−0.05) 말고는 ±0.05 안. 이기는 넷 · 무너지는 셋이 같음, clean 효과도 12개 모두 + (Kumo +0.06 ~ +0.42)
+
+Kumo E3 (라벨 없는 정리, s1): `kumo_unsup+trim10` 이 clean 과의 차이를 메운 몫 중앙값 **0.05**, `+iftrim10` −0.01 (TabPFN 0.07 · −0.01). `+iftrim10` 은 무너지는 데이터에서 메움 (cardio 0.43 · cover 0.33 · PageBlocks 0.15 · shuttle 0.99) · 이기는 데이터에서 내려감 (Wilt −0.09 · annthyroid −0.09 · landsat −0.08) → TabPFN 과 같은 모양. Kumo 는 정리 뒤 상수 열에서도 실패하지 않음 (cardio 도 값 있음)
+
+Kumo E2 (오염 비율 × 배치, 94칸): `kumo_unsup` 의 r = 0 대비 평균 하락 **모임 0.053 / 흩어짐 0.072** (TabPFN 0.051 / 0.064), 하락 ~ 가림 Spearman 0.57 · ~ 비율 0.23 (TabPFN 0.52 · 0.27).
+cover 0.5% 에서 0.956 → 0.687 / 0.627 (모임 / 흩어짐), cardio 5% 에서 0.885 → 0.657 / 0.592, magic.gamma 20% 에서 0.885 → 0.853 / 0.857 → **TabPFN 과 같은 모양** (오염에 가장 민감, 흩어짐이 더 해침, 이상이 서로 닮은 데이터에서 적은 비율로도 무너짐)
+
+실험 (2026-11-26 모두 끝, Kumo E1 결과는 위 "E1 결과" 표의 Kumo 열)
 
 | # | 무엇 | 대상 | 방법 |
 |---|---|---|---|
@@ -598,6 +625,42 @@ K0 결과 (공식 12개 × s1, 2026-11-26 00:07 끝, H100 1장 77분: `kumo_unsu
 
 - 결과는 `results/anomaly_conditions.csv` (공식 대회의 Kumo 행도 변형이라 여기로), Elo 는 공식 풀과 따로 (`kumo` 풀: 기존 10 + `tabpfn_unsup` + `kumo_unsup`, IForest = 1000)
 - 비용 (K0 로 잰 값: TabPFN 의 1.7배): K1 (s2 · s3, `+clean` 까지) 약 2.5시간 · K2 의 E1 (46개, `+clean` 까지) 약 4.7시간 · E2 (94칸) 약 3.2시간 · E3 (`+trim10` · `+iftrim10`) 약 2.2시간. 모두 약 12.6 GPU 시간 (노드 대기 · 설치 제외)
+
+### 판단 기준: 언제 TFM 을 쓰고 언제 기존 방법을 쓸지 (2026-11-26)
+
+위 E0 ~ E4 · Kumo 에서. TFM = TabPFN v2 비지도 (`tabpfn_unsup`) 와 Kumo 로 같은 chain rule 을 만든 우리 래퍼 (`kumo_unsup`), 기존 방법 = pyod 기본 10개.
+
+| 상황 | 쓸 것 | 근거 |
+|---|---|---|
+| **정상 행만 모을 수 있음** (정상 데이터로 fit 하는 semi-supervised) | TFM 을 첫 후보로. 이상이 멀리 떨어진 무리 · 범위 밖 값이면 IForest · KNN 으로도 충분 | E4: `tabpfn+clean` Elo 1위 · 12개 중 7개 1등 (KNN · LOF +clean 과 구간 겹침). E1 의 global · cluster 는 clean 이면 모두 0.99 이상 |
+| 라벨 없는 train 뿐 + **이상이 "열 사이 관계가 깨진 행"** (열마다 값은 정상 범위) 으로 보임 | **TFM** | E1 dependency: TabPFN 0.986 · Kumo 0.992 (기존 최고 KNN 0.922 · IForest 0.782). 실제 데이터에서 기존 방법이 0.5 근처인 Wilt · landsat 에서 1등 |
+| 라벨 없는 train 뿐 + **같은 종류의 이상이 되풀이됨** (서로 닮은 이상, 한 고장 유형 · 한 무리) | **TFM 을 쓰지 말 것** → IForest (또는 OCSVM · ECOD) | E1 cluster: TabPFN 0.776 대 IForest 0.989. E2: test 이상과 닮은 이상이 context 에 있으면 0.5% (35행) 만으로 cover 0.89 → 0.5. **이상 비율이 낮다는 것은 안전 신호가 아님** |
+| 라벨 없는 train 뿐 + 이상의 성질을 모름 | **IForest 를 기본**으로. TFM 은 이길 때 크게 이기고 질 때 크게 짐 | 공식 fm 풀 Elo: IForest 1000 · TabPFN 966 · (kumo 풀) Kumo 906, 구간 겹침. 꼴찌 셋에서 −0.18 ~ −0.42 |
+| 오염된 context 를 라벨 없이 고쳐 TFM 을 쓰려 함 (상위 k% 빼고 다시) | **기대하지 말 것** | E3: 미리 정한 `+trim10` 은 clean 과의 차이를 중앙값 7% (Kumo 5%) 만 메움. IForest 로 고르면 무너지는 데이터는 고치지만 TFM 이 이기는 데이터를 망침 |
+| 이웃 기반 기존 방법 (KNN · LOF) | 오염에 약한 것은 TFM 과 같음 → 위 "되풀이되는 이상" 에서는 같이 피할 것 | E4: 오염 → clean 평균 AUROC LOF +0.14 · TabPFN +0.14 · KNN +0.10 · IForest +0.05. E1 cluster 에서 KNN 0.794 · LOF 0.439 |
+
+- **TFM 일반**: 위 모양은 TabPFN 과 Kumo 에서 같음 (K0 ~ K2: 이기는 · 무너지는 데이터, clean 효과, 오염 민감도 · 흩어짐이 더 해침, 정리가 안 됨) → 특정 모델이 아니라 "context 의 이웃으로 조건부 밀도를 매기는 방식" 의 성질로 봄. Kumo 쪽은 우리 래퍼 · 분위수 근사라는 단서가 붙음
+- 실무 확인: 이상 예가 몇 개라도 있으면 그것끼리 닮았는지 (같은 유형인지) 를 보면 위 표의 어느 칸인지 가를 수 있음 (라벨 없는 진단은 이번에 검증하지 않음 → 남은 것)
+
+#### 가설별
+
+| 가설 | 판정 | 한 줄 |
+|---|---|---|
+| H1a dependency 이상에서 TFM 이 강함 | **확인** | TabPFN 10 / 10 에서 기존 10개보다 높음, Kumo 0.992 (Elo 1 · 2위) |
+| H1b cluster 이상에서 TFM 이 약함 (context 의 무리) | **확인** | TabPFN 0.776 · Kumo 0.739 → clean 1.000. KNN · LOF 도 같음 |
+| H2 같은 비율이면 "모임" 이 더 해침 | **반증 → 고친 해석** | 흩어짐이 더 해침. 해치는 것은 뭉침이 아니라 **test 이상과 닮은 이상이 context 에 있음 (가림)**: 하락 ~ 가림 0.52 · ~ 비율 0.27 |
+| H3 라벨 없는 정리가 clean 과의 차이를 절반 이상 메움 | **반증** | 7% (주 지표), 가장 나은 변형도 20% |
+| H4 clean 끼리 비교해도 TFM 이 기존 최고 근처 이상 | **반쯤** | Elo 1위지만 KNN · LOF 와 구간 겹침, cover · cardio · PageBlocks 는 clean 끼리도 짐 |
+| (Kumo) 조건이 TFM 일반 | **대체로 확인** | 위 "TFM 일반" |
+
+#### 남은 것
+
+- E1 ~ E3 · K2 는 seed 1 (split s1) 하나. 효과가 큰 것 (dependency · cluster · cover 의 오염) 은 seed 하나로도 뚜렷하지만, E2 의 작은 차 (모임 / 흩어짐 0.01 ~ 0.05) 는 뽑기 2개뿐
+- 데이터셋 늘리기 (조건 5 의 2차, ADBench Classical 의 다른 데이터를 1 의 규칙으로) 는 안 함: 12개 상관은 단서로만 씀
+- 라벨 없이 "되풀이되는 이상" 인지 가르는 진단 (예: TFM · IForest 점수의 순위 상관, 상위 점수 행끼리의 거리), TFM 과 IForest 섞기, 작은 검증 라벨로 고르기 — 검증 안 함
+- cardio 의 범주 열 뭉개짐 (tabpfn-extensions 의 `astype(int)`, 4) 이 clean 끼리도 지는 까닭인지 확인 안 함
+- E2 에서 가림과 비율을 완전히 가르지 못함 (같이 움직임). dependency 의 landsat · PageBlocks 는 생성 못 함
+- Kumo 래퍼의 밀도 근사 (h, 꼬리) 민감도는 합성 확인만. tabicl 래퍼는 범위 밖
 
 ### 정한 것 (2026-11-25 사용자 확인: 추천안 그대로)
 
@@ -638,6 +701,9 @@ K0 결과 (공식 12개 × s1, 2026-11-26 00:07 끝, H100 1장 77분: `kumo_unsu
 | 2026-11-26 07:23 | Kumo K2-E2: `kumo_unsup` | E2 94칸, H100 1장 (`adc-e2-gpu-kumo-20261126-072315`, run_id 991509643797888, 540분) + `anomaly__20261126-072322-521058` | 제출 |
 | 2026-11-26 07:23 | Kumo K2-E3: `kumo_unsup+trim10` · `+iftrim10` | 공식 12개 × s1, H100 1장 (`adc-e3-gpu-kumo-20261126-072327`, run_id 93601287978257, 420분) + `anomaly__20261126-072333-785026`. 내기 전 대기 3개 = TabPFN E1 ~ E3 의 채점 (작업은 끝남) | 제출 |
 | 2026-11-26 07:3x | TabPFN E1 (01:13 SUCCESS) · E2 (00:18 SUCCESS) · E3 (02:00 `INTERNAL_ERROR`: 12개 끝까지, yeast · cardio 의 정리 변형 6칸 실패로 종료 코드 1) → kick (이 worktree) → `fab sync` | | `anomaly_conditions.csv` +264행 |
+| 2026-11-26 09:56 · 10:2x | Kumo K1 (2시간 34분) · K2-E3 (2시간 33분) SUCCESS → kick (이 worktree, 대기 항목은 모두 이 트랙 것) → `fab sync` | | `anomaly_conditions.csv` +72행 (K1 48 · E3 24, 실패 0) |
+| 2026-11-26 11:20 · 11:3x | Kumo K2-E2 SUCCESS (3시간 57분) → kick (이 worktree) → `fab sync` | | `anomaly_conditions.csv` +94행 (실패 0) |
+| 2026-11-26 12:10 · 12:2x | Kumo K2-E1 SUCCESS (4시간 47분) → kick (이 worktree) → `fab sync` | | `anomaly_conditions.csv` +92행 (실패 0), 대기 항목 0 |
 | 2026-11-25 15:4x · 18:20 | kick 두 번 (Wilt Agent · 제외, 그다음 TabPFN s2 · s3 채점). forecast 세션과 "상대 트랙 grade 대기 없음 + 상대 agent 대기 항목이 모두 아직 RUNNING" 일 때만 kick 하기로 합의. 18:20 kick 때는 forecast agent 둘이 끝난 채 대기 중이라 그쪽 제안대로 이쪽이 먼저 (그 둘은 시도 1/3, forecast 브랜치 kick 으로 처리) | | SUCCESS, 이상탐지 대기 항목 0 |
 
 ### 기존 방법 맞춤 (원격, 12개 × 3 seed)

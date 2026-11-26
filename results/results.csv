@@ -9555,3 +9555,261 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-25T16:58:09,ad-yeast,tabpfn_unsup+trim20,auroc,,,0,27.6,,adc-e3-gpu,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=trim by=tabpfn_unsup k=20 rounds=1
 2026-11-25T16:59:29,ad-yeast,tabpfn_unsup+trim10x2,auroc,,,0,80.8,,adc-e3-gpu,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=trim by=tabpfn_unsup k=10 rounds=2
 2026-11-25T16:59:57,ad-yeast,tabpfn_unsup+iftrim5,auroc,,,0,27.3,,adc-e3-gpu,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=trim by=iforest k=5 rounds=1
+2026-11-25T22:26:00,ads-annthyroid-s2,kumo_unsup,auroc,,,0,144.6,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:27:37,ads-annthyroid-s2,kumo_unsup+clean,auroc,,,0,97.0,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:29:25,ads-annthyroid-s3,kumo_unsup,auroc,,,0,101.7,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:31:00,ads-annthyroid-s3,kumo_unsup+clean,auroc,,,0,94.8,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:35:16,ads-cardio-s2,kumo_unsup,auroc,,,0,252.7,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:39:21,ads-cardio-s2,kumo_unsup+clean,auroc,,,0,245.4,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:43:38,ads-cardio-s3,kumo_unsup,auroc,,,0,252.2,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:47:41,ads-cardio-s3,kumo_unsup+clean,auroc,,,0,243.8,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:50:37,ads-cover-s2,kumo_unsup,auroc,,,0,171.9,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:53:22,ads-cover-s2,kumo_unsup+clean,auroc,,,0,164.7,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:56:18,ads-cover-s3,kumo_unsup,auroc,,,0,172.4,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:59:03,ads-cover-s3,kumo_unsup+clean,auroc,,,0,164.9,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:04:32,ads-fault-s2,kumo_unsup,auroc,,,0,324.8,,adc-k1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:09:46,ads-fault-s2,kumo_unsup+clean,auroc,,,0,313.9,,adc-k1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:15:15,ads-fault-s3,kumo_unsup,auroc,,,0,324.6,,adc-k1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:20:28,ads-fault-s3,kumo_unsup+clean,auroc,,,0,313.3,,adc-k1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:28:12,ads-landsat-s2,kumo_unsup,auroc,,,0,459.2,,adc-k1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:35:37,ads-landsat-s2,kumo_unsup+clean,auroc,,,0,445.4,,adc-k1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:43:22,ads-landsat-s3,kumo_unsup,auroc,,,0,459.6,,adc-k1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:50:48,ads-landsat-s3,kumo_unsup+clean,auroc,,,0,446.2,,adc-k1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:53:43,ads-magic-gamma-s2,kumo_unsup,auroc,,,0,169.7,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:56:22,ads-magic-gamma-s2,kumo_unsup+clean,auroc,,,0,159.0,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:59:18,ads-magic-gamma-s3,kumo_unsup,auroc,,,0,172.2,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:01:59,ads-magic-gamma-s3,kumo_unsup+clean,auroc,,,0,160.7,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:03:48,ads-mammography-s2,kumo_unsup,auroc,,,0,105.0,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:05:26,ads-mammography-s2,kumo_unsup+clean,auroc,,,0,98.0,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:07:15,ads-mammography-s3,kumo_unsup,auroc,,,0,104.6,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:08:52,ads-mammography-s3,kumo_unsup+clean,auroc,,,0,97.4,,adc-k1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:11:04,ads-pageblocks-s2,kumo_unsup,auroc,,,0,127.3,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:13:04,ads-pageblocks-s2,kumo_unsup+clean,auroc,,,0,120.3,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:15:17,ads-pageblocks-s3,kumo_unsup,auroc,,,0,129.3,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:17:20,ads-pageblocks-s3,kumo_unsup+clean,auroc,,,0,122.5,,adc-k1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:19:58,ads-shuttle-s2,kumo_unsup,auroc,,,0,154.0,,adc-k1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:22:24,ads-shuttle-s2,kumo_unsup+clean,auroc,,,0,145.9,,adc-k1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:25:02,ads-shuttle-s3,kumo_unsup,auroc,,,0,153.9,,adc-k1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:27:28,ads-shuttle-s3,kumo_unsup+clean,auroc,,,0,146.6,,adc-k1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:31:51,ads-waveform-s2,kumo_unsup,auroc,,,0,258.5,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:36:00,ads-waveform-s2,kumo_unsup+clean,auroc,,,0,249.3,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:40:22,ads-waveform-s3,kumo_unsup,auroc,,,0,257.0,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:44:30,ads-waveform-s3,kumo_unsup+clean,auroc,,,0,248.7,,adc-k1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:45:40,ads-wilt-s2,kumo_unsup,auroc,,,0,65.9,,adc-k1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:46:40,ads-wilt-s2,kumo_unsup+clean,auroc,,,0,60.2,,adc-k1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:47:49,ads-wilt-s3,kumo_unsup,auroc,,,0,65.1,,adc-k1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:48:49,ads-wilt-s3,kumo_unsup+clean,auroc,,,0,59.6,,adc-k1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:50:30,ads-yeast-s2,kumo_unsup,auroc,,,0,96.8,,adc-k1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:52:00,ads-yeast-s2,kumo_unsup+clean,auroc,,,0,90.3,,adc-k1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:53:42,ads-yeast-s3,kumo_unsup,auroc,,,0,97.7,,adc-k1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:55:13,ads-yeast-s3,kumo_unsup+clean,auroc,,,0,91.7,,adc-k1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:29:30,ad-annthyroid,kumo_unsup+trim10,auroc,,,0,327.4,,adc-k2-e3,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-25T22:31:06,ad-annthyroid,kumo_unsup+iftrim10,auroc,,,0,95.3,,adc-k2-e3,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-25T22:43:32,ad-cardio,kumo_unsup+trim10,auroc,,,0,739.2,,adc-k2-e3,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-25T22:47:32,ad-cardio,kumo_unsup+iftrim10,auroc,,,0,240.4,,adc-k2-e3,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-25T22:55:48,ad-cover,kumo_unsup+trim10,auroc,,,0,491.9,,adc-k2-e3,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-25T22:58:31,ad-cover,kumo_unsup+iftrim10,auroc,,,0,162.6,,adc-k2-e3,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-25T23:14:10,ad-fault,kumo_unsup+trim10,auroc,,,0,935.1,,adc-k2-e3,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-25T23:19:19,ad-fault,kumo_unsup+iftrim10,auroc,,,0,308.6,,adc-k2-e3,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-25T23:46:18,ad-landsat,kumo_unsup+trim10,auroc,,,0,1614.2,,adc-k2-e3,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-25T23:53:47,ad-landsat,kumo_unsup+iftrim10,auroc,,,0,449.8,,adc-k2-e3,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-26T00:02:04,ad-magic-gamma,kumo_unsup+trim10,auroc,,,0,492.0,,adc-k2-e3,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-26T00:04:47,ad-magic-gamma,kumo_unsup+iftrim10,auroc,,,0,163.3,,adc-k2-e3,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-26T00:09:46,ad-mammography,kumo_unsup+trim10,auroc,,,0,294.3,,adc-k2-e3,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-26T00:11:23,ad-mammography,kumo_unsup+iftrim10,auroc,,,0,96.8,,adc-k2-e3,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-26T00:17:27,ad-pageblocks,kumo_unsup+trim10,auroc,,,0,359.9,,adc-k2-e3,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-26T00:19:25,ad-pageblocks,kumo_unsup+iftrim10,auroc,,,0,118.0,,adc-k2-e3,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-26T00:26:50,ad-shuttle,kumo_unsup+trim10,auroc,,,0,440.1,,adc-k2-e3,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-26T00:29:16,ad-shuttle,kumo_unsup+iftrim10,auroc,,,0,145.9,,adc-k2-e3,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-26T00:41:54,ad-waveform,kumo_unsup+trim10,auroc,,,0,754.8,,adc-k2-e3,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-26T00:46:04,ad-waveform,kumo_unsup+iftrim10,auroc,,,0,249.7,,adc-k2-e3,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-26T00:49:12,ad-wilt,kumo_unsup+trim10,auroc,,,0,182.9,,adc-k2-e3,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-26T00:50:11,ad-wilt,kumo_unsup+iftrim10,auroc,,,0,59.0,,adc-k2-e3,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-26T00:54:47,ad-yeast,kumo_unsup+trim10,auroc,,,0,272.1,,adc-k2-e3,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=kumo_unsup k=10 rounds=1
+2026-11-26T00:56:15,ad-yeast,kumo_unsup+iftrim10,auroc,,,0,88.1,,adc-k2-e3,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=trim by=iforest k=10 rounds=1
+2026-11-25T22:27:16,adc-e2-cover-r0,kumo_unsup,auroc,,,0,202.5,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:30:09,adc-e2-cover-r0p5-spread-d1,kumo_unsup,auroc,,,0,167.3,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:32:59,adc-e2-cover-r0p5-spread-d2,kumo_unsup,auroc,,,0,166.0,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:35:49,adc-e2-cover-r0p5-clump-d1,kumo_unsup,auroc,,,0,166.2,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:38:42,adc-e2-cover-r0p5-clump-d2,kumo_unsup,auroc,,,0,169.5,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:42:52,adc-e2-cardio-r0,kumo_unsup,auroc,,,0,245.8,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:47:00,adc-e2-cardio-r0p5-spread-d1,kumo_unsup,auroc,,,0,244.9,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:51:09,adc-e2-cardio-r0p5-spread-d2,kumo_unsup,auroc,,,0,244.4,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:55:18,adc-e2-cardio-r0p5-clump-d1,kumo_unsup,auroc,,,0,245.3,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:59:28,adc-e2-cardio-r0p5-clump-d2,kumo_unsup,auroc,,,0,245.9,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:03:37,adc-e2-cardio-r1-spread-d1,kumo_unsup,auroc,,,0,245.4,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:07:46,adc-e2-cardio-r1-spread-d2,kumo_unsup,auroc,,,0,244.9,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:11:54,adc-e2-cardio-r1-clump-d1,kumo_unsup,auroc,,,0,244.8,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:16:03,adc-e2-cardio-r1-clump-d2,kumo_unsup,auroc,,,0,245.2,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:20:12,adc-e2-cardio-r2-spread-d1,kumo_unsup,auroc,,,0,245.3,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:24:21,adc-e2-cardio-r2-spread-d2,kumo_unsup,auroc,,,0,245.1,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:28:29,adc-e2-cardio-r2-clump-d1,kumo_unsup,auroc,,,0,244.1,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:32:38,adc-e2-cardio-r2-clump-d2,kumo_unsup,auroc,,,0,245.5,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:36:46,adc-e2-cardio-r5-spread-d1,kumo_unsup,auroc,,,0,243.9,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:40:56,adc-e2-cardio-r5-spread-d2,kumo_unsup,auroc,,,0,246.2,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:45:04,adc-e2-cardio-r5-clump-d1,kumo_unsup,auroc,,,0,245.2,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:49:13,adc-e2-cardio-r5-clump-d2,kumo_unsup,auroc,,,0,244.5,,adc-k2-e2,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:51:20,adc-e2-pageblocks-r0,kumo_unsup,auroc,,,0,123.7,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:53:27,adc-e2-pageblocks-r0p5-spread-d1,kumo_unsup,auroc,,,0,123.1,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:55:34,adc-e2-pageblocks-r0p5-spread-d2,kumo_unsup,auroc,,,0,123.1,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:57:41,adc-e2-pageblocks-r0p5-clump-d1,kumo_unsup,auroc,,,0,123.3,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:59:49,adc-e2-pageblocks-r0p5-clump-d2,kumo_unsup,auroc,,,0,124.8,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:01:56,adc-e2-pageblocks-r1-spread-d1,kumo_unsup,auroc,,,0,123.1,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:04:03,adc-e2-pageblocks-r1-spread-d2,kumo_unsup,auroc,,,0,123.4,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:06:11,adc-e2-pageblocks-r1-clump-d1,kumo_unsup,auroc,,,0,123.5,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:08:19,adc-e2-pageblocks-r1-clump-d2,kumo_unsup,auroc,,,0,124.3,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:10:28,adc-e2-pageblocks-r2-spread-d1,kumo_unsup,auroc,,,0,125.4,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:12:36,adc-e2-pageblocks-r2-spread-d2,kumo_unsup,auroc,,,0,124.5,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:14:44,adc-e2-pageblocks-r2-clump-d1,kumo_unsup,auroc,,,0,123.8,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:16:51,adc-e2-pageblocks-r2-clump-d2,kumo_unsup,auroc,,,0,123.6,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:18:58,adc-e2-pageblocks-r5-spread-d1,kumo_unsup,auroc,,,0,123.7,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:21:08,adc-e2-pageblocks-r5-spread-d2,kumo_unsup,auroc,,,0,126.0,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:23:16,adc-e2-pageblocks-r5-clump-d1,kumo_unsup,auroc,,,0,124.1,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:25:24,adc-e2-pageblocks-r5-clump-d2,kumo_unsup,auroc,,,0,123.8,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:26:32,adc-e2-wilt-r0,kumo_unsup,auroc,,,0,64.1,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:27:39,adc-e2-wilt-r0p5-spread-d1,kumo_unsup,auroc,,,0,64.1,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:28:47,adc-e2-wilt-r0p5-spread-d2,kumo_unsup,auroc,,,0,64.3,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:29:55,adc-e2-wilt-r0p5-clump-d1,kumo_unsup,auroc,,,0,64.1,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:31:04,adc-e2-wilt-r0p5-clump-d2,kumo_unsup,auroc,,,0,64.8,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:32:11,adc-e2-wilt-r1-spread-d1,kumo_unsup,auroc,,,0,63.8,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:33:18,adc-e2-wilt-r1-spread-d2,kumo_unsup,auroc,,,0,63.2,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:34:25,adc-e2-wilt-r1-clump-d1,kumo_unsup,auroc,,,0,63.9,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:35:33,adc-e2-wilt-r1-clump-d2,kumo_unsup,auroc,,,0,63.7,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:36:40,adc-e2-wilt-r2-spread-d1,kumo_unsup,auroc,,,0,64.2,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:37:48,adc-e2-wilt-r2-spread-d2,kumo_unsup,auroc,,,0,63.9,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:38:55,adc-e2-wilt-r2-clump-d1,kumo_unsup,auroc,,,0,63.8,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:40:03,adc-e2-wilt-r2-clump-d2,kumo_unsup,auroc,,,0,64.0,,adc-k2-e2,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:41:45,adc-e2-annthyroid-r0,kumo_unsup,auroc,,,0,98.4,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:43:27,adc-e2-annthyroid-r0p5-spread-d1,kumo_unsup,auroc,,,0,98.3,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:45:09,adc-e2-annthyroid-r0p5-spread-d2,kumo_unsup,auroc,,,0,98.5,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:46:51,adc-e2-annthyroid-r0p5-clump-d1,kumo_unsup,auroc,,,0,98.5,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:48:32,adc-e2-annthyroid-r0p5-clump-d2,kumo_unsup,auroc,,,0,97.3,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:50:14,adc-e2-annthyroid-r1-spread-d1,kumo_unsup,auroc,,,0,98.0,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:51:56,adc-e2-annthyroid-r1-spread-d2,kumo_unsup,auroc,,,0,98.2,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:53:38,adc-e2-annthyroid-r1-clump-d1,kumo_unsup,auroc,,,0,98.4,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:55:21,adc-e2-annthyroid-r1-clump-d2,kumo_unsup,auroc,,,0,99.1,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:57:03,adc-e2-annthyroid-r2-spread-d1,kumo_unsup,auroc,,,0,98.3,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:58:44,adc-e2-annthyroid-r2-spread-d2,kumo_unsup,auroc,,,0,97.5,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:00:27,adc-e2-annthyroid-r2-clump-d1,kumo_unsup,auroc,,,0,98.4,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:02:09,adc-e2-annthyroid-r2-clump-d2,kumo_unsup,auroc,,,0,99.1,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:03:51,adc-e2-annthyroid-r5-spread-d1,kumo_unsup,auroc,,,0,98.2,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:05:34,adc-e2-annthyroid-r5-spread-d2,kumo_unsup,auroc,,,0,99.2,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:07:17,adc-e2-annthyroid-r5-clump-d1,kumo_unsup,auroc,,,0,99.2,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:08:59,adc-e2-annthyroid-r5-clump-d2,kumo_unsup,auroc,,,0,98.0,,adc-k2-e2,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:11:46,adc-e2-magic-gamma-r0,kumo_unsup,auroc,,,0,163.1,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:14:32,adc-e2-magic-gamma-r0p5-spread-d1,kumo_unsup,auroc,,,0,163.2,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:17:18,adc-e2-magic-gamma-r0p5-spread-d2,kumo_unsup,auroc,,,0,161.8,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:20:06,adc-e2-magic-gamma-r0p5-clump-d1,kumo_unsup,auroc,,,0,163.3,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:22:54,adc-e2-magic-gamma-r0p5-clump-d2,kumo_unsup,auroc,,,0,164.7,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:25:41,adc-e2-magic-gamma-r1-spread-d1,kumo_unsup,auroc,,,0,162.8,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:28:27,adc-e2-magic-gamma-r1-spread-d2,kumo_unsup,auroc,,,0,162.4,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:31:14,adc-e2-magic-gamma-r1-clump-d1,kumo_unsup,auroc,,,0,163.0,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:34:03,adc-e2-magic-gamma-r1-clump-d2,kumo_unsup,auroc,,,0,164.6,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:36:50,adc-e2-magic-gamma-r2-spread-d1,kumo_unsup,auroc,,,0,163.3,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:39:36,adc-e2-magic-gamma-r2-spread-d2,kumo_unsup,auroc,,,0,161.8,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:42:22,adc-e2-magic-gamma-r2-clump-d1,kumo_unsup,auroc,,,0,162.7,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:45:09,adc-e2-magic-gamma-r2-clump-d2,kumo_unsup,auroc,,,0,163.2,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:47:56,adc-e2-magic-gamma-r5-spread-d1,kumo_unsup,auroc,,,0,162.4,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:50:43,adc-e2-magic-gamma-r5-spread-d2,kumo_unsup,auroc,,,0,163.2,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:53:30,adc-e2-magic-gamma-r5-clump-d1,kumo_unsup,auroc,,,0,163.9,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:56:20,adc-e2-magic-gamma-r5-clump-d2,kumo_unsup,auroc,,,0,165.1,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:59:06,adc-e2-magic-gamma-r10-spread-d1,kumo_unsup,auroc,,,0,162.5,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:01:53,adc-e2-magic-gamma-r10-spread-d2,kumo_unsup,auroc,,,0,162.9,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:04:41,adc-e2-magic-gamma-r10-clump-d1,kumo_unsup,auroc,,,0,164.0,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:07:28,adc-e2-magic-gamma-r10-clump-d2,kumo_unsup,auroc,,,0,163.5,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:10:16,adc-e2-magic-gamma-r20-spread-d1,kumo_unsup,auroc,,,0,164.0,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:13:06,adc-e2-magic-gamma-r20-spread-d2,kumo_unsup,auroc,,,0,165.3,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:15:54,adc-e2-magic-gamma-r20-clump-d1,kumo_unsup,auroc,,,0,164.4,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:18:43,adc-e2-magic-gamma-r20-clump-d2,kumo_unsup,auroc,,,0,164.7,,adc-k2-e2,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:25:57,adc-e1-local-annthyroid-s1,kumo_unsup,auroc,,,0,136.1,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:27:33,adc-e1-local-annthyroid-s1,kumo_unsup+clean,auroc,,,0,96.2,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:31:58,adc-e1-local-cardio-s1,kumo_unsup,auroc,,,0,258.0,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:36:07,adc-e1-local-cardio-s1,kumo_unsup+clean,auroc,,,0,249.3,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:39:02,adc-e1-local-cover-s1,kumo_unsup,auroc,,,0,170.8,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:41:45,adc-e1-local-cover-s1,kumo_unsup+clean,auroc,,,0,163.1,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T22:47:18,adc-e1-local-fault-s1,kumo_unsup,auroc,,,0,328.3,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T22:52:37,adc-e1-local-fault-s1,kumo_unsup+clean,auroc,,,0,319.0,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:00:27,adc-e1-local-landsat-s1,kumo_unsup,auroc,,,0,466.0,,adc-k2-e1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:08:00,adc-e1-local-landsat-s1,kumo_unsup+clean,auroc,,,0,453.6,,adc-k2-e1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:10:56,adc-e1-local-magic-gamma-s1,kumo_unsup,auroc,,,0,170.6,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:13:35,adc-e1-local-magic-gamma-s1,kumo_unsup+clean,auroc,,,0,159.7,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:15:24,adc-e1-local-mammography-s1,kumo_unsup,auroc,,,0,105.1,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:17:03,adc-e1-local-mammography-s1,kumo_unsup+clean,auroc,,,0,98.1,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:19:15,adc-e1-local-pageblocks-s1,kumo_unsup,auroc,,,0,128.5,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:21:17,adc-e1-local-pageblocks-s1,kumo_unsup+clean,auroc,,,0,121.5,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:23:55,adc-e1-local-shuttle-s1,kumo_unsup,auroc,,,0,154.4,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:26:22,adc-e1-local-shuttle-s1,kumo_unsup+clean,auroc,,,0,146.6,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:30:47,adc-e1-local-waveform-s1,kumo_unsup,auroc,,,0,261.2,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:35:00,adc-e1-local-waveform-s1,kumo_unsup+clean,auroc,,,0,253.0,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:36:10,adc-e1-local-wilt-s1,kumo_unsup,auroc,,,0,65.3,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:37:10,adc-e1-local-wilt-s1,kumo_unsup+clean,auroc,,,0,59.9,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:38:52,adc-e1-local-yeast-s1,kumo_unsup,auroc,,,0,98.5,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:40:25,adc-e1-local-yeast-s1,kumo_unsup+clean,auroc,,,0,92.7,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:42:10,adc-e1-global-annthyroid-s1,kumo_unsup,auroc,,,0,101.7,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:43:45,adc-e1-global-annthyroid-s1,kumo_unsup+clean,auroc,,,0,95.0,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:48:05,adc-e1-global-cardio-s1,kumo_unsup,auroc,,,0,255.5,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:52:11,adc-e1-global-cardio-s1,kumo_unsup+clean,auroc,,,0,246.5,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-25T23:55:07,adc-e1-global-cover-s1,kumo_unsup,auroc,,,0,171.3,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-25T23:57:51,adc-e1-global-cover-s1,kumo_unsup+clean,auroc,,,0,163.9,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:03:22,adc-e1-global-fault-s1,kumo_unsup,auroc,,,0,327.8,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:08:42,adc-e1-global-fault-s1,kumo_unsup+clean,auroc,,,0,319.2,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:16:26,adc-e1-global-landsat-s1,kumo_unsup,auroc,,,0,460.0,,adc-k2-e1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:23:52,adc-e1-global-landsat-s1,kumo_unsup+clean,auroc,,,0,446.7,,adc-k2-e1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:26:49,adc-e1-global-magic-gamma-s1,kumo_unsup,auroc,,,0,170.9,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:29:29,adc-e1-global-magic-gamma-s1,kumo_unsup+clean,auroc,,,0,160.1,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:31:18,adc-e1-global-mammography-s1,kumo_unsup,auroc,,,0,104.8,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:32:56,adc-e1-global-mammography-s1,kumo_unsup+clean,auroc,,,0,98.2,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:35:08,adc-e1-global-pageblocks-s1,kumo_unsup,auroc,,,0,128.5,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:37:10,adc-e1-global-pageblocks-s1,kumo_unsup+clean,auroc,,,0,121.7,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:39:49,adc-e1-global-shuttle-s1,kumo_unsup,auroc,,,0,154.5,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:42:16,adc-e1-global-shuttle-s1,kumo_unsup+clean,auroc,,,0,146.8,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:46:40,adc-e1-global-waveform-s1,kumo_unsup,auroc,,,0,260.0,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:50:51,adc-e1-global-waveform-s1,kumo_unsup+clean,auroc,,,0,251.2,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:52:00,adc-e1-global-wilt-s1,kumo_unsup,auroc,,,0,64.8,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:52:59,adc-e1-global-wilt-s1,kumo_unsup+clean,auroc,,,0,59.2,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:54:41,adc-e1-global-yeast-s1,kumo_unsup,auroc,,,0,98.0,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:56:13,adc-e1-global-yeast-s1,kumo_unsup+clean,auroc,,,0,91.3,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T00:57:58,adc-e1-dependency-annthyroid-s1,kumo_unsup,auroc,,,0,101.8,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T00:59:33,adc-e1-dependency-annthyroid-s1,kumo_unsup+clean,auroc,,,0,94.9,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:03:51,adc-e1-dependency-cardio-s1,kumo_unsup,auroc,,,0,253.5,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:07:56,adc-e1-dependency-cardio-s1,kumo_unsup+clean,auroc,,,0,245.1,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:10:51,adc-e1-dependency-cover-s1,kumo_unsup,auroc,,,0,170.5,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:13:34,adc-e1-dependency-cover-s1,kumo_unsup+clean,auroc,,,0,163.2,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:19:06,adc-e1-dependency-fault-s1,kumo_unsup,auroc,,,0,328.2,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:24:25,adc-e1-dependency-fault-s1,kumo_unsup+clean,auroc,,,0,319.0,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:27:19,adc-e1-dependency-magic-gamma-s1,kumo_unsup,auroc,,,0,170.1,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:29:59,adc-e1-dependency-magic-gamma-s1,kumo_unsup+clean,auroc,,,0,159.3,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:31:48,adc-e1-dependency-mammography-s1,kumo_unsup,auroc,,,0,104.9,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:33:27,adc-e1-dependency-mammography-s1,kumo_unsup+clean,auroc,,,0,98.7,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:36:06,adc-e1-dependency-shuttle-s1,kumo_unsup,auroc,,,0,154.8,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:38:33,adc-e1-dependency-shuttle-s1,kumo_unsup+clean,auroc,,,0,147.3,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:42:59,adc-e1-dependency-waveform-s1,kumo_unsup,auroc,,,0,262.1,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:47:12,adc-e1-dependency-waveform-s1,kumo_unsup+clean,auroc,,,0,252.9,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:48:22,adc-e1-dependency-wilt-s1,kumo_unsup,auroc,,,0,66.0,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:49:23,adc-e1-dependency-wilt-s1,kumo_unsup+clean,auroc,,,0,60.4,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:51:05,adc-e1-dependency-yeast-s1,kumo_unsup,auroc,,,0,98.5,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:52:38,adc-e1-dependency-yeast-s1,kumo_unsup+clean,auroc,,,0,93.2,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T01:54:24,adc-e1-cluster-annthyroid-s1,kumo_unsup,auroc,,,0,102.0,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T01:56:00,adc-e1-cluster-annthyroid-s1,kumo_unsup+clean,auroc,,,0,95.4,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:00:20,adc-e1-cluster-cardio-s1,kumo_unsup,auroc,,,0,256.0,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:04:28,adc-e1-cluster-cardio-s1,kumo_unsup+clean,auroc,,,0,247.9,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:07:24,adc-e1-cluster-cover-s1,kumo_unsup,auroc,,,0,172.1,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:10:08,adc-e1-cluster-cover-s1,kumo_unsup+clean,auroc,,,0,164.5,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:15:37,adc-e1-cluster-fault-s1,kumo_unsup,auroc,,,0,324.1,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:20:51,adc-e1-cluster-fault-s1,kumo_unsup+clean,auroc,,,0,314.0,,adc-k2-e1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:28:41,adc-e1-cluster-landsat-s1,kumo_unsup,auroc,,,0,466.2,,adc-k2-e1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:36:13,adc-e1-cluster-landsat-s1,kumo_unsup+clean,auroc,,,0,452.4,,adc-k2-e1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:39:09,adc-e1-cluster-magic-gamma-s1,kumo_unsup,auroc,,,0,171.1,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:41:49,adc-e1-cluster-magic-gamma-s1,kumo_unsup+clean,auroc,,,0,159.8,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:43:38,adc-e1-cluster-mammography-s1,kumo_unsup,auroc,,,0,105.0,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:45:17,adc-e1-cluster-mammography-s1,kumo_unsup+clean,auroc,,,0,98.4,,adc-k2-e1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:47:28,adc-e1-cluster-pageblocks-s1,kumo_unsup,auroc,,,0,127.4,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:49:29,adc-e1-cluster-pageblocks-s1,kumo_unsup+clean,auroc,,,0,120.6,,adc-k2-e1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:52:07,adc-e1-cluster-shuttle-s1,kumo_unsup,auroc,,,0,154.0,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T02:54:33,adc-e1-cluster-shuttle-s1,kumo_unsup+clean,auroc,,,0,146.3,,adc-k2-e1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T02:58:58,adc-e1-cluster-waveform-s1,kumo_unsup,auroc,,,0,260.6,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T03:03:09,adc-e1-cluster-waveform-s1,kumo_unsup+clean,auroc,,,0,251.6,,adc-k2-e1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T03:04:19,adc-e1-cluster-wilt-s1,kumo_unsup,auroc,,,0,64.8,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T03:05:18,adc-e1-cluster-wilt-s1,kumo_unsup+clean,auroc,,,0,59.7,,adc-k2-e1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean
+2026-11-26T03:07:00,adc-e1-cluster-yeast-s1,kumo_unsup,auroc,,,0,98.0,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10
+2026-11-26T03:08:32,adc-e1-cluster-yeast-s1,kumo_unsup+clean,auroc,,,0,92.1,,adc-k2-e1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=clean

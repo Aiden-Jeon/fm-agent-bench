@@ -492,7 +492,9 @@ def report(rounds: int, tab: str):
     # E3: trim 풀 (공식 12 × s1, 기존 10 + TabPFN (순열 같게) + 정리 변형)
     # 같은 순열의 TabPFN 기준 (순열 10 = 공식 tabpfn_unsup 의 s1, 그 밖은 조건 표의 것) + 정리 변형 (+trim · +iftrim)
     e3 = cond[(cond.exp == "base") & (cond.split == "s1") & (cond.model.str.contains("trim") | (cond.model == tab))]
-    e3 = e3[~e3.model.str.contains("trim") | e3.model.str.startswith(tab + "+") | ~e3.model.str.startswith("tabpfn")]
+    from fab.bench.anomaly.methods import base as base_of
+
+    e3 = e3[e3.model.map(lambda m: base_of(m) == tab or base_of(m) in PYOD)]  # 다른 FM 의 정리 변형은 그 FM 의 풀로
     if len(e3):
         base = off[off.model.isin([*PYOD, *([tab] if tab in OFFICIAL else [])]) & (off.split == "s1")]
         g = pd.concat([base, e3], ignore_index=True).rename(columns={"model": "method"})
