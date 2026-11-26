@@ -162,6 +162,8 @@ FM = tabpfn-extensions `TabPFNUnsupervisedModel.outliers()` (TabPFN v2 가중치
 - Agent 풀 Elo (3개, 구간 없음): Codex 1531 · AIDE × GPT 1129 · Claude Code +cont 1110 · AIDE × Sonnet 1041 · TabPFN 1041 · IForest 1000. Agent 는 3개 데이터셋 × 5설정 × 1회 (파일럿 cardio · fault + TabPFN 이 크게 이긴 Wilt)
 - ¹ Codex 가 데이터 모양 (행 · 열 · 이상 비율) 으로 데이터셋을 알아본 실행 (cardio · Wilt, 원본 받기는 없음). 알아보지 못한 fault 에서는 기존 KNN 보다 낮음
 - `uv run --frozen fab ad elo` → `results/anomaly_elo.csv`, 채점 `results/anomaly.csv` · `results/anomaly_runs.csv`, ADBench 공개값 비교 `fab ad compare` (기준점 IForest 는 12개 모두 공개값과 같음)
+- **TFM 이 이득을 보는 조건** (통제 실험, [docs/anomaly.md](docs/anomaly.md) 의 "TFM 이 이득을 보는 조건"): 열 사이 관계가 깨진 이상 (ADBench 합성 dependency) 에서 TabPFN · Kumo 가 기존 10개를 모두 앞섬 (10 / 10), 서로 닮은 이상이 train 에 섞이면 0.5% 로도 무너짐 (cluster 0.78 대 IForest 0.99) → 이상의 성질을 모르면 IForest 가 기본, 정상 행만 모을 수 있으면 TFM 이 첫 후보 (KNN · LOF 와 구간 겹침). 라벨 없는 context 정리는 차이를 거의 못 메움. Kumo (우리 chain rule 래퍼) 도 같은 모양
+  → `fab ad cond …`, 결과 `results/anomaly_conditions*.csv` (공식 풀 · `anomaly_elo.csv` 와 따로)
 
 ### Forecast (fev-bench, 시계열 예측)
 

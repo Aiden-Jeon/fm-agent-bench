@@ -38,7 +38,7 @@ from fab.core.competition import ROOT
 LOCAL_CONFIG = ROOT / "databricks.local.yaml"
 JOB_NAME = "fab-reconcile"
 TABLES = ["results.csv", "mlebench.csv", "mlebench_runs.csv", "tabarena.csv", "tabarena_runs.csv",
-          "anomaly.csv", "anomaly_runs.csv",
+          "anomaly.csv", "anomaly_runs.csv", "anomaly_conditions.csv",
           "forecast.csv", "forecast_runs.csv"]  # 원격이 원본인 표
 # (mlebench_agents.csv 는 로컬 fab mleb agents, tabarena_reference.csv 는 로컬 fab ta reference)
 KINDS = ["fm", "agent", "grade", "exclude", "recheck", "timing", "forecast"]  # timing: 채점 시간 재기 (fab ta timing, #20)

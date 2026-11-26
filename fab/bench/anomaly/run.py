@@ -27,6 +27,21 @@ from fab.core.competition import load_competition
 from fab.core.results import OUTPUTS, append_rows, clear_test_info, write_test_info
 
 
+def trim_context(name: str, X: np.ndarray, seed: int, cache: dict) -> np.ndarray:
+    """라벨 없는 context 정리 (+trim<k>x<n> · +iftrim<k>): 정리 점수 상위 k% 를 빼기를 n 번. 행 순서는 그대로 (IForest 처럼 행
+    순서로 표본을 뽑는 방법이 원래 순서와 같게). 첫 번 점수는 k 와 상관없어 cache 로 같이 씀 (trim5 · 10 · 20 이 한 번만 점수)."""
+    scorer, k, n = M.trim_spec(name)
+    idx = np.arange(len(X))
+    for r in range(n):
+        key = (scorer, 0) if r == 0 else (scorer, k, r)
+        if key not in cache:
+            cache[key] = M.train_scores(scorer, X[idx], seed + r)
+        s = cache[key]
+        drop = np.argsort(-s, kind="stable")[: int(round(k / 100 * len(idx)))]
+        idx = np.delete(idx, drop)
+    return X[idx]
+
+
 def main(argv: list[str]):
     ap = argparse.ArgumentParser(prog="fab run (anomaly)")
     ap.add_argument("comp")
@@ -48,7 +63,7 @@ def main(argv: list[str]):
         sys.exit(f"{comp.name}: train · test 의 열이 다름")
     X_train, X_test = train[feats].to_numpy(dtype=float), test[feats].to_numpy(dtype=float)
     seed = int(comp.anomaly["seed"])
-    rows, failed = [], []
+    rows, failed, cache = [], [], {}
     for m in args.methods:
         t0 = time.time()
         try:
@@ -58,6 +73,8 @@ def main(argv: list[str]):
                     raise RuntimeError("+clean 은 --train-labels 가 필요")
                 lab = pd.read_csv(Path(args.train_labels) / f"{comp.name}.csv").set_index(ID_COL)[LABEL_COL]
                 X_fit = X_train[lab.loc[train[ID_COL]].to_numpy() == 0]
+            elif M.trim_spec(m):  # 라벨 없는 정리 (E3): 비지도 그대로
+                X_fit = trim_context(m, X_train, seed, cache)
             s = M.scores(m, X_fit, X_test, seed)
             out = OUTPUTS / comp.name / m
             out.mkdir(parents=True, exist_ok=True)
