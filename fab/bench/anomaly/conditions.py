@@ -2,7 +2,7 @@
 anomaly_elo.csv) 은 안 바꿈: 조건 대회 · 변형 방법의 채점은 results/anomaly_conditions.csv, 조건별 Elo 는 anomaly_conditions_elo.csv.
 
     uv run --frozen fab ad cond traits                 # 데이터 특성 + 이미 있는 채점 → results/anomaly_conditions_traits.csv
-    <옆 venv>/python -m fab.cli ad cond prepare e1     # E1 합성 이상 대회 (copulas 가 있는 옆 가상환경, 로컬 CPU)
+    uv run --no-project --python $FAB_ANOMALY/.venv/bin/python python -m fab.cli ad cond prepare e1   # E1 합성 이상 대회 (copulas 가 있는 옆 가상환경, 로컬 CPU)
     uv run --frozen fab ad cond prepare e2             # E2 context 칸 대회
     uv run --frozen fab ad cond submit e0              # 계획만 보여 줌 (대회 · 방법 · 작업). --yes 로 실제 제출 + 채점 요청
     uv run --frozen fab ad cond report                 # 조건별 표 · Elo → results/anomaly_conditions_elo.csv
@@ -37,8 +37,6 @@ E2_CELLS = RESULTS / "anomaly_conditions_e2_cells.csv"  # E2 칸의 조작 확�
 COND_ELO = RESULTS / "anomaly_conditions_elo.csv"
 PREFIX = "adc-"
 ADBENCH_GENERATOR = AD_DIR / "src" / "adbench" / "adbench" / "datasets" / "data_generator.py"
-# tabpfn-extensions 0.6.3 utils.infer_categorical_features 의 상수 (범주 열 = 값 ≤ 40 개 · 값마다 평균 10행 넘음)
-MAX_UNIQUE_CAT, MIN_ROWS_PER_CAT = 40, 10
 K = 10  # 이웃 수 (모인 정도)
 
 # 조건 실험의 TabPFN. 결정 10: E0 (순열 3) 가 기준을 못 넘어 (2026-11-25, cover +0.033 · PageBlocks +0.025) 공식과 같은 순열 10
@@ -66,12 +64,9 @@ E3_MAIN = "+trim10"  # 주 지표 (결정 12: k = 10 고정)
 
 
 def categorical_cols(X: np.ndarray) -> list[int]:
-    out = []
-    for j in range(X.shape[1]):
-        u = len(np.unique(X[:, j]))
-        if 0 < u <= MAX_UNIQUE_CAT and len(X) / u > MIN_ROWS_PER_CAT:
-            out.append(j)
-    return out
+    from fab.bench.anomaly.methods import categorical_cols as cols  # Kumo 래퍼와 같은 규칙 (tabpfn-extensions 0.6.3)
+
+    return sorted(cols(X))
 
 
 def neighbour_anomaly_share(X_ref: np.ndarray, y_ref: np.ndarray, X_q: np.ndarray, k: int, self_ref: bool) -> np.ndarray:
@@ -187,7 +182,7 @@ def e1_split(dataset: str, mode: str, seed: int):
         try:
             import copulas  # noqa: F401
         except ImportError:
-            raise SystemExit("dependency 는 copulas 가 필요: 옆 가상환경 (FAB_ANOMALY/.venv) 의 python 으로 prepare") from None
+            raise SystemExit("dependency 는 copulas 가 필요: 옆 가상환경으로 `uv run --no-project --python $FAB_ANOMALY/.venv/bin/python python -m fab.cli ad cond prepare e1`") from None
     fn = adbench_synthetic()
     X, y = load_npz(dataset)
 
@@ -375,7 +370,14 @@ def submit(exp: str, tab: str, types: list[str], datasets: list[str] | None, tim
     cpu = [m for m in methods if not is_gpu(m)]
     print(f"{exp}: 대회 {len(comps)}개 (예: {', '.join(c.name for c in comps[:3])} …)\n"
           f"  GPU 작업 방법 {len(gpu)}개: {' '.join(gpu) or '-'}\n  CPU 작업 방법 {len(cpu)}개: {' '.join(cpu) or '-'}")
-    missing = [c.name for c in comps if not (c.data_dir / "train.csv").exists()]
+    from fab.bench.anomaly import ANSWERS, TRAIN_LABELS
+
+    def ready(c):  # ensure_prepared 와 같은 파일들 (중간에 멈춘 prepare 로 정답 없이 계산만 쓰지 않게)
+        return all(p.exists() for p in [*(c.data_dir / f for f in ("train.csv", "test.csv", "sample_submission.csv")),
+                                         ANSWERS / f"{c.name}.csv", ANSWERS / f"{c.name}.json",
+                                         TRAIN_LABELS / f"{c.name}.csv"])
+
+    missing = [c.name for c in comps if not ready(c)]
     if missing:
         raise SystemExit(f"준비 안 된 대회 {len(missing)}개 (예: {missing[:3]}) → fab ad cond prepare {exp}")
     if not yes:
@@ -394,7 +396,8 @@ def parse_cond(s) -> dict:
 
 def read_conditions() -> pd.DataFrame:
     if not CONDITIONS.exists():
-        return pd.DataFrame(columns=["comp", "model", "dataset", "split", "score", "metric_error", "exp", "cond"])
+        return pd.DataFrame(columns=["comp", "model", "dataset", "split", "score", "metric_error", "exp", "cond",
+                                     "type", "rate", "arrange", "draw"])
     g = latest_grades(pd.read_csv(CONDITIONS))
     c = g.cond.map(parse_cond)
     for k in ("type", "rate", "arrange", "draw"):
@@ -502,7 +505,8 @@ def report(rounds: int, tab: str):
         w = g.pivot_table(index="dataset", columns="method", values="score")
         print("\n== E3: AUROC (s1)\n" + w.round(3).to_string())
         # 메운 몫 = (정리 − 오염) / (clean − 오염): clean 진단 (train 라벨) 과의 차이 중 라벨 없이 메운 비율
-        cl = off[(off.model == tab + CLEAN) & (off.split == "s1")].set_index("dataset").score
+        both = pd.concat([off, cond[cond.exp == "base"]], ignore_index=True)  # kumo_unsup+clean 은 조건 표에 있음
+        cl = both[(both.model == tab + CLEAN) & (both.split == "s1")].set_index("dataset").score
         if len(cl) and tab in w:
             gap = (cl - w[tab]).rename("clean_gap")
             fr = pd.concat([w[tab].rename("contaminated"), cl.rename("clean"), gap,

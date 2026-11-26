@@ -116,13 +116,16 @@ def set_seed(seed: int):
         pass
 
 
-def pyod_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int) -> np.ndarray:
+def _fit_pyod(name: str, X: np.ndarray, seed: int):
     import importlib
 
     mod, cls = PYOD[base(name)]
     set_seed(seed)
-    model = getattr(importlib.import_module(mod), cls)().fit(X_train)
-    return np.asarray(model.decision_function(X_test), dtype=float)
+    return getattr(importlib.import_module(mod), cls)().fit(X)
+
+
+def pyod_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int) -> np.ndarray:
+    return np.asarray(_fit_pyod(name, X_train, seed).decision_function(X_test), dtype=float)
 
 
 def tabpfn_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int) -> np.ndarray:
@@ -161,17 +164,23 @@ def train_scores(name: str, X: np.ndarray, seed: int) -> np.ndarray:
     """context 정리용 train 행 점수 (클수록 이상). pyod 는 X 로 fit 한 in-sample 점수 (decision_scores_). TabPFN 은 행이 자기
     자신을 context 에 두면 밀도가 부풀므로 2겹: 무작위로 반을 나눠 서로를 context 로 점수."""
     if not is_gpu(name):
-        import importlib
-
-        mod, cls = PYOD[base(name)]
-        set_seed(seed)
-        return np.asarray(getattr(importlib.import_module(mod), cls)().fit(X).decision_scores_, dtype=float)
+        return np.asarray(_fit_pyod(name, X, seed).decision_scores_, dtype=float)
     perm = np.random.default_rng([seed, len(X)]).permutation(len(X))
     a, b = perm[: len(X) // 2], perm[len(X) // 2:]
     s = np.empty(len(X))
     s[a] = scores(base(name), X[b], X[a], seed)
     s[b] = scores(base(name), X[a], X[b], seed)
     return s
+
+
+def categorical_cols(X: np.ndarray) -> set[int]:
+    """tabpfn-extensions 0.6.3 utils.infer_categorical_features 의 값 수 규칙: 값 ≤ 40 개 · 값마다 평균 10행 넘음."""
+    out = set()
+    for j in range(X.shape[1]):
+        u = len(np.unique(X[:, j]))
+        if 0 < u <= MAX_UNIQUE_CAT and len(X) / u > MIN_ROWS_PER_CAT:
+            out.add(j)
+    return out
 
 
 def quantile_log_density(Q: np.ndarray, y: np.ndarray, h: float) -> np.ndarray:
@@ -216,8 +225,7 @@ def kumo_scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int, c
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     autocast = torch.amp.autocast(dev.type, dtype=torch.float16, enabled=dev.type == "cuda")
     d = X_train.shape[1]
-    cats = {j for j in range(d) if 0 < (u := len(np.unique(X_train[:, j]))) <= MAX_UNIQUE_CAT
-            and len(X_train) / u > MIN_ROWS_PER_CAT}
+    cats = categorical_cols(X_train)
 
     def fit_predict(Xc, yc, Xq, classify):
         cols = [f"f{i}" for i in range(Xc.shape[1])]
