@@ -244,7 +244,8 @@ def submit(exp: str, datasets: list[str] | None, timeout: int, accelerator: str 
     need = [ANSWERS / f"{c.name}.csv" for c in comps] + [TRAIN_LABELS / f"{c.name}.csv" for c in comps]
     if any(is_supervised(m) for m in methods):
         need += [TRAIN_LABELS / f"{c.name}.la.csv" for c in comps]
-    need += [c.data_dir / "train.csv" for c in comps]
+    if exp not in ("f1", "f2"):  # F1 · F2 는 조건 실험 (2026-11-25) 때 내 Volume 에 올린 data/<대회>/ 를 그대로 씀 (upload_data 는 없는
+        need += [c.data_dir / "train.csv" for c in comps]  # 폴더만 올림) → TabPFN · Kumo 와 같은 행. 정답 · train 라벨만 로컬에 있으면 됨
     if missing := [p for p in need if not p.exists()]:
         raise SystemExit(f"준비 안 된 파일 {len(missing)}개 (예: {missing[:2]}) → fab ad sup prepare {exp}")
     if not yes:
