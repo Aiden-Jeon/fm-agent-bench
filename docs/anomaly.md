@@ -916,7 +916,7 @@ F2 (E2 94칸, r = 0 대비 떨어진 AUROC, 칸 88개)
 - **예외: Kumo 분류기는 처음 보는 종류에도 강함** (대각선 밖 0.973, 비지도 TFM 0.970 과 같은 수준이면서 cluster 도 1.000). 가장 약한 칸 dependency → local 0.888 (비지도 TFM 0.91, LOF 0.925 보다 낮음). 같은 Kumo 인데 비지도 래퍼 (chain rule) 보다 분류기 쪽이 일반화가 좋은 까닭은 이번에 가르지 않음 (가설: 분류기 head 가 정상 쪽 밀도를 넓게 배움 — 확인 안 함)
 - cluster → cluster 의 비지도 실패는 E1 과 같은 크기 (TabPFN 0.834 · Kumo 0.763 · FoMo-0D 0.589 · LOF 0.451, IForest 0.989). train 의 이상이 다른 종류면 비지도 TFM 의 cluster test 는 1.000 → 해치는 것은 "test 이상과 닮은 이상이 context 에" (E2 의 고친 해석) 그대로
 - **"정상 / 이상 / 모름" 의 단서**: 같은 train 에서 라벨을 쓰면 cluster 를 고치고 (1.000), 라벨을 안 쓰면 처음 보는 종류에 넓게 강함 → 한 모델이 라벨 있는 행은 분류기처럼, 라벨 없는 행은 context 의 밀도로 쓰면 두 장점을 다 가질 수 있음 (S2: 라벨 1% 로도 분류기가 비지도를 넘음). 이번에 그런 모델을 돌린 것은 아님 (아래 "시사점")
-- 실패: `tabpfn_unsup` 의 `adc-s3-local-fault-s1` · `adc-s3-cluster-fault-s1` (같은 작업의 나머지 118칸은 됨, 작업 상태 INTERNAL_ERROR = 방법 실패로 종료 코드 1, 조건 실험 E3 과 같은 꼴). 원인은 아래 "남은 것"
+- 실패: `tabpfn_unsup` 의 `adc-s3-local-fault-s1` · `adc-s3-cluster-fault-s1` (같은 작업의 나머지 118칸은 됨, 작업 상태 INTERNAL_ERROR = 방법 실패로 종료 코드 1, 조건 실험 E3 과 같은 꼴). 점수 몇 행이 무한대 (아래 "남은 것")
 
 ### 판단 기준에 더함: 라벨이 있을 때 (2026-11-26)
 
@@ -942,7 +942,7 @@ F2 (E2 94칸, r = 0 대비 떨어진 AUROC, 칸 88개)
 
 ### 남은 것 (라벨 실험 · FoMo-0D)
 
-- `tabpfn_unsup` 의 S3 fault 두 대회 실패 원인 (원격 로그를 API 로 못 받음, 로컬에서 다시 돌려 확인 중 → 아래 실행 기록). 다시 돌릴지는 사용자
+- `tabpfn_unsup` 의 S3 fault 두 대회 실패: 로컬 (CPU, 같은 대회 · 같은 seed) 에서 다시 돌려 **test 1,189행 중 9행의 점수가 유한하지 않음** (`scores` 의 NaN/inf 검사에서 거부). 멀리 떨어진 행 (local 이상은 공분산 × 5, MinMax 로 −0.6 ~ 2.0) 의 밀도가 0 으로 내려간 것으로 봄 (확인 안 함, tabpfn-extensions 의 `outliers()` 그대로). 무한대를 가장 큰 점수로 다루는 변형으로 다시 돌릴지는 사용자. 이 두 칸이 빠져 위 S3 표의 `tabpfn_unsup` train = local · cluster 행은 9개 평균
 - S3 은 seed 1 · 데이터 10개 · la 100% 만. 처음 보는 종류 + 라벨 조금 (la 10%) 은 안 함
 - 분류기 + 비지도 점수 섞기 (S3 의 보완을 실제로 쓰는 법), 라벨 준 이상을 context 에서 빼는 비지도 변형 (반지도의 다른 꼴) — 안 함
 - Kumo 분류기가 처음 보는 종류에 강한 까닭, TabPFN 분류기가 라벨 1개에서 흔들리는 까닭 (Waveform 0.463) — 안 가름
@@ -992,7 +992,7 @@ F2 (E2 94칸, r = 0 대비 떨어진 AUROC, 칸 88개)
 | 2026-11-26 16:04 | F1: `fomo0d` · `fomo0d+clean` | E1 46 (Volume 의 2026-11-25 데이터), H100 (`ads-f1-20261126-160435`, run_id 473846640347786) + `anomaly__20261126-160441-403769` | 제출 |
 | 2026-11-26 16:04 | F2: `fomo0d` | E2 94 (같음), H100 (`ads-f2-20261126-160445`, run_id 427240956337902) + `anomaly__20261126-160452-601829` | 제출 |
 | 2026-11-26 16:06 ~ 16:13 | S1 · S2 CPU (15분) · GPU (16분) · S3 CPU 둘 (6 · 4분) · F0 · F1 · F2 (5 · 6 · 9분) 모두 SUCCESS → kick (이 worktree, 대기 9개 모두 이 작업 것) → `fab sync` | | `anomaly.csv` +72 (F0, 기존 행 그대로), `anomaly_conditions.csv` +186 (F1 92 · F2 94), `anomaly_supervised.csv` 1,664행, 실패 0. 같이 받은 `mlebench_runs.csv` 변경은 되돌림 |
-| 2026-11-26 17:01 | S3 GPU (TabPFN) `INTERNAL_ERROR/FAILED` (57분): 40 대회 끝까지, `tabpfn_unsup` 이 fault 의 local · cluster 두 대회에서 실패 → 종료 코드 1 (나머지 118칸은 됨). 원격 로그는 API 로 못 받음 | | |
+| 2026-11-26 17:01 | S3 GPU (TabPFN) `INTERNAL_ERROR/FAILED` (57분): 40 대회 끝까지, `tabpfn_unsup` 이 fault 의 local · cluster 두 대회에서 실패 → 종료 코드 1 (나머지 118칸은 됨). 원격 로그는 API 로 못 받음 → 로컬 (CPU) 에서 `adc-s3-local-fault-s1` 을 다시 돌려 재현: test 9행의 점수가 NaN/inf | | 다시 안 냄 |
 | 2026-11-26 18:05 · 18:1x | S3 GPU (Kumo) SUCCESS (122분) → kick (이 worktree) → `fab sync` | | `anomaly_supervised.csv` +792 (198 실행 × test 종류 4), 대기 0. `fab ad elo`: FoMo-0D 를 뺀 Elo 가 이전 `anomaly_elo.csv` 와 바이트 단위로 같음 확인 → FoMo-0D 를 넣어 다시 씀. `fab ad cond report` → `anomaly_conditions_elo.csv` 그대로 |
 | 2026-11-25 15:4x · 18:20 | kick 두 번 (Wilt Agent · 제외, 그다음 TabPFN s2 · s3 채점). forecast 세션과 "상대 트랙 grade 대기 없음 + 상대 agent 대기 항목이 모두 아직 RUNNING" 일 때만 kick 하기로 합의. 18:20 kick 때는 forecast agent 둘이 끝난 채 대기 중이라 그쪽 제안대로 이쪽이 먼저 (그 둘은 시도 1/3, forecast 브랜치 kick 으로 처리) | | SUCCESS, 이상탐지 대기 항목 0 |
 
