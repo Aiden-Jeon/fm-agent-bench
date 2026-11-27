@@ -168,6 +168,8 @@ FM = tabpfn-extensions `TabPFNUnsupervisedModel.outliers()` (TabPFN v2 가중치
   → `fab ad sup …`, 결과 `results/anomaly_supervised*.csv` (FoMo-0D 는 공식 `anomaly.csv` · fm 풀)
 - **TFM 을 쓰는 법 (1): 점수 섞기 · 진단으로 고르기** ([docs/anomaly.md](docs/anomaly.md) 의 "TFM 을 쓰는 법 (1)"): 이미 돌린 방법들의 행별 점수를 순위 분위로 바꿔 섞음 (새 실행은 TabPFN 의 train 행 점수뿐). 이상의 성질을 모를 때 TFM 과 IForest 를 순위 평균으로 섞으면 12개 평균 0.732 (IForest 0.722 · TabPFN 0.704), 무너지는 셋에서 차이의 57 ~ 63% 를 되찾고 이기는 넷에서 55 ~ 87% 를 지킴. "둘 중 높은 쪽" 이 최악을 더 잘 막음 (0.755, 민감도). 분류기에 비지도 TFM 을 섞으면 처음 보는 종류가 0.92 → 0.96, 본 종류만 오는 데이터에서는 손해. 라벨 없는 진단으로 TFM / IForest 를 고르는 것은 안 됨 (순위 상관 +0.13)
   → `fab ad mix …`, 결과 `results/anomaly_mix*.csv` (공식 풀 · 기존 표와 따로)
+- **라벨이 조금일 때 TFM 을 쓰는 법** ([docs/anomaly.md](docs/anomaly.md) 의 "라벨이 조금 있을 때 (2)"): 라벨 준 이상을 비지도 TFM 의 context 에서 빼는 것 (`+dropla<k>`) 은 이상의 75% 에 라벨이 있어야 clean 과의 차이를 절반 넘게 메움 (메운 몫 la 10% 0.06 · 50% 0.35 · 75% 0.64) → 같은 라벨은 분류기에 (Kumo 분류기가 la 1 ~ 50% 에서 12 / 12 데이터셋 더 높음). 처음 보는 종류 + 라벨 10% · 1% 에서도 Kumo 분류기는 0.97 이상, TabPFN 분류기 · GBDT 는 본 local · dependency 에서도 비지도 TFM 아래. TabPFN 비지도의 점수 +inf (거의 결정적인 열 쌍에서 밀도 0) 는 맨 위 순위로 처리
+  → `fab ad sup prepare|submit l1 · l2 · l3`, 결과는 같은 `results/anomaly_supervised*.csv` (공식 풀 · 조건 풀은 그대로)
 
 ### Forecast (fev-bench, 시계열 예측)
 

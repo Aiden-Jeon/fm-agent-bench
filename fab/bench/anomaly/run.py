@@ -4,8 +4,9 @@ results.csv 에 행. fab/runner/run.py 의 main 이 anomaly 대회를 여기로 
 
     fab run <대회> <방법...> --note <글> [--train-labels <Volume 경로>]
 
---train-labels: +clean 방법 (깨끗한 context 진단) 이 읽는 train 라벨 폴더 (내 Volume, remote.py). 라벨을 쓰는 분류기 (`_clf+la<k>`) 는
-같은 폴더의 <대회>.la.csv (id + la 마다 ADBench 와 같이 고른 PU 라벨 열 la<k>) 를 읽음.
+--train-labels: +clean 방법 (깨끗한 context 진단) 이 읽는 train 라벨 폴더 (내 Volume, remote.py). 라벨을 쓰는 분류기 (`_clf+la<k>`) 와
+빼기 변형 (`+dropla<k>`: 그 라벨이 1 인 행을 context 에서 뺌) 은 같은 폴더의 <대회>.la.csv (id + la 마다 ADBench 와 같이 고른 PU 라벨
+열 la<k>) 를 읽음.
 TabPFN 가중치는 v2 (동의 없이 받음, methods.FM). 실행기가 모델 캐시 (Volume 의 cache/models.tar) 에 남김.
 """
 
@@ -43,6 +44,14 @@ def trim_context(name: str, X: np.ndarray, seed: int, cache: dict) -> np.ndarray
     return X[idx]
 
 
+def la_labels(labels_dir: str | None, comp: str, ids: pd.Series, k: int, what: str) -> np.ndarray:
+    """<대회>.la.csv 의 la<k> 열을 train.csv 행 순서로 (라벨 준 이상 1, 나머지 0)."""
+    if not labels_dir:
+        raise RuntimeError(f"{what} 는 --train-labels 가 필요")
+    la = pd.read_csv(Path(labels_dir) / f"{comp}.la.csv").set_index(ID_COL)[f"la{k}"]
+    return la.loc[ids].to_numpy().astype(int)
+
+
 def main(argv: list[str]):
     ap = argparse.ArgumentParser(prog="fab run (anomaly)")
     ap.add_argument("comp")
@@ -70,10 +79,7 @@ def main(argv: list[str]):
         try:
             X_fit, extra = X_train, ""
             if M.is_supervised(m):  # 라벨을 쓰는 분류기: PU 라벨 (라벨 준 이상 1, 나머지 0)
-                if not args.train_labels:
-                    raise RuntimeError("+la 분류기는 --train-labels 가 필요")
-                la = pd.read_csv(Path(args.train_labels) / f"{comp.name}.la.csv").set_index(ID_COL)[f"la{M.la_spec(m)}"]
-                y = la.loc[train[ID_COL]].to_numpy().astype(int)
+                y = la_labels(args.train_labels, comp.name, train[ID_COL], M.la_spec(m), "+la 분류기")
                 s = M.clf_scores(m, X_train, y, X_test, seed)
                 if s.shape != (len(X_test),) or not np.isfinite(s).all():
                     raise ValueError(f"{m}: 점수 모양 {s.shape} 또는 NaN/inf")
@@ -85,8 +91,14 @@ def main(argv: list[str]):
                 X_fit = X_train[lab.loc[train[ID_COL]].to_numpy() == 0]
             elif M.trim_spec(m):  # 라벨 없는 정리 (E3): 비지도 그대로
                 X_fit = trim_context(m, X_train, seed, cache)
+            elif (k := M.drop_spec(m)) is not None:  # L1: 분류기와 같은 la 라벨이 1 인 행을 빼고 남은 행 (행 순서 그대로)
+                y = la_labels(args.train_labels, comp.name, train[ID_COL], k, "+dropla")
+                X_fit = X_train[y == 0]
+                extra = f" n_dropped={int(y.sum())}"
             if not M.is_supervised(m):
                 s = M.scores(m, X_fit, X_test, seed)
+                if n := M.POSINF.get(m):  # TabPFN 비지도: +inf (밀도 0) 를 맨 위 유한 점수로 바꾼 행 수 (결정 30)
+                    extra += f" posinf={n}"
             out = OUTPUTS / comp.name / m
             out.mkdir(parents=True, exist_ok=True)
             clear_test_info(out)
