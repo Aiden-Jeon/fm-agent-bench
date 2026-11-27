@@ -517,9 +517,14 @@ def l1_table(sup: pd.DataFrame) -> pd.DataFrame:
     d["method"] = d.model.map(base_of)
     d["la"] = d.model.map(drop_spec)
     d["n_dropped"] = d.opts.str.extract(r"n_dropped=(\d+)")[0].astype(float)
-    d["cont"] = [ref.at[ds, m] for ds, m in zip(d.dataset, d.method)]
-    d["clean"] = [ref.at[ds, m + CLEAN] for ds, m in zip(d.dataset, d.method)]
-    d["fill"] = (d.score - d.cont) / (d.clean - d.cont)
+
+    def at(ds: str, m: str) -> float:  # 기준 채점 (오염 그대로 · clean) 이 없는 칸은 NaN → 그 행의 메운 몫만 비고 보고는 계속
+        return ref.at[ds, m] if ds in ref.index and m in ref.columns else np.nan
+
+    d["cont"] = [at(ds, m) for ds, m in zip(d.dataset, d.method)]
+    d["clean"] = [at(ds, m + CLEAN) for ds, m in zip(d.dataset, d.method)]
+    gap = d.clean - d.cont
+    d["fill"] = ((d.score - d.cont) / gap).where(gap > 0)  # clean 이 오염보다 높지 않은 칸 (IForest 의 cover 등) 은 몫이 뜻이 없어 비움
     return d
 
 
@@ -554,8 +559,8 @@ def l1_report(sup: pd.DataFrame, rounds: int) -> list:
     ifo = ifo[(ifo.model == ANCHOR) & (ifo.split == L1_SPLIT)].set_index("dataset").score
     rows = []
     for (ds, m), g in d[d.dataset.isin(L1_COLLAPSED) & d.method.isin(L1_TFM)].groupby(["dataset", "method"]):
-        over = g[g.score >= ifo[ds]].la
-        rows.append(dict(dataset=ds, method=m, iforest=ifo[ds], clean=g.clean.iloc[0],
+        over = g[g.score >= ifo.get(ds, np.nan)].la
+        rows.append(dict(dataset=ds, method=m, iforest=ifo.get(ds, np.nan), clean=g.clean.iloc[0],
                          first_la=over.min() if len(over) else np.nan))
     if rows:
         print("\n== L1: 무너지는 셋에서 오염 그대로의 IForest 를 넘는 가장 작은 la (%)\n" + pd.DataFrame(rows).round(3).to_string(index=False))
@@ -606,12 +611,14 @@ def l2_report(sup: pd.DataFrame, rounds: int) -> list:
     from fab.bench.anomaly.methods import base as base_of
 
     s3 = sup[sup.exp == "s3"].copy()
+    if s3.empty:  # 표가 없거나 S3 행이 없음 (read_supervised 의 빈 표에는 train_type · test_type 열이 없음)
+        return []
     s3["la"] = s3.model.map(la_spec)
     out = []
     l3 = s3[(s3.model == "tabpfn_unsup") & np.array([(a, ds) in L3_COMPS for a, ds in zip(s3.train_type, s3.dataset)], bool)]
     if len(l3):
         print("\n== L3: tabpfn_unsup 의 fault 두 대회 (posinf = +inf 를 맨 위 유한 점수로 바꾼 행 수)\n"
-              + l3.assign(posinf=l3.opts.str.extract(r"posinf=(\d+)")[0]).pivot_table(
+              + l3.assign(posinf=l3.opts.str.extract(r"posinf=(\d+)")[0].fillna("0")).pivot_table(  # 바꾼 행이 없으면 0 (NaN 은 표에서 빠짐)
                   index=["comp", "posinf"], columns="test_type", values="score").round(4).to_string())
     low = s3[s3.la.notna() & (s3.la != 100)]
     if low.empty:

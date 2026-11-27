@@ -441,8 +441,9 @@ def top_posinf(s: np.ndarray) -> tuple[np.ndarray, int]:
     pos = np.isposinf(s)
     if not pos.any() or not np.isfinite(s).any():
         return s, 0
+    top = s[np.isfinite(s)].max()
     out = s.copy()
-    out[pos] = s[np.isfinite(s)].max() + 1.0
+    out[pos] = top + 1.0 if top + 1.0 > top else np.nextafter(top, np.inf)  # 아주 큰 점수 (2^53 이상) 는 + 1 이 같은 값 → 바로 위 값
     return out, int(pos.sum())
 
 

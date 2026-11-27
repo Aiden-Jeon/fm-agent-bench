@@ -90,6 +90,12 @@ class PosInf(unittest.TestCase):
         self.assertTrue(np.isposinf(s[1]))  # 입력은 안 바꿈
         self.assertTrue((out[[1, 3]] > out[[0, 2, 4]].max()).all())
 
+    def test_posinf_stays_above_huge_scores(self):
+        # 아주 큰 유한 점수에서는 + 1 이 같은 값이 됨 (float64) → 그래도 +inf 행이 맨 위 유한 점수보다 위
+        out, n = M.top_posinf(np.array([1e300, np.inf, 3.0]))
+        self.assertEqual(n, 1)
+        self.assertTrue(np.isfinite(out).all() and out[1] > out[0])
+
     def test_other_nonfinite_left(self):
         for bad in (np.nan, -np.inf):
             out, n = M.top_posinf(np.array([1.0, bad, 2.0]))
