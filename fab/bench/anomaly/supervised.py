@@ -11,6 +11,10 @@
     S3       처음 보는 이상: 정상 하나 (GMM) + 네 종류 이상, train 종류 A 마다 대회 adc-s3-<A>-<이름>-s<seed>, test 는 넷이 같음
              (정답의 group 열 = test 이상의 종류 → 채점이 종류 B 마다 한 행)
     F0 ~ F2  FoMo-0D: 공식 12개 × 3 split (fomo0d · +clean, 공식 풀), E1 46개 (fomo0d · +clean), E2 94칸 (fomo0d)
+    L1       라벨 준 이상을 context 에서 뺌 (+dropla<k>): 공식 12개 × s1, TabPFN · Kumo 비지도 + 대조 IForest · KNN · LOF (docs/anomaly.md
+             "라벨이 조금 있을 때 (2)")
+    L2       처음 보는 종류 + 라벨 조금: S3 40 대회의 분류기를 la 10% (주) · 1% 로
+    L3       tabpfn_unsup 의 S3 fault 두 대회 (점수 +inf 를 맨 위 유한 점수로, methods.top_posinf)
 """
 
 from __future__ import annotations
@@ -37,6 +41,20 @@ S3_TYPES = ["local", "global", "dependency", "cluster"]
 S3_SEED = 1
 S3_CPU = ["iforest", "knn", "lof"]
 S3_GPU_UNSUP = ["tabpfn_unsup", "kumo_unsup", "fomo0d"]  # kumo_unsup: 2026-11-26 사용자 (결정 20)
+# L1 (결정 26 ~ 28, 2026-11-27 사용자): s1 × la {1, 5, 10, 25, 50, 75}. Kumo 는 la 세 값만 (E2 의 Kumo 판이 TabPFN 과 같은 모양)
+L1_SPLIT = "s1"
+L1_LA = [1, 5, 10, 25, 50, 75]
+L1_KUMO_LA = [10, 50, 75]
+L1_TFM = ["tabpfn_unsup", "kumo_unsup"]
+L1_CONTROL = ["iforest", "knn", "lof"]  # 같은 빼기를 기존 방법에 (TFM 만의 효과인지. KNN · LOF 는 E4 에서 TFM 만큼 오염에 다침)
+L1_FILL_MIN = 0.5  # "살아난다" = clean 과의 차이를 절반 이상 메움 (H12a, E3 의 H3 과 같은 기준)
+L1_COLLAPSED = ["cover", "cardio", "PageBlocks"]  # 오염으로 무너지는 셋 (보조 지표: 오염 그대로의 IForest 를 넘는 가장 작은 la)
+# L2 (결정 29): la 10% 가 판정용 (H13), la 1% 는 민감도. S3 대회의 la 열 = 고정 seed 순열의 앞 ceil(la × A 이상 수) 개
+L2_LA = [10, 1]
+L2_MAIN = 10
+S3_LA = [1, 10, 100]
+# L3 (결정 30): tabpfn_unsup 이 점수 +inf 로 실패했던 S3 대회 (fault 의 train = local · cluster)
+L3_COMPS = [("local", "fault"), ("cluster", "fault")]
 
 
 # --- la 라벨 (ADBench generator 의 at_least_one_labeled=True 와 같은 고르기) -------------------------------------
@@ -61,27 +79,56 @@ def adbench_la_labels(dataset: str, seed: int, levels: list[int]) -> pd.DataFram
     return out
 
 
+def s3_la_labels(comp: Competition, levels: list[int]) -> pd.DataFrame:
+    """S3 대회의 la 라벨. S3 에는 ADBench 분할이 없어 "분할 바로 뒤의 전역 상태" 가 없음 → 대회마다 고정 seed 의 순열 하나에서 앞
+    ceil(la × A 이상 수) 개 (개수 규칙은 ADBench 와 같고, 작은 la 의 집합이 큰 la 에 포함됨). la100 = train 의 A 이상 모두."""
+    ad = comp.anomaly
+    full = pd.read_csv(TRAIN_LABELS / f"{comp.name}.csv")
+    idx = np.flatnonzero(full[LABEL_COL].to_numpy() == 1)
+    num = int(DATASETS[ad["dataset"]].split("_", 1)[0])
+    perm = np.random.default_rng([num, int(ad["seed"]), 60 + S3_TYPES.index(ad["condition"]["train"])]).permutation(idx)
+    out = pd.DataFrame({ID_COL: full[ID_COL]})
+    for k in levels:
+        lab = np.zeros(len(full), dtype=int)
+        lab[perm[: math.ceil(k / 100 * len(idx))]] = 1
+        out[f"la{k}"] = lab
+    return out
+
+
 def write_la_labels(comp: Competition):
-    """<대회>.la.csv. 공식 대회는 ADBench 와 같은 고르기 (adbench_la_labels), S3 대회는 la100 (train 의 A 이상 모두) 만."""
+    """<대회>.la.csv (id + la<k> 열). 공식 대회는 ADBench 와 같은 고르기 (adbench_la_labels) 로 분류기 격자 + 빼기 변형의 la (75),
+    S3 대회는 s3_la_labels (la 1 · 10 · 100). 이미 있는 파일의 열 (앞선 실험이 쓴 라벨) 은 값이 그대로여야 함 → 다르면 멈춤."""
+    import os
+
     from fab.bench.anomaly import ensure_prepared
-    from fab.bench.anomaly.methods import LA_LEVELS
+    from fab.bench.anomaly.methods import DROP_LEVELS, LA_LEVELS
 
     ensure_prepared(comp)
     ad = comp.anomaly
     cond = ad.get("condition") or {}
+    full = pd.read_csv(TRAIN_LABELS / f"{comp.name}.csv").set_index(ID_COL)[LABEL_COL]
     if not cond:
-        t = adbench_la_labels(ad["dataset"], int(ad["seed"]), LA_LEVELS)
-        # 공식 대회의 train 라벨 (prepare 가 쓴 것) 과 id · 이상이 맞는지
-        full = pd.read_csv(TRAIN_LABELS / f"{comp.name}.csv").set_index(ID_COL)[LABEL_COL]
-        if (full.loc[t[ID_COL]].to_numpy() < t["la100"].to_numpy()).any() or t["la100"].sum() != full.sum():
-            raise SystemExit(f"{comp.name}: la 라벨이 train 라벨과 안 맞음")
+        t = adbench_la_labels(ad["dataset"], int(ad["seed"]), sorted({*LA_LEVELS, *DROP_LEVELS}))
     elif cond.get("exp") == "s3":
-        full = pd.read_csv(TRAIN_LABELS / f"{comp.name}.csv")
-        t = pd.DataFrame({ID_COL: full[ID_COL], "la100": full[LABEL_COL].astype(int)})
+        t = s3_la_labels(comp, S3_LA)
     else:
         raise SystemExit(f"{comp.name}: la 라벨은 공식 대회 · S3 대회만")
-    t.to_csv(TRAIN_LABELS / f"{comp.name}.la.csv", index=False)
+    # train 라벨 (prepare 가 쓴 것) 과 id · 이상이 맞는지: 라벨 준 행은 모두 이상이고 la100 은 이상 전부
+    if (full.loc[t[ID_COL]].to_numpy() < t["la100"].to_numpy()).any() or t["la100"].sum() != full.sum():
+        raise SystemExit(f"{comp.name}: la 라벨이 train 라벨과 안 맞음")
+    dst = TRAIN_LABELS / f"{comp.name}.la.csv"
     counts = {c: int(t[c].sum()) for c in t.columns if c != ID_COL}
+    if dst.exists():
+        old = pd.read_csv(dst)
+        gone = [c for c in old.columns if c not in t.columns]
+        if gone or not old[ID_COL].equals(t[ID_COL]) or any((old[c] != t[c]).any() for c in old.columns):
+            raise SystemExit(f"{comp.name}: 이미 있는 la 라벨 ({dst.name}) 과 다름 (없어진 열 {gone}) → 앞선 결과가 쓴 라벨이라 덮어쓰지 않음")
+        if list(old.columns) == list(t.columns):
+            print(f"{comp.name}: 라벨 준 이상 {counts} (그대로)")
+            return
+    tmp = dst.with_name(dst.name + ".tmp")  # 다른 worktree 가 읽는 중일 수 있어 한 번에 바꿈
+    t.to_csv(tmp, index=False)
+    os.replace(tmp, dst)
     print(f"{comp.name}: 라벨 준 이상 {counts}")
 
 
@@ -206,18 +253,30 @@ def plan(exp: str, datasets: list[str] | None) -> tuple[list[Competition], list[
         from fab.bench.anomaly.conditions import E2_DATASETS
 
         return e2_comps(datasets or E2_DATASETS), ["fomo0d"], "ads-f2"
-    raise SystemExit(f"실험은 s12 · s3 · f0 · f1 · f2: {exp}")
+    if exp == "l1":  # 라벨 준 이상을 context 에서 뺌: TFM 둘 + 같은 빼기를 한 기존 방법 (대조)
+        comps = official([L1_SPLIT])
+        if datasets:
+            comps = [c for c in comps if c.anomaly["dataset"] in datasets]
+        methods = [f"{L1_TFM[0]}+dropla{k}" for k in L1_LA] + [f"{L1_TFM[1]}+dropla{k}" for k in L1_KUMO_LA] + \
+            [f"{m}+dropla{k}" for m in L1_CONTROL for k in L1_LA]
+        return comps, methods, "ads-l1"
+    if exp == "l2":  # 처음 보는 종류 + 라벨 조금: S3 대회의 분류기만 (비지도 쪽은 la 와 상관없이 이미 있는 행)
+        return s3_comps(datasets), [f"{c}+la{k}" for k in L2_LA for c in CLFS], "ads-l2"
+    if exp == "l3":
+        comps = [c for c in s3_comps(datasets) if (c.anomaly["condition"]["train"], c.anomaly["dataset"]) in L3_COMPS]
+        return comps, ["tabpfn_unsup"], "ads-l3"
+    raise SystemExit(f"실험은 s12 · s3 · f0 · f1 · f2 · l1 · l2 · l3: {exp}")
 
 
 def prepare(exp: str, datasets: list[str] | None):
     from fab.bench.anomaly import ensure_prepared
 
     comps, methods, _ = plan(exp, datasets)
-    from fab.bench.anomaly.methods import is_supervised
+    from fab.bench.anomaly.methods import uses_la
 
     for c in comps:
         ensure_prepared(c)
-        if any(is_supervised(m) for m in methods):
+        if any(uses_la(m) for m in methods):
             write_la_labels(c)
     print(f"{exp}: 대회 {len(comps)}개 준비")
 
@@ -225,7 +284,7 @@ def prepare(exp: str, datasets: list[str] | None):
 def submit(exp: str, datasets: list[str] | None, timeout: int, accelerator: str | None, yes: bool, note: str,
            only: str | None, keep: list[str] | None):
     from fab.bench.anomaly import ANSWERS, submit_comps
-    from fab.bench.anomaly.methods import is_gpu, is_supervised
+    from fab.bench.anomaly.methods import drop_spec, is_gpu, la_spec, uses_la
 
     comps, methods, label = plan(exp, datasets)
     if only:
@@ -242,12 +301,17 @@ def submit(exp: str, datasets: list[str] | None, timeout: int, accelerator: str 
     print(f"{exp}: 대회 {len(comps)}개 (예: {', '.join(c.name for c in comps[:3])} …)\n"
           f"  GPU 작업 방법 {len(gpu)}개: {' '.join(gpu) or '-'}\n  CPU 작업 방법 {len(cpu)}개: {' '.join(cpu) or '-'}")
     need = [ANSWERS / f"{c.name}.csv" for c in comps] + [TRAIN_LABELS / f"{c.name}.csv" for c in comps]
-    if any(is_supervised(m) for m in methods):
+    la_cols = sorted({f"la{la_spec(m) if drop_spec(m) is None else drop_spec(m)}" for m in methods if uses_la(m)})
+    if la_cols:
         need += [TRAIN_LABELS / f"{c.name}.la.csv" for c in comps]
     if exp not in ("f1", "f2"):  # F1 · F2 는 조건 실험 (2026-11-25) 때 내 Volume 에 올린 data/<대회>/ 를 그대로 씀 (upload_data 는 없는
         need += [c.data_dir / "train.csv" for c in comps]  # 폴더만 올림) → TabPFN · Kumo 와 같은 행. 정답 · train 라벨만 로컬에 있으면 됨
     if missing := [p for p in need if not p.exists()]:
         raise SystemExit(f"준비 안 된 파일 {len(missing)}개 (예: {missing[:2]}) → fab ad sup prepare {exp}")
+    # la 파일에 이 계획이 읽을 열이 있는지 (옛 파일: 공식 대회에 la75, S3 대회에 la1 · la10 이 없음)
+    if old := [c.name for c in comps if la_cols
+               and set(la_cols) - set(pd.read_csv(TRAIN_LABELS / f"{c.name}.la.csv", nrows=0).columns)]:
+        raise SystemExit(f"la 파일에 {la_cols} 열이 없는 대회 {len(old)}개 (예: {old[:2]}) → fab ad sup prepare {exp}")
     if not yes:
         print("계획만 (제출은 --yes)")
         return
@@ -347,8 +411,9 @@ def report(rounds: int):
                   + cmp.assign(ok=cmp["diff"].abs() <= 0.01).groupby(["clf", "la"]).agg(
                       ok=("ok", "sum"), n=("ok", "size"), med=("diff", "median")).round(3).to_string())
 
-    # S3: train 종류 A × test 종류 B (10개 평균)
-    s3 = sup[sup.exp == "s3"]
+    # S3: train 종류 A × test 종류 B (10개 평균). 여기 표 · 풀은 la 100% 분류기 + 비지도 그대로 (la 10% · 1% 는 아래 l2_report 의 표 ·
+    # 풀로 따로 → s3:A>B 풀의 참가자가 안 바뀜)
+    s3 = sup[(sup.exp == "s3") & sup.model.map(lambda m: la_spec(m) in (None, 100))]
     if len(s3):
         for m, g in s3.groupby("model"):
             w = g.pivot_table(index="train_type", columns="test_type", values="score", aggfunc="mean")
@@ -365,6 +430,8 @@ def report(rounds: int):
                     pools.append(pool_elo(long.rename(columns={"model": "method"}), "iforest", f"s3:{a}>{b}", rounds))
 
     pools += fomo_report(rounds)
+    pools += l1_report(sup, rounds)  # 새 풀은 뒤에 (앞 풀들의 행이 파일에서 그대로)
+    pools += l2_report(sup, rounds)
     pools = [p for p in pools if p is not None]
     if pools:
         res = pd.concat(pools, ignore_index=True)
@@ -434,12 +501,154 @@ def fomo_report(rounds: int) -> list:
     return out
 
 
+def l1_table(sup: pd.DataFrame) -> pd.DataFrame:
+    """L1: (데이터셋, 방법, la) 마다 빼기 변형의 AUROC 와 같은 split 의 오염 그대로 · clean, 메운 몫 = (빼기 − 오염) / (clean − 오염)
+    (E3 과 같은 정의). 오염 · clean 은 이미 있는 채점 (공식 표, kumo_unsup 은 조건 표)."""
+    from fab.bench.anomaly.conditions import read_conditions
+    from fab.bench.anomaly.methods import CLEAN, drop_spec
+    from fab.bench.anomaly.methods import base as base_of
+
+    d = sup[(sup.exp == "base") & (sup.split == L1_SPLIT) & sup.model.map(lambda m: drop_spec(m) is not None)].copy()
+    if d.empty:
+        return d
+    cond = read_conditions()
+    both = pd.concat([latest_grades(pd.read_csv(GRADES)), cond[cond.exp == "base"]], ignore_index=True)
+    ref = both[both.split == L1_SPLIT].pivot_table(index="dataset", columns="model", values="score")
+    d["method"] = d.model.map(base_of)
+    d["la"] = d.model.map(drop_spec)
+    d["n_dropped"] = d.opts.str.extract(r"n_dropped=(\d+)")[0].astype(float)
+    d["cont"] = [ref.at[ds, m] for ds, m in zip(d.dataset, d.method)]
+    d["clean"] = [ref.at[ds, m + CLEAN] for ds, m in zip(d.dataset, d.method)]
+    d["fill"] = (d.score - d.cont) / (d.clean - d.cont)
+    return d
+
+
+def l1_report(sup: pd.DataFrame, rounds: int) -> list:
+    """L1 표 · 풀. 풀 l1:la<k> (s1 의 12개, IForest = 1000): 그 la 의 빼기 변형 + 같은 la 의 분류기 4개 + 비지도 참고."""
+    from fab.bench.anomaly.conditions import pool_elo
+    from fab.bench.anomaly.methods import ANCHOR, la_spec
+    from fab.bench.anomaly.methods import base as base_of
+
+    d = l1_table(sup)
+    if d.empty:
+        return []
+    out = []
+    for m, g in d.groupby("method", sort=False):
+        w = g.pivot(index="dataset", columns="la", values="score")
+        w.insert(0, "오염", g.groupby("dataset").cont.first())
+        w["clean"] = g.groupby("dataset").clean.first()
+        f = g.pivot(index="dataset", columns="la", values="fill")
+        print(f"\n== L1 {m}+dropla<k>: AUROC ({L1_SPLIT}. 오염 = 그대로, 열 = la %, clean = 정상만)\n{w.round(3).to_string()}"
+              f"\n12개 평균\n{w.mean().round(3).to_frame().T.to_string(index=False)}")
+        print(f"\n== L1 {m}+dropla<k>: 메운 몫 (빼기 − 오염) / (clean − 오염)\n{f.round(2).to_string()}"
+              f"\n중앙값\n{f.median().round(2).to_frame().T.to_string(index=False)}")
+    med = d.pivot_table(index="la", columns="method", values="fill", aggfunc="median")
+    gain = d.assign(gain=d.score - d.cont).pivot_table(index="la", columns="method", values="gain", aggfunc="mean")
+    print("\n== L1: 메운 몫의 12개 중앙값 (방법 × la)\n" + med.round(2).to_string()
+          + "\n== L1: 오염 그대로 대비 12개 평균 AUROC 차 (빼기 − 오염)\n" + gain.round(3).to_string())
+    for m in [m for m in L1_TFM if m in med]:
+        ok = med[m][med[m] >= L1_FILL_MIN]
+        print(f"H12a {m}: 메운 몫 중앙값이 {L1_FILL_MIN} 이상인 가장 작은 la = {ok.index.min() if len(ok) else '없음 (격자 안)'}")
+    # 보조: 무너지는 셋에서 오염 그대로의 IForest 를 넘는 가장 작은 la (clean 으로도 못 넘으면 '없음')
+    ifo = latest_grades(pd.read_csv(GRADES))
+    ifo = ifo[(ifo.model == ANCHOR) & (ifo.split == L1_SPLIT)].set_index("dataset").score
+    rows = []
+    for (ds, m), g in d[d.dataset.isin(L1_COLLAPSED) & d.method.isin(L1_TFM)].groupby(["dataset", "method"]):
+        over = g[g.score >= ifo[ds]].la
+        rows.append(dict(dataset=ds, method=m, iforest=ifo[ds], clean=g.clean.iloc[0],
+                         first_la=over.min() if len(over) else np.nan))
+    if rows:
+        print("\n== L1: 무너지는 셋에서 오염 그대로의 IForest 를 넘는 가장 작은 la (%)\n" + pd.DataFrame(rows).round(3).to_string(index=False))
+    # 같은 la 의 분류기 (S2, 같은 라벨) 와: 빼기 변형이 더 높은 데이터셋 수 · 12개 평균
+    clf = sup[(sup.exp == "base") & (sup.split == L1_SPLIT) & sup.model.str.contains(r"_clf\+la", regex=True)].copy()
+    clf["clf"] = clf.model.map(base_of)
+    clf["la"] = clf.model.map(la_spec)
+    rows = []
+    for (m, k), g in d[d.method.isin(L1_TFM)].groupby(["method", "la"]):
+        s = g.set_index("dataset").score
+        r = dict(method=m, la=k, dropla=s.mean())
+        for c, h in clf[clf.la == k].groupby("clf"):
+            t = h.set_index("dataset").score.reindex(s.index)
+            r[c], r[f"{c}_wins"] = t.mean(), f"{int((s > t).sum())}/{int(t.notna().sum())}"
+        rows.append(r)
+    print("\n== L1: 같은 la 의 분류기와 (12개 평균 AUROC, <분류기>_wins = 빼기 변형이 그 분류기보다 높은 데이터셋 수)\n"
+          + pd.DataFrame(rows).round(3).to_string(index=False))
+    ref = unsup_reference()
+    ref = ref[(ref.split == L1_SPLIT) & ref.model.isin([*UNSUP_REF, "lof"])][["model", "dataset", "split", "metric_error"]]
+    for k in sorted(d.la.unique()):
+        long = pd.concat([d[d.la == k][["model", "dataset", "split", "metric_error"]],
+                          clf[clf.la == k][["model", "dataset", "split", "metric_error"]], ref], ignore_index=True)
+        out.append(pool_elo(long.rename(columns={"model": "method"}), ANCHOR, f"l1:la{k}", rounds))
+    return out
+
+
+def s3_summary(s3: pd.DataFrame) -> pd.DataFrame:
+    """방법마다 칸 (train 종류 × test 종류, 데이터셋 평균) 의 대각선 · 대각선 밖 평균 (최저 칸) — 문서의 S3 요약 표와 같은 계산."""
+    rows = []
+    for m, g in s3.groupby("model", sort=False):
+        w = g.pivot_table(index="train_type", columns="test_type", values="score", aggfunc="mean").reindex(
+            index=S3_TYPES, columns=S3_TYPES).to_numpy()
+        n = len(S3_TYPES)
+        diag = np.diag(w)
+        off = w[~np.eye(n, dtype=bool)]
+        off_ng = np.array([w[i, j] for i in range(n) for j in range(n) if i != j and S3_TYPES[j] != "global"])
+        rows.append(dict(model=m, diag=np.nanmean(diag), diag_min=np.nanmin(diag), off=np.nanmean(off),
+                         off_min=np.nanmin(off), off_no_global=np.nanmean(off_ng), units=len(g)))
+    return pd.DataFrame(rows)
+
+
+def l2_report(sup: pd.DataFrame, rounds: int) -> list:
+    """L2 (S3 대회의 분류기를 la 10% · 1% 로) · L3 (채워진 tabpfn_unsup 의 fault 두 대회) 표와 풀 s3la<주>:A>B (칸마다, IForest = 1000:
+    la 10% 분류기 + S3 의 비지도)."""
+    from fab.bench.anomaly.conditions import pool_elo
+    from fab.bench.anomaly.methods import la_spec
+    from fab.bench.anomaly.methods import base as base_of
+
+    s3 = sup[sup.exp == "s3"].copy()
+    s3["la"] = s3.model.map(la_spec)
+    out = []
+    l3 = s3[(s3.model == "tabpfn_unsup") & np.array([(a, ds) in L3_COMPS for a, ds in zip(s3.train_type, s3.dataset)], bool)]
+    if len(l3):
+        print("\n== L3: tabpfn_unsup 의 fault 두 대회 (posinf = +inf 를 맨 위 유한 점수로 바꾼 행 수)\n"
+              + l3.assign(posinf=l3.opts.str.extract(r"posinf=(\d+)")[0]).pivot_table(
+                  index=["comp", "posinf"], columns="test_type", values="score").round(4).to_string())
+    low = s3[s3.la.notna() & (s3.la != 100)]
+    if low.empty:
+        return out
+    print("\n== L2: S3 요약 (칸 = 데이터셋 평균. diag = 본 종류, off = 처음 보는 종류, off_no_global = test 가 global 인 칸을 뺌)\n"
+          + s3_summary(s3).sort_values("model").round(3).to_string(index=False))
+    for k in sorted(low.la.unique(), reverse=True):
+        cell = s3[s3.la.isna() | (s3.la == k)].pivot_table(index=["train_type", "test_type"], columns="model", values="score",
+                                                           aggfunc="mean")
+        print(f"\n== L2 la {int(k)}%: 칸마다 방법 (데이터셋 평균)\n" + cell.round(3).to_string())
+        # 데이터셋 × 칸 단위로 비지도 TFM 이 그 분류기보다 높은 수 (S3 결과의 '152개 중 99개' 와 같은 셈)
+        u = s3[s3.la.isna()].pivot_table(index=["dataset", "train_type", "test_type"], columns="model", values="score")
+        c = s3[s3.la == k].assign(clf=lambda t: t.model.map(base_of)).pivot_table(
+            index=["dataset", "train_type", "test_type"], columns="clf", values="score")
+        both = u.join(c, how="inner")
+        diag = both.index.get_level_values("train_type") == both.index.get_level_values("test_type")
+        rows = [dict(unsup=um, clf=cm, n=int(both[[um, cm]].notna().all(axis=1).sum()),
+                     unsup_higher=int((both[um] > both[cm]).sum()),
+                     diag_unsup_higher=int((both[um] > both[cm])[diag].sum()),
+                     off_unsup_higher=int((both[um] > both[cm])[~diag].sum()))
+                for um in ("tabpfn_unsup", "kumo_unsup") if um in both for cm in CLFS if cm in both]
+        print(f"\n== L2 la {int(k)}%: 데이터셋 × 칸 중 비지도 TFM 이 분류기보다 높은 수 (diag {int(diag.sum())} · off {int((~diag).sum())})\n"
+              + pd.DataFrame(rows).to_string(index=False))
+    for a in S3_TYPES:
+        for b in S3_TYPES:
+            g = s3[(s3.train_type == a) & (s3.test_type == b) & (s3.la.isna() | (s3.la == L2_MAIN))]
+            if (g.la == L2_MAIN).any():
+                long = g.assign(split="s1")[["model", "dataset", "split", "metric_error"]]
+                out.append(pool_elo(long.rename(columns={"model": "method"}), "iforest", f"s3la{L2_MAIN}:{a}>{b}", rounds))
+    return out
+
+
 def main(argv: list[str]):
     import argparse
 
     ap = argparse.ArgumentParser(prog="fab ad sup", description="라벨이 있는 이상탐지 · FoMo-0D (docs/anomaly.md)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    exps = ["s12", "s3", "f0", "f1", "f2"]
+    exps = ["s12", "s3", "f0", "f1", "f2", "l1", "l2", "l3"]
     for cmd in ("prepare", "submit"):
         p = sub.add_parser(cmd, help="대회 · la 라벨 준비 (로컬)" if cmd == "prepare" else "계획 보기 · --yes 로 제출 + 채점 요청")
         p.add_argument("exp", choices=exps)

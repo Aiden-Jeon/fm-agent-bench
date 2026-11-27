@@ -8,6 +8,8 @@ train 점수 상위 k% 를 context 에서 빼고 (n 번 반복) 남은 train 으
 `<모델>_clf+la<k>` = 라벨을 쓰는 분류기 (docs/anomaly.md "라벨이 있는 이상탐지"): train 이상 중 k% 에만 라벨 (ADBench la, 나머지는
 정상 0 = PU) → fit(X_train, y) → P(이상). 채점 행은 results/anomaly_supervised.csv (`is_supervised`).
 `fomo0d` = FoMo-0D (이상탐지 전용 PFN, 공개 체크포인트 그대로). 비지도 → 공식 풀 (2026-11-26 사용자, 결정 19).
+`<비지도 방법>+dropla<k>` = 라벨 준 이상을 context 에서 뺌 (docs/anomaly.md "라벨이 조금 있을 때 (2)" L1): 분류기와 같은 la<k> 라벨이
+1 인 train 행을 빼고 남은 행 (정상 + 라벨 없는 이상) 으로 fit. k = 100 이면 +clean 과 같은 context. 채점 행은 anomaly_supervised.csv.
 
 무거운 import (pyod · torch · tabpfn) 는 함수 안 (로컬 제출 명령이 이 파일을 읽어도 설치가 필요 없게).
 """
@@ -59,6 +61,12 @@ LA = re.compile(r"\+la(\d+)$")
 LA_LEVELS = [1, 5, 10, 25, 50, 100]  # % (ADBench rla_list 중 0.75 를 뺀 것, 작업 지시)
 SUP_ANCHOR = "lgbm_clf"  # 지도 풀 기준점 = 1000 (la 마다, 결정 16)
 TRIM = re.compile(r"\+(if)?trim(\d+)(?:x(\d+))?$")  # +trim10 · +trim10x2 · +iftrim10
+DROP = re.compile(r"\+dropla(\d+)$")  # +dropla10: la 10% 라벨이 1 인 행을 context 에서 뺌 (결정 28)
+# 빼기 변형의 la (%): 분류기 격자 + 75 (E2 로 보면 clean 과의 차이를 절반 넘게 메우는 곳이 50 ~ 100% 사이, 결정 26). 100 = +clean 과
+# 같은 context (로컬 확인용, 원격에는 안 냄)
+DROP_LEVELS = [1, 5, 10, 25, 50, 75, 100]
+# TabPFN 비지도 점수의 +inf (모든 순열에서 밀도 0) 를 유한한 값으로 바꾼 행 수. scores() 가 부를 때마다 씀 (run.py 가 opts 에 남김)
+POSINF: dict[str, int] = {}
 PYOD_PIP = [["pyod==3.6.8"]]  # 로컬 재현 확인 (docs/anomaly.md 2) 과 같은 버전
 FM_PIP = [["tabpfn==9.2.0"], ["tabpfn-extensions==0.6.3"]]  # tabpfn 은 FM 실행 이미지 (docker/air) 와 같은 버전
 KUMO_PIP = [["structured-data-models==0.2.1"]]  # docker/air requirements 와 같은 버전 (이미지에 있으면 실행기가 건너뜀)
@@ -67,7 +75,7 @@ MAX_UNIQUE_CAT, MIN_ROWS_PER_CAT, MAX_CLASSES = 40, 10, 10
 
 
 def base(name: str) -> str:
-    return LA.sub("", TRIM.sub("", name.removesuffix(CLEAN)))
+    return LA.sub("", DROP.sub("", TRIM.sub("", name.removesuffix(CLEAN))))
 
 
 def la_spec(name: str) -> int | None:
@@ -78,6 +86,16 @@ def la_spec(name: str) -> int | None:
 def is_supervised(name: str) -> bool:
     """라벨을 쓰는 분류기 (+la<k>). 채점 행은 results/anomaly_supervised.csv."""
     return base(name) in CLF and la_spec(name) is not None
+
+
+def drop_spec(name: str) -> int | None:
+    """+dropla<k> → k (%). 빼기 변형이 아니면 None."""
+    return int(m[1]) if (m := DROP.search(name)) else None
+
+
+def uses_la(name: str) -> bool:
+    """la 라벨 파일 (<대회>.la.csv) 을 읽는 방법: 분류기 (라벨로 학습) 와 빼기 변형 (라벨 준 행을 context 에서 뺌)."""
+    return is_supervised(name) or drop_spec(name) is not None
 
 
 def is_fomo(name: str) -> bool:
@@ -96,11 +114,14 @@ def trim_spec(name: str) -> tuple[str, int, int] | None:
 
 
 def is_variant(name: str) -> bool:
-    """공식 풀 밖 (조건 실험): 순열을 바꾼 FM 이나 정리 변형. +clean 은 공식 대회에서 진단으로 이미 쓰는 것이라 변형이 아님."""
-    return base(name) not in OFFICIAL or trim_spec(name) is not None
+    """공식 풀 밖 (조건 실험): 순열을 바꾼 FM 이나 정리 · 빼기 변형. +clean 은 공식 대회에서 진단으로 이미 쓰는 것이라 변형이 아님."""
+    return base(name) not in OFFICIAL or trim_spec(name) is not None or drop_spec(name) is not None
 
 
 def is_known(name: str) -> bool:
+    if "+dropla" in name:  # 빼기 변형: 비지도 방법에 접미사 하나만 (+clean · +trim · 분류기와 겹쳐 쓰지 않음)
+        b = base(name)
+        return (b in PYOD or b in FM) and drop_spec(name) in DROP_LEVELS and name == f"{b}+dropla{drop_spec(name)}"
     if base(name) in CLF:
         return la_spec(name) in LA_LEVELS and not is_clean(name) and trim_spec(name) is None
     return la_spec(name) is None and (base(name) in PYOD or base(name) in FM)
@@ -139,6 +160,8 @@ def opts(name: str) -> str:
     s = " ".join(f"{k}={v}" for k, v in sorted(FM[b].items())) if b in FM else "default"
     if t := trim_spec(name):
         return f"{s} context=trim by={t[0]} k={t[1]} rounds={t[2]}"
+    if (k := drop_spec(name)) is not None:
+        return f"{s} context=dropla la={k / 100:g}"
     return f"{s} context=clean" if is_clean(name) else s
 
 
@@ -409,12 +432,28 @@ def clf_scores(name: str, X_train: np.ndarray, y: np.ndarray, X_test: np.ndarray
     return np.asarray(clf.predict_proba(X_test), dtype=float)[:, 1]
 
 
+def top_posinf(s: np.ndarray) -> tuple[np.ndarray, int]:
+    """점수의 +inf (TabPFN 비지도: 10개 순열 모두에서 밀도가 0 = 원문 outliers() 의 −inf, 가장 이상) 만 "가장 큰 유한 점수 + 1" 로
+    → (점수, 바꾼 행 수). 순위는 원문과 같음 (맨 위, 서로 동점). **+inf 가 없으면 받은 배열 그대로** → 이미 유한했던 결과는 안 바뀜.
+    −inf · NaN 은 건드리지 않음 (scores 의 검사에서 실패). 유한한 점수가 하나도 없으면 그대로 두어 실패.
+    원인 (2026-11-27 로컬 확인, docs/anomaly.md "L3 의 원인"): 거의 결정적인 열 쌍 (S3 fault 의 2 · 3번 열 상관 0.999999) 에서 TabPFN
+    회귀의 조건부 분포가 좁아져 봉우리 밖 칸의 확률이 정확히 0 → 관계가 깨진 test 행이 그 칸에 떨어지면 그 열의 log 밀도 −inf."""
+    pos = np.isposinf(s)
+    if not pos.any() or not np.isfinite(s).any():
+        return s, 0
+    out = s.copy()
+    out[pos] = s[np.isfinite(s)].max() + 1.0
+    return out, int(pos.sum())
+
+
 def scores(name: str, X_train: np.ndarray, X_test: np.ndarray, seed: int) -> np.ndarray:
     if is_fomo(name):
         fn = fomo_scores
     else:
         fn = (kumo_scores if is_kumo(name) else tabpfn_scores) if is_gpu(name) else pyod_scores
     s = fn(name, X_train, X_test, seed)
+    if fn is tabpfn_scores:  # 결정 30: 기본 동작 (Kumo 래퍼 · pyod · FoMo-0D 는 +inf 를 내지 않음)
+        s, POSINF[name] = top_posinf(s)
     if s.shape != (len(X_test),) or not np.isfinite(s).all():
         raise ValueError(f"{name}: 점수 모양 {s.shape} 또는 NaN/inf {int((~np.isfinite(s)).sum())}개")
     return s

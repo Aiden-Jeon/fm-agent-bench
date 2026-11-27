@@ -27,6 +27,7 @@
 - [TFM 이 이득을 보는 조건 (2026-11-25 설계, 사용자 확인)](#tfm-이-이득을-보는-조건-2026-11-25-설계-사용자-확인)
 - [라벨이 있는 이상탐지 (지도 · 반지도) 와 FoMo-0D 기준점 (2026-11-26 설계, 사용자 확인)](#라벨이-있는-이상탐지-지도--반지도-와-fomo-0d-기준점-2026-11-26-설계-사용자-확인)
 - [TFM 을 쓰는 법 (1): 점수 섞기 · 진단으로 고르기 (2026-11-27 설계, 사용자 확인)](#tfm-을-쓰는-법-1-점수-섞기--진단으로-고르기-2026-11-27-설계-사용자-확인)
+- [라벨이 조금 있을 때 (2): 라벨 준 이상을 context 에서 빼기 · 처음 보는 종류 + 라벨 조금 · 밀도 0 처리 (2026-11-27 설계, 사용자 확인)](#라벨이-조금-있을-때-2-라벨-준-이상을-context-에서-빼기--처음-보는-종류--라벨-조금--밀도-0-처리-2026-11-27-설계-사용자-확인)
 - [실행 기록](#실행-기록)
 - [결정 (2026-11-25)](#결정-2026-11-25)
 - [확인 못 한 것](#확인-못-한-것)
@@ -953,6 +954,7 @@ F2 (E2 94칸, r = 0 대비 떨어진 AUROC, 칸 88개)
 - Kumo 분류기가 처음 보는 종류에 강한 까닭, TabPFN 분류기가 라벨 1개에서 흔들리는 까닭 (Waveform 0.463) — 안 가름
 - ADBench 의 반지도 전용 방법 (DeepSAD · DevNet · XGBOD 등) 은 안 돌림 (공개값은 `results/anomaly_reference_supervised.csv` 에 있음)
 - FoMo-0D 의 원문 설정 (정규화에 test 행 포함) 은 안 돌림 (결정 17)
+- (2026-11-27) 위 첫째 (S3 fault 두 칸) · 둘째의 la 10% · 셋째의 "라벨 준 이상을 context 에서 빼는 변형" 은 아래 "라벨이 조금 있을 때 (2)" 의 L3 · L2 · L1 로 함
 
 ## TFM 을 쓰는 법 (1): 점수 섞기 · 진단으로 고르기 (2026-11-27 설계, 사용자 확인)
 
@@ -1332,6 +1334,140 @@ S3 (train 종류 A → test 종류 B, la 100%, 데이터셋 평균을 칸마다 
 - M2 의 S3 는 la 100% · seed 1, test 배치에 이상이 넉넉한 (train 의 4배) 설정. 처음 보는 종류 + 라벨 조금, 이상이 드문 배치는 안 함. `tabpfn_unsup` 의 fault 2칸은 빠짐 (38 대회)
 - 진단: 점수 둘의 관계만으로는 방향이 안 나옴 → 다른 종류의 라벨 없는 신호 (예: IForest 가 고른 행을 context 에서 뺐을 때 TFM 점수가 얼마나 바뀌는지 = E3 의 `+iftrim` 점수로 계산 가능, 작은 검증 라벨) 는 안 봄
 - 공식 12개는 "꼴찌 셋 · 이기는 넷" 을 이미 알고 본 데이터 → 섞기의 12개 평균 이득 (+0.010 ~ +0.033) 이 다른 데이터에서도 나오는지는 데이터셋을 늘려야 앎 (조건 5 의 2차와 같은 남은 것)
+
+## 라벨이 조금 있을 때 (2): 라벨 준 이상을 context 에서 빼기 · 처음 보는 종류 + 라벨 조금 · 밀도 0 처리 (2026-11-27 설계, 사용자 확인)
+
+질문 ("TFM 을 어떻게 하면 이상탐지에서 잘 쓸 수 있을까") 중 위 "남은 것" 에서 **새로 돌려야 답이 나오는 세 가지**. 위 "판단 기준에 더함: 라벨이 있을 때" 표에 줄을 더하는 것이 목표.
+
+- 모델은 TabPFN v2 가중치 · 지금 쓰는 Kumo · FoMo-0D 공개 체크포인트만 (3.5 안 씀, 학습 안 함, Agent 안 돌림). la 규약은 결정 14 그대로
+- **공식 풀 (`anomaly_elo.csv`) · 조건 풀 (`anomaly_conditions_elo.csv`) · 기존 결과표 행은 안 바꿈** (행을 더하기만). 끝에 `fab ad elo` · `fab ad cond report` 로 두 파일이 바이트 단위로 같은지 확인
+- 이미 있는 것은 다시 안 냄: L1 의 비교 대상 (오염 그대로 · `+clean` · 같은 la 의 분류기), L2 의 비지도 쪽 (S3 의 `tabpfn_unsup` · `kumo_unsup` · `fomo0d` · IForest · KNN · LOF)
+- 읽는 법: L1 ~ L3 = 실험, H12 ~ H14 = 가설, 결정 26 ~ 30. 같은 때 다른 worktree 의 작업 (M1 ~ M3 · H9 ~ H11 · 결정 21 ~ 25: 이미 있는 점수 섞기 · 라벨 없는 진단) 과 번호를 나눠 씀
+
+| 기호 | 질문 |
+|---|---|
+| L1 | 라벨 준 이상을 비지도 TFM 의 context 에서 빼면 (라벨로 하는 부분 정리) 라벨 몇 % 부터 살아나나. clean 과의 차이를 얼마나 메우나 (라벨 없는 정리 E3 은 5 ~ 7%). 같은 라벨을 분류기에 쓰는 것 (S2) 과 어느 쪽이 나은가 |
+| L2 | 처음 보는 종류 + 라벨 조금: S3 의 분류기를 la 10% 로 돌려도 la 100% 의 보완 (본 종류는 분류기, 처음 보는 종류는 비지도 TFM, Kumo 분류기는 둘 다) 이 그대로인가 |
+| L3 | `tabpfn_unsup` 이 S3 의 fault 두 대회에서 실패한 것을 실제로 쓸 수 있게 처리하고 두 칸을 채움 |
+
+### L3 의 원인 (로컬 확인, 2026-11-27)
+
+`adc-s3-local-fault-s1` · `adc-s3-cluster-fault-s1` 을 로컬 (옆 가상환경, MPS · float32, 같은 seed) 에서 `methods.tabpfn_scores` 그대로 다시 돌리면서 tabpfn-extensions 의 순열 · 열마다 log 밀도를 기록 (원문 계산은 그대로, 결과표 밖).
+위 "남은 것" 의 짐작 ("멀리 떨어진 행 — local 이상, MinMax 로 −0.6 ~ 2.0 — 의 밀도가 0") 은 **틀림**.
+
+| 본 것 | train = local | train = cluster |
+|---|---|---|
+| 유한하지 않은 값의 종류 (순열 10 × 열 27 × test 1,189행 = 321,030칸) | **−inf 489칸, +inf 0, NaN 0** | −inf 561칸, +inf 0, NaN 0 |
+| 어느 열 | 3번 235 · 2번 101 · 12번 94 · 11번 57 · 0번 1 · 1번 1 | 3번 183 · 12번 176 · 2번 102 · 11번 82 · 0번 17 · 1번 1 |
+| 그 칸의 값 (MinMax 단위, train 은 [0, 1]) | 0.23 ~ 0.89 (**범위 안**) | −0.02 ~ 0.99 |
+| 어떤 행 (test 이상의 종류) | 한 순열에서라도 밀도 0: 109행 = dependency 70 · global 39 (local · cluster · 정상은 0) | 122행 = dependency 82 · global 40 |
+| 최종 점수 | 순열마다 35 ~ 80행이 −inf 지만 순열 평균 (밀도의 산술 평균) 이라 하나라도 유한하면 유한. **10개 순열 모두에서 밀도 0 인 9행만 점수 +inf** (모두 dependency 이상) | 11행 +inf (모두 dependency 이상) |
+
+- **원인: 거의 결정적인 열 쌍.** fault 의 정상 행에서 2번 · 3번 열의 상관이 0.999999, 11번 · 12번이 −1.0000, 0번 · 1번이 0.989 (S3 의 정상은 GMM 표본이라 이 관계가 그대로 남음). 2번으로 3번을 선형 회귀한 잔차의 표준편차가 0.00016 (MinMax 단위).
+  앞 열에 짝이 있으면 TabPFN 회귀의 조건부 분포 (5,000칸 bar 분포) 가 그만큼 좁아지고, 봉우리에서 먼 칸은 확률이 **정확히 0** (예측 logits 의 0.8 ~ 1.1% 가 −inf).
+  열을 독립으로 뽑은 test 행 (dependency · global 이상, 잔차 0.006 ~ 0.46) 은 값 자체는 범위 안인데 그 0 인 칸에 떨어짐 → 그 열의 log 밀도 −inf
+- 확률이 정확히 0 이 되는 자리 (코드로 확인, tabpfn 9.2.0 `regressor.py`): 앙상블 멤버마다 softmax → 공통 칸으로 옮김 → 평균 → `log`. 모든 멤버에서 그 칸의 softmax 가 float 표현 아래로 내려가면 평균이 0, log 가 −inf.
+  tabpfn-extensions 는 이 값을 그대로 더함 (`outliers_single_permutation_`). 유한한 칸의 가장 낮은 log 밀도는 −79 근처 (train = local 의 여섯 열)
+- **왜 fault 의 local · cluster 두 대회만**: train 의 이상이 dependency · global 이면 context 안에 관계가 깨진 행이 있어 (train 전체의 2번 · 3번 상관 0.63 · 0.31) 조건부 분포가 넓어짐 → 유한 (그 두 대회는 원래 통과). train 의 이상이 local · cluster 면 이상도 관계를 지켜 (상관 1.00000) 분포가 좁은 채 → 0. 다른 9개 데이터에는 이만큼 결정적인 열 쌍이 없는 것으로 봄 (실패가 없었다는 것만 확인, 상관은 재 보지 않음)
+- 뜻: +inf 가 된 행은 "열 사이 관계가 깨진 행" 을 모형이 **가장 확신한** 경우 (모든 순열에서 밀도 0) 이고 실제로 모두 이상. 원문 `outliers()` 의 값 (−inf log 밀도 = 가장 이상) 은 뜻이 맞고, 실패는 우리 실행기가 유한하지 않은 점수를 거부해서 (`methods.scores`, 채점 `score_frame`)
+- 로컬에서 +inf 를 "가장 큰 유한 점수 + 1" 로 바꿔 채점해 본 값 (MPS, 결과표 밖): train = local → test local 0.928 · global 1.000 · dependency 1.000 · cluster 1.000, train = cluster → 0.970 · 1.000 · 1.000 · 0.580. 견줄 값 (같은 순서): 지금의 9개 평균 local 행 0.896 · 1.000 · 0.968 · 1.000, cluster 행 0.905 · 1.000 · 0.970 · 0.834. 같은 두 대회의 `kumo_unsup` 은 0.885 · 1.000 · 1.000 · 1.000, 0.932 · 1.000 · 1.000 · 0.545 → fault 는 Kumo 와 같은 모양
+- 확인 못 함: 원격 (H100 · CUDA, autocast) 에서 +inf 행이 몇 개인지 (AI Runtime 로그가 API 로 안 나옴. 장치 · 정밀도가 달라 로컬의 9 · 11행과 다를 수 있음 → 처리 뒤 `opts` 에 행 수를 남김), 확률이 0 이 되는 문턱이 softmax 의 underflow 인지 칸 옮기기에서 생기는지
+
+### 이미 있는 결과로 본 L1 의 윗부분 (E2 의 "흩어짐" 칸, 새로 돌린 것 없음)
+
+E2 의 흩어짐 배치 (context = train 정상 전부 + **무작위로 고른** train 이상 n 행) 는 "train 이상 중 무작위 (1 − n / 이상 수) 에 라벨을 주고 뺀 것" 과 같은 조작 → L1 의 la 가 큰 쪽은 6개 데이터 (s1) 에서 이미 봄.
+고른 행은 다름 (E2 는 자체 seed, L1 은 ADBench la 고르기). 메운 몫 = (그 칸 − 오염) / (clean − 오염), 뽑기 2개 평균.
+
+| 데이터셋 | la ≈ 50% (남긴 이상) | la ≈ 75 ~ 82% | la ≈ 87 ~ 91% | la ≈ 94 ~ 99% |
+|---|---|---|---|---|
+| cover (`tabpfn_unsup`) | 0.16 (35행, la 49%) | — | — | — |
+| cardio | 0.36 (61행) | 0.66 (24행, la 80%) | 0.82 (12행) | 0.87 (6행) |
+| PageBlocks | 0.37 (180행) | 0.71 (70행, la 80%) | 0.87 (35행) | 0.96 (17행) |
+| Wilt | 0.43 (65행, la 64%) | 0.65 (32행, la 82%) | 0.80 (16행) | — |
+| annthyroid | 0.34 (246행, la 34%) | 0.61 (95행, la 75%) | 0.84 (47행) | 0.86 (23행) |
+| magic.gamma | 0.36 (1,129행, la 55%) | 0.55 (502행, la 80%) | 0.72 (238행) | 0.89 ~ 0.95 |
+| 같은 칸의 `kumo_unsup` | 0.27 ~ 0.45 | 0.60 ~ 0.69 | 0.74 ~ 0.85 | 0.85 ~ 0.96 |
+
+- **이미 보이는 것**: 이상의 절반을 빼도 clean 과의 차이는 1/3 쯤만 메워지고 (cover 는 0.16), 절반을 넘기려면 75 ~ 80% 를 빼야 함. Kumo 도 같은 모양. 같은 칸의 IForest 는 오염 · clean 의 차 자체가 작음 (cardio 0.932 → 0.954, PageBlocks 0.894 → 0.924)
+- L1 이 새로 보는 것: **la 1 ~ 25% (라벨이 실제로 조금일 때)**, 나머지 6개 데이터 (fault · landsat · mammography · shuttle · Waveform · yeast), 분류기와 **같은 라벨** 로 한 직접 비교, 같은 빼기를 한 IForest · KNN · LOF
+
+### 실험 설계 (2026-11-27, 사용자 확인)
+
+공통: 지표 AUROC (주) · AUPRC (보조), 같은 test 행. 메운 몫은 E3 의 정의 그대로 ((변형 − 오염) / (clean − 오염), 12개 중앙값).
+
+| # | 무엇 | 데이터 · 격자 | 방법 | 가설 |
+|---|---|---|---|---|
+| L1 | 라벨 준 이상을 context 에서 뺌 | 공식 12개 × **s1** (E3 과 같은 단위) × la ∈ {1, 5, 10, 25, 50, **75**}% (75 는 S2 격자에 없던 값: 위 E2 로 보면 절반을 넘는 곳이 50% 와 100% 사이라 더함. la 100% = `+clean`, 이미 있음) | `tabpfn_unsup+dropla<k>` (6개 la), `kumo_unsup+dropla<k>` (la 10 · 50 · 75 만, 결정 27), 대조 `iforest+dropla<k>` · `knn+dropla<k>` · `lof+dropla<k>` (6개 la, CPU). 비교 (이미 있음, s1): 오염 그대로 · `+clean` · 같은 la 의 분류기 4개 | **H12a**: `tabpfn_unsup+dropla<k>` 의 메운 몫 (12개 중앙값) 이 0.5 를 넘는 가장 작은 la 는 75% (50% 에서는 0.5 미만, la ≤ 10% 는 0.1 미만 = 라벨 없는 정리 E3 의 0.07 수준). **H12b**: 같은 la 에서 `kumo_clf+la<k>` 가 `tabpfn_unsup+dropla<k>` 보다 12개 중 9개 이상에서 높음 (la 1 ~ 50% 모두). **H12c**: IForest 는 빼도 거의 그대로 (12개 평균 \|차\| ≤ 0.02, la ≤ 50%), KNN · LOF 는 TFM 처럼 la 가 커야 오름 |
+| L2 | 처음 보는 종류 + 라벨 조금 | S3 40 대회 (10개 × train 종류 4, seed 1) × la ∈ {**10** (주), 1 (민감도)}% | `tabpfn_clf` · `kumo_clf` · `lgbm_clf` · `catboost_clf` 의 `+la10` · `+la1`. 비지도 쪽은 이미 있는 S3 행 (라벨을 안 쓰므로 la 와 상관없이 같은 값) | **H13** (la 10% 에서도 그대로): (a) 대각선 평균은 분류기 넷 모두 `tabpfn_unsup` 보다 높음 (la 100%: 0.971 ~ 0.988 대 0.921), (b) 대각선 밖 평균은 GBDT · TabPFN 분류기가 `tabpfn_unsup` 보다 낮음 (0.808 ~ 0.920 대 0.970), (c) Kumo 분류기는 대각선 · 대각선 밖 모두 0.95 이상 (0.988 · 0.973). 다를 수 있는 곳을 미리 적음: la 가 작으면 라벨 없는 A 이상 90% 가 정상 0 으로 들어가 (PU) 대각선의 local · dependency 가 내려갈 수 있음 (ADBench 그림 6: 라벨을 쓰는 방법은 cluster 에서만 비지도 최고를 넘음) |
+| L3 | 밀도 0 (점수 +inf) 처리 | `adc-s3-local-fault-s1` · `adc-s3-cluster-fault-s1` | `tabpfn_unsup` (처리 방식은 결정 30) | **H14**: 처리 뒤 두 대회가 채점되고, +inf 였던 행은 모두 실제 이상이라 dependency 칸은 1.0 근처. `tabpfn_unsup` 의 train = local · cluster 행은 10개 평균이 지금의 9개 평균과 ±0.03 안 (로컬 값으로 어림: cluster → cluster 0.834 → 0.81, 나머지 ±0.01) → S3 의 결론 (cluster → cluster 에서만 비지도 TFM 이 무너짐) 이 안 바뀜 |
+
+- L1 의 주 지표는 미리 정함: **`tabpfn_unsup+dropla<k>` 의 메운 몫 12개 중앙값, "살아난다" = 0.5 이상**. 보조: 무너지는 셋 (cover · cardio · PageBlocks) 에서 오염 그대로의 IForest 를 넘는 가장 작은 la, 같은 la 의 분류기보다 높은 데이터셋 수
+- 미리 적어 둠 (작업 지시): E2 에서 cover 는 오염 0.5% (35행) 로도 무너짐 → la 가 작으면 효과가 작을 것. 답은 "효과가 있나" 가 아니라 "몇 % 부터"
+- L1 의 la 라벨은 S2 와 **같은 파일의 같은 열** (`<대회>.la.csv` 의 `la<k>`) → `tabpfn_unsup+dropla10` 이 빼는 행 = `tabpfn_clf+la10` 이 1 로 받는 행. la 75 는 같은 고르기 (ADBench 의 비복원 choice, 같은 상태) 로 열 하나를 더함 (la 50 ⊂ 75 ⊂ 100). la 75 의 분류기는 없음 (S2 격자 밖) → 그 칸의 분류기는 la 50 · 100 값 사이로 읽음
+- L2 의 la 라벨: S3 대회에는 ADBench 분할이 없어 "같은 전역 상태" 가 없음 → 대회마다 고정 seed 의 순열 하나에서 앞 `ceil(la × A 이상 수)` 개 (la 1 ⊂ 10 ⊂ 100, 개수 규칙은 ADBench 와 같음). la 10% 의 라벨 수: cover · Waveform 7, cardio 13, mammography 17, Wilt 18, yeast 36, annthyroid 38, shuttle 47, fault 48, magic.gamma 249 (la 1%: 1 ~ 25)
+- 로컬 확인에 쓸 성질 (작업 지시): `+dropla100` 의 context = `+clean` 의 context → 점수가 같아야 함 (이름은 받되 원격에는 안 냄)
+
+### 이름 · 표 · 풀 (위 "이름 · 표 · 풀" 을 이어서)
+
+| 자리 | 정한 것 |
+|---|---|
+| L1 방법 이름 | `<비지도 방법>+dropla<k>` (k = 라벨 비율 %): train 중 `la<k>` 라벨이 1 인 행을 뺀 나머지 (정상 + 라벨 없는 이상) 로 fit. `+clean` (train 라벨 전부) · `+trim` (라벨 없음) 과 나란한 context 변형. `opts` 에 `context=dropla la=<비율> n_dropped=<뺀 행 수>` |
+| L2 방법 이름 | 지금 규칙 그대로 `<모델>_clf+la10` · `+la1` (S3 대회의 `.la.csv` 에 `la10` · `la1` 열을 더함) |
+| L3 | 결정 30 (추천: 이름 그대로 `tabpfn_unsup`, `opts` 에 `posinf=<행 수>`) |
+| 결과표 | 모두 **`results/anomaly_supervised.csv`** 에 행을 더함: L1 은 라벨을 쓰는 설정이라 (분류기 행과 같은 표에서 같은 la 끼리 비교), L2 · L3 은 S3 대회라 지금 규칙 그대로. `anomaly.csv` · `anomaly_conditions.csv` 에는 아무 행도 안 감 |
+| 풀 (Elo) | 새 풀만 더함, 모두 `results/anomaly_supervised_elo.csv`. **`l1:la<k>`** (s1 의 12개, IForest = 1000): 그 la 의 빼기 변형 + 분류기 4개 + 비지도 참고 (IForest · KNN · LOF · `tabpfn_unsup` · `kumo_unsup` · `fomo0d`). la 75 는 분류기 없이. **`s3la10:A>B`** (칸마다, IForest = 1000): la 10% 분류기 4개 + S3 의 비지도. la 1% 는 표만 |
+| 기존 풀 | `sup:la<k>` · `f1:<종류>` 는 참가자가 그대로라 바이트 단위로 같아야 함 (확인). `s3:A>B` 16개 중 **A = local · cluster 의 8개는 바뀜**: `tabpfn_unsup` 의 fault 가 지금은 IForest 값으로 채워져 있는데 (imputed 0.1) 실제 값이 들어감 → 무엇이 바뀌었는지 결과 절에 적음. 나머지 8개는 그대로 (확인) |
+| 명령 | `fab ad sup prepare|submit l1 · l2 · l3`, `fab ad sup report` 에 L1 ~ L3 표 (`fab/bench/anomaly/supervised.py`) |
+| 채점 경로 | `+dropla` 행을 `anomaly_supervised.csv` 로 보내는 규칙이 더해짐 (정리 작업 코드) → **머지 전 kick 은 이 worktree (`Aiden-Jeon/anomaly-tfm-label-context`) 에서만** |
+| 라벨 파일 | `FAB_ANOMALY/data/train_labels/<대회>.la.csv` 에 열을 더함 (공식 36개: `la75`, S3 40개: `la1` · `la10`). 기존 열은 값이 그대로인지 확인한 뒤 Volume 의 같은 파일을 덮어씀 (지금은 "없는 파일만" 올리므로 la 파일은 늘 다시 올리게 바꿈) |
+
+### 비용 어림 (잰 값 기준)
+
+잰 값 (`results/results.csv` 의 seconds, s1 12개): `tabpfn_unsup` 23.5분 · `+clean` 20.3분, `kumo_unsup` 38.3분 · `+clean` 35.9분. 빼기 변형은 그 사이 (context 가 la 만큼 줄어듦). S3 40 대회의 분류기: TabPFN 3.4분 · Kumo 4.3분 · CatBoost 2.5분 · LightGBM 0.2분 (la 100%). fault 의 `tabpfn_unsup` 은 대회당 2.3분.
+노드 대기 · 설치는 따로 (지금까지 작업마다 10 ~ 60분).
+
+| 작업 | 단위 | 어림 |
+|---|---|---|
+| L1 TabPFN (GPU) | 12 대회 × `tabpfn_unsup+dropla{1,5,10,25,50,75}` | **H100 약 2.2시간** (6 × 22분) |
+| L1 Kumo (GPU) | 12 대회 × `kumo_unsup+dropla{10,50,75}` | **H100 약 1.9시간** (3 × 37분) |
+| L1 대조 (CPU) | 12 대회 × IForest · KNN · LOF × la 6개 = 216 fit | 몇 분 (작업은 환경 준비까지 10 ~ 15분) |
+| L2 (GPU) | S3 40 대회 × `tabpfn_clf` · `kumo_clf` × la 2개 | H100 약 16분 |
+| L2 (CPU) | S3 40 대회 × `lgbm_clf` · `catboost_clf` × la 2개 | 약 6분 |
+| L3 (GPU) | fault 두 대회 × `tabpfn_unsup` | H100 약 5분 |
+| **합 (추천안)** | 작업 6개 | **H100 약 4.5시간 + CPU 약 15분** |
+
+선택지의 비용: L1 을 3 split 으로 → TabPFN +4.4시간 (Kumo 도 3 split 이면 +3.8시간). Kumo 를 la 6개 모두 → +1.8시간. Kumo 를 빼면 −1.9시간. L2 를 la 10% 만 → GPU −8분.
+
+### 결정 (2026-11-27 사용자 확인: 26 ~ 30 모두 추천안)
+
+| # | 정할 것 | 정한 것 (추천안) | 다른 선택 · 까닭 |
+|---|---|---|---|
+| 26 | L1 의 격자 (split · la) | **s1 × la {1, 5, 10, 25, 50, 75}** | E3 (라벨 없는 정리, 비교 기준 0.07) 이 s1 이고 비교 대상 (오염 · clean · 분류기) 도 s1 에 다 있음. 메운 몫은 같은 split 안에서 짝지어 재는 값. 다른 선택: 3 split (+4.4 GPU 시간, split 사이 흔들림까지 봄) · la 75 를 뺌 (−22분, "절반을 넘는 la" 가 50 ~ 100% 사이로만 남음) |
+| 27 | L1 에 Kumo | **넣되 la 10 · 50 · 75 만 (s1, 약 1.9 GPU 시간)** | 판단 기준표가 "TFM 일반" 으로 적혀 있어 la 규약으로도 한 번 확인. E2 의 Kumo 판이 TabPFN 과 같은 모양 (위 표) 이라 결론이 달라질 가능성은 낮음 → 세 값만. 다른 선택: 안 넣음 (−1.9시간) · la 6개 모두 (+1.8시간) |
+| 28 | L1 의 이름 · 표 · 풀 · 대조 | **`+dropla<k>`, `anomaly_supervised.csv`, 풀 `l1:la<k>` (IForest = 1000), 대조는 IForest + KNN · LOF** | 위 "이름 · 표 · 풀". KNN · LOF 는 CPU 몇 분이고 E4 에서 TFM 만큼 오염에 다친 방법 (LOF +0.14) → "TFM 만의 효과인지 · context 의 이웃을 쓰는 방법 모두인지" 를 가름. 다른 선택: 이름을 `<비지도>+la<k>` (분류기와 같은 접미사, 뜻이 둘이 됨), 표를 `anomaly_conditions.csv` (E3 옆, 라벨을 쓰는 행이 조건 표에 섞임) |
+| 29 | L2 의 la | **la 10% (주, 작업 지시) + la 1% (민감도)** | la 1% 는 S2 의 대표 칸 (Kumo 분류기 0.879) 이고 GPU 8분 · CPU 3분. 판정 (H13) 은 la 10% 로만. 다른 선택: 10% 만 · la 5 · 25 · 50 까지 (GPU +24분, 표의 행 +1,920) |
+| 30 | L3 의 처리 방식 | **기본 동작에 넣음**: `tabpfn_scores` 가 내는 점수 중 **+inf 만** "그 실행의 가장 큰 유한 점수 + 1" 로 바꿈 (서로 동점, 맨 위 순위). −inf · NaN 은 지금처럼 실패. `opts` 에 `posinf=<행 수>` | 원문 `outliers()` 의 −inf (가장 이상) 와 순위가 같아 "원문 그대로" 가 유지됨. **이미 유한했던 기존 값은 구조상 안 바뀜**: 모두 유한하면 아무것도 안 하는 규칙이고, 기존 행은 모두 유한 검사를 통과한 것 (확인: 유한한 배열에 대해 같은 바이트, 공식 대회 하나를 고치기 전 · 뒤 코드로 돌려 `test.npy` 비교). 두 칸이 `tabpfn_unsup` 이름으로 채워져 S3 표의 행이 10개 평균이 됨. 다른 선택: **변형 이름 `tabpfn_unsup+infmax`** (기본은 그대로 실패, 두 칸은 변형 이름으로만 → S3 표에서 `tabpfn_unsup` 의 local · cluster 행은 계속 9개 평균이고 변형 행을 따로 읽어야 함) · 열 단위로 바닥값을 두는 처리 (순열 평균에 들어가는 값이 달라져 기존 값이 바뀔 수 있음 → 추천 안 함) |
+
+고르지 않은 선택 (추천: 안 함): S3 대회에서도 `+dropla10` 을 돌리기 (TabPFN 45분 · Kumo 114분. 처음 보는 종류 B 의 test 에는 A 이상을 빼는 것이 거의 상관없고 — 대각선 밖 비지도 TFM 이 이미 0.97 — 대각선은 L1 이 실제 데이터로 답함), la 75% 의 분류기 (S2 격자 넓히기), 빼기 + 분류기 섞기 (다른 worktree 의 M 실험 쪽).
+
+결정 26 ~ 30 은 추천안 그대로 (사용자, 2026-11-27). 같은 날 사용자 지시 둘: 모델 실행은 노트북이 아니라 서버 (Databricks) 에서, 확정된 설계 범위의 원격 작업은 제출 전 확인 없이 바로 내고 안 될 때만 확인.
+
+### 로컬 확인 (2026-11-27, 결과표 밖)
+
+옆 가상환경 (pyod 3.6.8 · tabpfn 9.2.0 · tabpfn-extensions 0.6.3, MPS). 실행 경로는 저장소를 임시 폴더에 복사해 `FAB_REMOTE=1 fab run` → `grade`.
+TabPFN 을 로컬에서 돌린 것은 위 "L3 의 원인" 의 두 대회와 ad-wilt 뿐이고, 사용자 지시 뒤에는 모델을 로컬에서 돌리지 않음.
+
+| 확인 | 결과 |
+|---|---|
+| la 라벨 파일 (`fab ad sup prepare s12 · l2`) | 공식 36개에 `la75`, S3 40개에 `la1` · `la10` 열을 더함. **기존 76개 파일의 기존 열은 모두 같은 값**, 포함 관계 (la 1 ⊂ 5 ⊂ … ⊂ 100) 와 개수 = ceil(la × 이상 수) 확인. s1 의 la 75% 라벨 수: cover 51 · Waveform 53 · cardio 93 · mammography 121 · Wilt 135 … magic.gamma 1,863 |
+| la 100% 로 뺀 context = `+clean` | 공식 36개 모두 `la100` 열 = train 라벨 (행 순서까지) → context 가 같은 행. ad-wilt 에서 `+dropla100` 대 `+clean`: IForest · KNN · LOF 는 `test.npy` 가 **바이트 단위로 같음**. `tabpfn_unsup` 은 최대 \|차\| 2.4e-7, AUROC 는 둘 다 0.9493 → 이 장비 (MPS) 의 실행 사이 잡음 (아래 줄) 과 같은 크기 |
+| 기존 `tabpfn_unsup` 값이 그대로인지 (결정 30) | 코드: `tabpfn_scores` 는 안 고쳤고, 더한 `top_posinf` 는 +inf 가 없으면 **받은 배열을 그대로 돌려줌** (단위 테스트). ad-wilt 를 고치기 전 · 뒤 코드로 (MPS): 1,446행 중 3행이 최대 1.9e-6 다르고 순위 상관 1.0, `opts` 같음. 고치기 전 코드를 두 번 돌려도 1행이 2.4e-7 다름 → **MPS 에서는 다시 돌린 값의 바이트 비교가 안 됨.** CPU 로 강제한 비교는 시작했다가 멈춤 (사용자 지시) → 다시 돌려 본 바이트 일치는 **확인 못 함**, 근거는 코드 경로와 단위 테스트 |
+| L3 처리 | 재현해 둔 점수 (+inf 9 · 11행) 를 실행기 경로에 그대로 넣음 (모델은 다시 안 돌림): `test.npy` 유한, 유한했던 1,180 · 1,178행은 같은 값, 바뀐 행 = 가장 큰 유한 점수 + 1, `opts` 에 `posinf=9` · `posinf=11`, 채점은 test 종류마다 한 행 (값은 위 "L3 의 원인") |
+| 실행 · 채점 경로 | `+dropla<k>` (IForest · KNN · TabPFN) → `anomaly_supervised.csv` (`exp=base`, `opts` 에 `context=dropla la=… n_dropped=…`). S3 대회의 `lgbm_clf+la10` · `+la1` (`n_labeled=48` · `5`, cover 는 7 · 1) 과 `tabpfn_unsup` → 같은 표에 test 종류마다 한 행. 공식 `iforest` · `+clean` → `anomaly.csv`, `+trim10` → `anomaly_conditions.csv` (자리 그대로). 없는 이름 (`+dropla7`, `+dropla10+clean`, `tabpfn_clf+dropla10`) 은 거부 |
+| 데이터가 Volume 것과 같은지 | 이 worktree 에서 다시 만든 정답 · train 라벨 (공식 36 · S3 40) 이 기존 파일과 같은 체크섬. S3 두 대회의 `lgbm_clf+la100` 을 로컬에서 돌린 값이 원격 채점값과 8칸 모두 같음 (차 0) |
+| 보고 · Elo | 새 행이 없을 때 고친 코드로 `fab ad sup report` · `fab ad elo` · `fab ad cond report` → 세 Elo 파일이 바이트 단위로 그대로, 보고 출력도 같음. 새 행 (로컬 일부) 을 얹으면 L1 ~ L3 표와 `l1:la<k>` · `s3la10:A>B` 풀이 나옴 |
+| 테스트 | `ruff check fab tests` 통과, 테스트 45개 (새 8개: 이름 · 표 나누기 · +inf 처리 · S3 la 라벨). `uv run --frozen pytest` 는 프로젝트 환경에 pytest 가 없어 다른 Python 의 pytest 가 잡힘 (`No module named 'fab'`) → `uv run --frozen --with pytest pytest` 또는 `python -m unittest discover -s tests` |
+| 미리 본 값 (ad-wilt, MPS) | `tabpfn_unsup` 0.745 → `+dropla10` 0.756 → clean 0.949 (메운 몫 0.05), IForest 0.409 → 0.419 → 0.459 |
 
 ## 실행 기록
 

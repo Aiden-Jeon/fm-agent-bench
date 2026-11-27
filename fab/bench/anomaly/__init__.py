@@ -54,7 +54,8 @@ TRAIN_LABELS = AD_DIR / "data" / "train_labels"
 GRADES = RESULTS / "anomaly.csv"  # 우리 채점 (git 추적, 원격 정리 작업이 씀)
 # 조건 실험 (docs/anomaly.md "TFM 이 이득을 보는 조건") 의 채점: 조건 대회 (설정에 anomaly.condition) 나 변형 방법. 공식 표와 안 섞음
 CONDITIONS = RESULTS / "anomaly_conditions.csv"
-# 라벨이 있는 이상탐지 (docs/anomaly.md "라벨이 있는 이상탐지"): 분류기 (+la<k>) 행과 S3 (처음 보는 이상) 대회의 모든 행
+# 라벨이 있는 이상탐지 (docs/anomaly.md "라벨이 있는 이상탐지" · "라벨이 조금 있을 때 (2)"): 분류기 (+la<k>) · 빼기 변형 (+dropla<k>) 행과
+# S3 (처음 보는 이상) 대회의 모든 행
 SUPERVISED = RESULTS / "anomaly_supervised.csv"
 RUNS = RESULTS / "anomaly_runs.csv"  # 에이전트 실행별 채점 (git 추적, 원격 정리 작업이 씀. fab.agent 의 표)
 ELO = RESULTS / "anomaly_elo.csv"  # IForest = 1000 Elo (git 추적, fab ad elo)
@@ -378,10 +379,11 @@ def is_condition_row(comp: Competition, model: str) -> bool:
 
 
 def is_supervised_row(comp: Competition, model: str) -> bool:
-    """→ SUPERVISED: 라벨을 쓰는 분류기이거나 S3 대회 (train 이상 종류 A · test 종류 B, 비지도 방법도 같은 표에서 나란히)."""
-    from fab.bench.anomaly.methods import is_supervised
+    """→ SUPERVISED: la 라벨을 쓰는 방법 (분류기 `+la<k>`, 라벨 준 이상을 context 에서 빼는 `+dropla<k>`) 이거나 S3 대회 (train 이상
+    종류 A · test 종류 B, 비지도 방법도 같은 표에서 나란히)."""
+    from fab.bench.anomaly.methods import uses_la
 
-    return is_supervised(model) or (comp.anomaly.get("condition") or {}).get("exp") == "s3"
+    return uses_la(model) or (comp.anomaly.get("condition") or {}).get("exp") == "s3"
 
 
 def table_of(comp: Competition, model: str) -> Path:
@@ -494,7 +496,7 @@ def submit_fm(todo: list[tuple[str, list[str]]], methods: list[str], note: str, 
 def submit_comps(comps: list[Competition], methods: list[str], note: str, timeout: int, accelerator: str | None,
                  grade_after: bool, label: str) -> list[dict]:
     """대회들 (준비된 것) 을 CPU 작업 하나 (pyod) + GPU 작업 하나 (TabPFN) 로. submit_fm 과 조건 실험 (conditions.py) 이 같이 씀."""
-    from fab.bench.anomaly.methods import is_clean, is_gpu, is_supervised
+    from fab.bench.anomaly.methods import is_clean, is_gpu, uses_la
     from fab.bench.anomaly.remote import train_labels_dir, upload_train_labels
     from fab.bench.tabarena.remote import upload_data
     from fab.runner.databricks import record, submit, submit_cpu
@@ -505,8 +507,8 @@ def submit_comps(comps: list[Competition], methods: list[str], note: str, timeou
     gpu = [m for m in methods if is_gpu(m)]
     cpu = [m for m in methods if not is_gpu(m)]
     extra = []
-    if any(is_clean(m) or is_supervised(m) for m in methods):  # 깨끗한 context 진단 · 분류기: train 라벨 (내 Volume, 에이전트 SP 는 못 읽음)
-        upload_train_labels(cfg, [c.name for c in comps], la=any(is_supervised(m) for m in methods))
+    if any(is_clean(m) or uses_la(m) for m in methods):  # 깨끗한 context 진단 · 분류기 · 빼기 변형: train 라벨 (내 Volume, 에이전트 SP 는 못 읽음)
+        upload_train_labels(cfg, [c.name for c in comps], la=any(uses_la(m) for m in methods))
         extra += ["--train-labels", train_labels_dir(cfg)]
     data = upload_data(cfg, comps)
     runs = []

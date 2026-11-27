@@ -19,10 +19,11 @@ from fab.bench.tabarena.remote import _missing, _upload_dir
 ANSWERS_REL, TRAIN_LABELS_REL = "anomaly/answers", "anomaly/train_labels"
 
 
-def _upload_files(cfg, src: Path, rel: str, files: list[str], what: str):
+def _upload_files(cfg, src: Path, rel: str, files: list[str], what: str, always: list[str] | None = None):
+    """Volume 에 없는 파일만 올림. always: 있어도 다시 올릴 파일 (내용이 늘 수 있는 것)."""
     if missing := [f for f in files if not (src / f).exists()]:
         raise SystemExit(f"{what} 없음: {missing[:5]}... → fab ad prepare")
-    if not (todo := _missing(cfg, rel, files)):
+    if not (todo := sorted(_missing(cfg, rel, files) | set(always or []))):
         return
     with tempfile.TemporaryDirectory() as d:
         for f in todo:
@@ -38,11 +39,12 @@ def upload_answers(cfg, comps: list[str]):
 
 
 def upload_train_labels(cfg, comps: list[str], la: bool = False):
-    """la: 분류기용 <대회>.la.csv 도 (fab ad sup prepare 가 만듦)."""
+    """la: 분류기 · 빼기 변형용 <대회>.la.csv 도 (fab ad sup prepare 가 만듦). la 파일은 **늘 다시 올림**: la 열이 늘 수 있어서
+    (2026-11-27: 공식 대회에 la75, S3 대회에 la1 · la10. 기존 열은 그대로인 것을 prepare 가 확인) "없는 파일만" 으로는 옛 파일이 남음."""
     from fab.bench.anomaly import TRAIN_LABELS
 
-    files = [f"{c}.csv" for c in comps] + ([f"{c}.la.csv" for c in comps] if la else [])
-    _upload_files(cfg, TRAIN_LABELS, TRAIN_LABELS_REL, files, "train 라벨")
+    la_files = [f"{c}.la.csv" for c in comps] if la else []
+    _upload_files(cfg, TRAIN_LABELS, TRAIN_LABELS_REL, [f"{c}.csv" for c in comps] + la_files, "train 라벨", always=la_files)
 
 
 def train_labels_dir(cfg) -> str:
