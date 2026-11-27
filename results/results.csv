@@ -11871,3 +11871,111 @@ timestamp,comp,model,metric,cv,cv_std,n_folds,seconds,cv_mae,note,where,cv_auc,c
 2026-11-27T02:43:33,adc-s3-cluster-yeast-s1,kumo_clf+la1,auroc,,,0,1.1,,ads-l2-gpu,databricks,,,,,True,,8.0,model=kumo la=0.01 n_labeled=4
 2026-11-27T02:27:30,adc-s3-local-fault-s1,tabpfn_unsup,auroc,,,0,173.0,,ads-l3,databricks,,,,,True,,27.0,n_permutations=10 version=v2 posinf=2
 2026-11-27T02:29:57,adc-s3-cluster-fault-s1,tabpfn_unsup,auroc,,,0,142.4,,ads-l3,databricks,,,,,True,,27.0,n_permutations=10 version=v2 posinf=2
+2026-11-27T02:37:18,ad-annthyroid,tabpfn_unsup+dropla1,auroc,,,0,68.6,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=4
+2026-11-27T02:37:52,ad-annthyroid,tabpfn_unsup+dropla5,auroc,,,0,34.6,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=19
+2026-11-27T02:38:27,ad-annthyroid,tabpfn_unsup+dropla10,auroc,,,0,34.4,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=38
+2026-11-27T02:39:00,ad-annthyroid,tabpfn_unsup+dropla25,auroc,,,0,33.6,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=94
+2026-11-27T02:39:33,ad-annthyroid,tabpfn_unsup+dropla50,auroc,,,0,32.9,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=187
+2026-11-27T02:40:06,ad-annthyroid,tabpfn_unsup+dropla75,auroc,,,0,32.9,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=281
+2026-11-27T02:41:50,ad-cardio,tabpfn_unsup+dropla1,auroc,,,0,98.8,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=2
+2026-11-27T02:43:25,ad-cardio,tabpfn_unsup+dropla5,auroc,,,0,95.0,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=7
+2026-11-27T02:45:00,ad-cardio,tabpfn_unsup+dropla10,auroc,,,0,95.5,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=13
+2026-11-27T02:46:35,ad-cardio,tabpfn_unsup+dropla25,auroc,,,0,94.6,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=31
+2026-11-27T02:48:09,ad-cardio,tabpfn_unsup+dropla50,auroc,,,0,94.1,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=62
+2026-11-27T02:49:43,ad-cardio,tabpfn_unsup+dropla75,auroc,,,0,94.3,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=93
+2026-11-27T02:51:19,ad-cover,tabpfn_unsup+dropla1,auroc,,,0,91.6,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=1
+2026-11-27T02:52:47,ad-cover,tabpfn_unsup+dropla5,auroc,,,0,87.7,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=4
+2026-11-27T02:54:14,ad-cover,tabpfn_unsup+dropla10,auroc,,,0,87.2,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=7
+2026-11-27T02:55:42,ad-cover,tabpfn_unsup+dropla25,auroc,,,0,88.1,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=17
+2026-11-27T02:57:09,ad-cover,tabpfn_unsup+dropla50,auroc,,,0,87.0,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=34
+2026-11-27T02:58:37,ad-cover,tabpfn_unsup+dropla75,auroc,,,0,87.6,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=51
+2026-11-27T03:00:58,ad-fault,tabpfn_unsup+dropla1,auroc,,,0,136.3,,ads-l1,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=5
+2026-11-27T03:03:12,ad-fault,tabpfn_unsup+dropla5,auroc,,,0,133.8,,ads-l1,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=24
+2026-11-27T03:05:24,ad-fault,tabpfn_unsup+dropla10,auroc,,,0,132.2,,ads-l1,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=48
+2026-11-27T03:07:35,ad-fault,tabpfn_unsup+dropla25,auroc,,,0,131.2,,ads-l1,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=118
+2026-11-27T03:09:44,ad-fault,tabpfn_unsup+dropla50,auroc,,,0,128.9,,ads-l1,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=236
+2026-11-27T03:11:51,ad-fault,tabpfn_unsup+dropla75,auroc,,,0,126.9,,ads-l1,databricks,,,,,True,,27.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=354
+2026-11-27T03:21:13,ad-landsat,tabpfn_unsup+dropla1,auroc,,,0,556.2,,ads-l1,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=10
+2026-11-27T03:30:14,ad-landsat,tabpfn_unsup+dropla5,auroc,,,0,540.9,,ads-l1,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=47
+2026-11-27T03:39:19,ad-landsat,tabpfn_unsup+dropla10,auroc,,,0,545.2,,ads-l1,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=94
+2026-11-27T03:48:07,ad-landsat,tabpfn_unsup+dropla25,auroc,,,0,527.9,,ads-l1,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=234
+2026-11-27T03:56:35,ad-landsat,tabpfn_unsup+dropla50,auroc,,,0,508.0,,ads-l1,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=467
+2026-11-27T04:04:41,ad-landsat,tabpfn_unsup+dropla75,auroc,,,0,485.1,,ads-l1,databricks,,,,,True,,36.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=700
+2026-11-27T04:06:15,ad-magic-gamma,tabpfn_unsup+dropla1,auroc,,,0,89.8,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=25
+2026-11-27T04:07:41,ad-magic-gamma,tabpfn_unsup+dropla5,auroc,,,0,85.9,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=125
+2026-11-27T04:09:06,ad-magic-gamma,tabpfn_unsup+dropla10,auroc,,,0,84.8,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=249
+2026-11-27T04:10:26,ad-magic-gamma,tabpfn_unsup+dropla25,auroc,,,0,80.5,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=621
+2026-11-27T04:11:42,ad-magic-gamma,tabpfn_unsup+dropla50,auroc,,,0,75.8,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=1242
+2026-11-27T04:12:52,ad-magic-gamma,tabpfn_unsup+dropla75,auroc,,,0,69.6,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=1863
+2026-11-27T04:13:43,ad-mammography,tabpfn_unsup+dropla1,auroc,,,0,47.3,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=2
+2026-11-27T04:14:28,ad-mammography,tabpfn_unsup+dropla5,auroc,,,0,44.2,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=9
+2026-11-27T04:15:11,ad-mammography,tabpfn_unsup+dropla10,auroc,,,0,43.9,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=17
+2026-11-27T04:15:56,ad-mammography,tabpfn_unsup+dropla25,auroc,,,0,44.5,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=41
+2026-11-27T04:16:40,ad-mammography,tabpfn_unsup+dropla50,auroc,,,0,43.8,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=81
+2026-11-27T04:17:23,ad-mammography,tabpfn_unsup+dropla75,auroc,,,0,43.6,,ads-l1,databricks,,,,,True,,6.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=121
+2026-11-27T04:18:24,ad-pageblocks,tabpfn_unsup+dropla1,auroc,,,0,56.3,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=4
+2026-11-27T04:19:18,ad-pageblocks,tabpfn_unsup+dropla5,auroc,,,0,53.7,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=18
+2026-11-27T04:20:11,ad-pageblocks,tabpfn_unsup+dropla10,auroc,,,0,53.4,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=36
+2026-11-27T04:21:04,ad-pageblocks,tabpfn_unsup+dropla25,auroc,,,0,53.0,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=90
+2026-11-27T04:21:57,ad-pageblocks,tabpfn_unsup+dropla50,auroc,,,0,52.6,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=179
+2026-11-27T04:22:49,ad-pageblocks,tabpfn_unsup+dropla75,auroc,,,0,52.5,,ads-l1,databricks,,,,,True,,10.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=268
+2026-11-27T04:24:14,ad-shuttle,tabpfn_unsup+dropla1,auroc,,,0,79.5,,ads-l1,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=5
+2026-11-27T04:25:29,ad-shuttle,tabpfn_unsup+dropla5,auroc,,,0,75.6,,ads-l1,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=24
+2026-11-27T04:26:46,ad-shuttle,tabpfn_unsup+dropla10,auroc,,,0,76.2,,ads-l1,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=47
+2026-11-27T04:28:02,ad-shuttle,tabpfn_unsup+dropla25,auroc,,,0,76.4,,ads-l1,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=117
+2026-11-27T04:29:17,ad-shuttle,tabpfn_unsup+dropla50,auroc,,,0,74.8,,ads-l1,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=234
+2026-11-27T04:30:31,ad-shuttle,tabpfn_unsup+dropla75,auroc,,,0,74.3,,ads-l1,databricks,,,,,True,,9.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=351
+2026-11-27T04:32:40,ad-waveform,tabpfn_unsup+dropla1,auroc,,,0,122.4,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=1
+2026-11-27T04:34:40,ad-waveform,tabpfn_unsup+dropla5,auroc,,,0,120.1,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=4
+2026-11-27T04:36:40,ad-waveform,tabpfn_unsup+dropla10,auroc,,,0,120.1,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=7
+2026-11-27T04:38:39,ad-waveform,tabpfn_unsup+dropla25,auroc,,,0,119.3,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=18
+2026-11-27T04:40:40,ad-waveform,tabpfn_unsup+dropla50,auroc,,,0,120.5,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=35
+2026-11-27T04:42:39,ad-waveform,tabpfn_unsup+dropla75,auroc,,,0,119.5,,ads-l1,databricks,,,,,True,,21.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=53
+2026-11-27T04:43:09,ad-wilt,tabpfn_unsup+dropla1,auroc,,,0,25.4,,ads-l1,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=2
+2026-11-27T04:43:31,ad-wilt,tabpfn_unsup+dropla5,auroc,,,0,21.9,,ads-l1,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=9
+2026-11-27T04:43:53,ad-wilt,tabpfn_unsup+dropla10,auroc,,,0,21.8,,ads-l1,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=18
+2026-11-27T04:44:14,ad-wilt,tabpfn_unsup+dropla25,auroc,,,0,21.7,,ads-l1,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=45
+2026-11-27T04:44:36,ad-wilt,tabpfn_unsup+dropla50,auroc,,,0,21.7,,ads-l1,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=90
+2026-11-27T04:44:58,ad-wilt,tabpfn_unsup+dropla75,auroc,,,0,21.8,,ads-l1,databricks,,,,,True,,5.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=135
+2026-11-27T04:45:36,ad-yeast,tabpfn_unsup+dropla1,auroc,,,0,32.3,,ads-l1,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=dropla la=0.01 n_dropped=4
+2026-11-27T04:46:05,ad-yeast,tabpfn_unsup+dropla5,auroc,,,0,29.2,,ads-l1,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=dropla la=0.05 n_dropped=18
+2026-11-27T04:46:34,ad-yeast,tabpfn_unsup+dropla10,auroc,,,0,28.9,,ads-l1,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=dropla la=0.1 n_dropped=36
+2026-11-27T04:47:03,ad-yeast,tabpfn_unsup+dropla25,auroc,,,0,28.9,,ads-l1,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=dropla la=0.25 n_dropped=89
+2026-11-27T04:47:31,ad-yeast,tabpfn_unsup+dropla50,auroc,,,0,28.4,,ads-l1,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=dropla la=0.5 n_dropped=178
+2026-11-27T04:48:00,ad-yeast,tabpfn_unsup+dropla75,auroc,,,0,28.5,,ads-l1,databricks,,,,,True,,8.0,n_permutations=10 version=v2 context=dropla la=0.75 n_dropped=267
+2026-11-27T02:38:49,ad-annthyroid,kumo_unsup+dropla10,auroc,,,0,139.4,,ads-l1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=38
+2026-11-27T02:40:24,ad-annthyroid,kumo_unsup+dropla50,auroc,,,0,94.3,,ads-l1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=187
+2026-11-27T02:41:57,ad-annthyroid,kumo_unsup+dropla75,auroc,,,0,93.5,,ads-l1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=281
+2026-11-27T02:46:15,ad-cardio,kumo_unsup+dropla10,auroc,,,0,251.7,,ads-l1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=13
+2026-11-27T02:50:17,ad-cardio,kumo_unsup+dropla50,auroc,,,0,242.4,,ads-l1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=62
+2026-11-27T02:54:19,ad-cardio,kumo_unsup+dropla75,auroc,,,0,242.5,,ads-l1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=93
+2026-11-27T02:57:12,ad-cover,kumo_unsup+dropla10,auroc,,,0,168.4,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=7
+2026-11-27T02:59:53,ad-cover,kumo_unsup+dropla50,auroc,,,0,161.1,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=34
+2026-11-27T03:02:34,ad-cover,kumo_unsup+dropla75,auroc,,,0,160.6,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=51
+2026-11-27T03:08:00,ad-fault,kumo_unsup+dropla10,auroc,,,0,321.9,,ads-l1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=48
+2026-11-27T03:13:12,ad-fault,kumo_unsup+dropla50,auroc,,,0,312.0,,ads-l1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=236
+2026-11-27T03:18:25,ad-fault,kumo_unsup+dropla75,auroc,,,0,312.4,,ads-l1,databricks,,,,,True,,27.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=354
+2026-11-27T03:26:07,ad-landsat,kumo_unsup+dropla10,auroc,,,0,457.1,,ads-l1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=94
+2026-11-27T03:33:33,ad-landsat,kumo_unsup+dropla50,auroc,,,0,446.4,,ads-l1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=467
+2026-11-27T03:40:58,ad-landsat,kumo_unsup+dropla75,auroc,,,0,445.4,,ads-l1,databricks,,,,,True,,36.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=700
+2026-11-27T03:43:52,ad-magic-gamma,kumo_unsup+dropla10,auroc,,,0,168.6,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=249
+2026-11-27T03:46:32,ad-magic-gamma,kumo_unsup+dropla50,auroc,,,0,159.7,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=1242
+2026-11-27T03:49:10,ad-magic-gamma,kumo_unsup+dropla75,auroc,,,0,158.5,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=1863
+2026-11-27T03:50:57,ad-mammography,kumo_unsup+dropla10,auroc,,,0,103.0,,ads-l1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=17
+2026-11-27T03:52:34,ad-mammography,kumo_unsup+dropla50,auroc,,,0,96.2,,ads-l1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=81
+2026-11-27T03:54:10,ad-mammography,kumo_unsup+dropla75,auroc,,,0,96.1,,ads-l1,databricks,,,,,True,,6.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=121
+2026-11-27T03:56:19,ad-pageblocks,kumo_unsup+dropla10,auroc,,,0,125.0,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=36
+2026-11-27T03:58:17,ad-pageblocks,kumo_unsup+dropla50,auroc,,,0,118.2,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=179
+2026-11-27T04:00:15,ad-pageblocks,kumo_unsup+dropla75,auroc,,,0,117.9,,ads-l1,databricks,,,,,True,,10.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=268
+2026-11-27T04:02:51,ad-shuttle,kumo_unsup+dropla10,auroc,,,0,151.3,,ads-l1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=47
+2026-11-27T04:05:15,ad-shuttle,kumo_unsup+dropla50,auroc,,,0,143.8,,ads-l1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=234
+2026-11-27T04:07:38,ad-shuttle,kumo_unsup+dropla75,auroc,,,0,143.2,,ads-l1,databricks,,,,,True,,9.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=351
+2026-11-27T04:12:00,ad-waveform,kumo_unsup+dropla10,auroc,,,0,257.3,,ads-l1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=7
+2026-11-27T04:16:10,ad-waveform,kumo_unsup+dropla50,auroc,,,0,249.1,,ads-l1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=35
+2026-11-27T04:20:19,ad-waveform,kumo_unsup+dropla75,auroc,,,0,249.4,,ads-l1,databricks,,,,,True,,21.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=53
+2026-11-27T04:21:28,ad-wilt,kumo_unsup+dropla10,auroc,,,0,64.8,,ads-l1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=18
+2026-11-27T04:22:27,ad-wilt,kumo_unsup+dropla50,auroc,,,0,58.9,,ads-l1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=90
+2026-11-27T04:23:26,ad-wilt,kumo_unsup+dropla75,auroc,,,0,58.5,,ads-l1,databricks,,,,,True,,5.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=135
+2026-11-27T04:25:06,ad-yeast,kumo_unsup+dropla10,auroc,,,0,96.6,,ads-l1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.1 n_dropped=36
+2026-11-27T04:26:37,ad-yeast,kumo_unsup+dropla50,auroc,,,0,90.4,,ads-l1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.5 n_dropped=178
+2026-11-27T04:28:08,ad-yeast,kumo_unsup+dropla75,auroc,,,0,90.9,,ads-l1,databricks,,,,,True,,8.0,h=0.005 model=kumo n_estimators=8 n_permutations=10 context=dropla la=0.75 n_dropped=267
