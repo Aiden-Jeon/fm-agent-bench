@@ -945,17 +945,21 @@ def report_m3(mix: pd.DataFrame, diag: pd.DataFrame) -> tuple[pd.DataFrame, list
                     diag.loc[mo, "pick_lodo"] = np.where(diag.loc[mo, d_] >= diag.loc[mo, "tau_lodo"], tfm, PARTNER)
                     # 변형: 높으면 TFM · 낮으면 섞기, 높으면 섞기 · 낮으면 IForest (τ 는 변형마다 E1 에서)
                     variants = [(tfm, PARTNER, tau)]
+
+                    def vname(hi, lo, d_=d_):  # 섞기 쪽은 mix (그 TFM 의 주 규칙 섞기). 이름에 TFM 이 들어가야 두 TFM 의 행이 구분됨
+                        return pick_name(tfm if hi == tfm else f"mix({tfm})", "mix" if lo == mixn else PARTNER, d_, basis)
+
                     if mixn in Se and mixn in T:
                         for hi, lo in ((tfm, mixn), (mixn, PARTNER)):
                             tv, _ = fit_tau(De[d_].to_numpy(), Se[hi].reindex(De.index).to_numpy(), Se[lo].reindex(De.index).to_numpy())
-                            lab = pick_name(tfm if hi == tfm else "mix", "mix" if lo == mixn else PARTNER, d_, basis)
+                            lab = vname(hi, lo)
                             T[lab] = pick_scores(Do, T, d_, 1, tv, hi, lo)
                             cols[f"고르기 {lab} (τ = E1 {tv:.3f})"] = lab
                             variants.append((hi, lo, tv))
                     A = aupr_all["official"].reindex(Do.index)
                     u_ = units("official").set_index("comp")
                     for hi, lo, tv in variants:
-                        lab = pick_name(tfm if hi == tfm else "mix", "mix" if lo == mixn else PARTNER, d_, basis)
+                        lab = vname(hi, lo)
                         hi_use = (Do[d_] >= tv).to_numpy()
                         for comp, h in zip(Do.index, hi_use):
                             src = hi if h else lo
@@ -1115,6 +1119,9 @@ def report(rounds: int):
     report_elo(mix, picks, rounds)
 
     out = pd.concat([mix, picks], ignore_index=True)
+    key = out.assign(cond=out.cond.where(out.exp != "m3", ""))[["exp", "grid", "comp", "cond", "model"]]
+    if key.duplicated().any():  # 같은 (단위, 이름) 이 두 번이면 이름이 방법을 못 가름
+        raise SystemExit(f"섞기 표에 같은 이름의 행이 겹침: {key[key.duplicated()].model.unique()[:5]}")
     out = out.sort_values(["exp", "grid", "comp", "cond", "model"], kind="stable")
     out.round({"score": 6, "metric_error": 6, "aupr": 6}).to_csv(MIX, index=False)
     diag = diag.sort_values(["grid", "tfm", "basis", "comp"], kind="stable")
