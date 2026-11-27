@@ -622,6 +622,10 @@ def main(argv: list[str] | None = None):
         from fab.bench.anomaly.supervised import main as sup_main
 
         return sup_main(argv[1:])
+    if argv[:1] == ["mix"]:
+        from fab.bench.anomaly.mix import main as mix_main
+
+        return mix_main(argv[1:])
     ap = argparse.ArgumentParser(prog="fab ad", description="표 이상탐지 (ADBench, docs/anomaly.md)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init", help="competitions/ad-<이름>/ (s1) 의 config.yaml · description.md 를 없으면 만듦")
@@ -648,6 +652,7 @@ def main(argv: list[str] | None = None):
     sub.add_parser("agent", help="에이전트 실행 (fab ad agent -h, fab ta agent 와 같은 명령)")
     sub.add_parser("cond", help="TFM 이 이득을 보는 조건 실험 (fab ad cond -h, docs/anomaly.md)")
     sub.add_parser("sup", help="라벨이 있는 이상탐지 (지도 · 반지도) · FoMo-0D (fab ad sup -h, docs/anomaly.md)")
+    sub.add_parser("mix", help="TFM 을 쓰는 법 (1): 점수 섞기 · 진단으로 고르기 (fab ad mix -h, docs/anomaly.md)")
     args = ap.parse_args(argv)
 
     def names(xs):

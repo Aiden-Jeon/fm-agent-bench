@@ -260,6 +260,10 @@ def main(argv: list[str] | None = None):
     argv = sys.argv[2:] if argv is None else argv
     if argv and (COMP_DIR / argv[0] / "config.yaml").exists() and load_competition(argv[0]).anomaly:
         # 이상탐지 대회 (비지도, fold·타깃 없음): fab databricks 실행기가 부르는 fab run 을 그쪽 실행으로 넘김
+        if "--train-scores" in argv:  # train 행 점수 (섞기 · 진단의 기준 분포, fab/bench/anomaly/mix.py): test.npy · results.csv 는 안 씀
+            from fab.bench.anomaly.mix import train_main
+
+            sys.exit(train_main(argv))
         from fab.bench.anomaly.run import main as anomaly_main
 
         sys.exit(anomaly_main(argv))

@@ -1,0 +1,4 @@
+key,run_id,grid,methods,comps,submitted
+adm-official-train-20261127-102700,970041706851652,official,tabpfn_unsup,36,2026-11-27T01:27:04
+adm-e1-train-20261127-102706,651258967800726,e1,tabpfn_unsup,46,2026-11-27T01:27:09
+adm-s3-train-20261127-102712,1103237322918191,s3,tabpfn_unsup tabpfn_clf+la100 kumo_clf+la100,38,2026-11-27T01:27:16
