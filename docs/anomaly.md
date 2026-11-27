@@ -1542,6 +1542,7 @@ TabPFN 을 로컬에서 돌린 것은 위 "L3 의 원인" 의 두 대회와 ad-w
 - 요약 줄: 대각선 평균 0.921 → 0.916 (최저 칸 0.834 → 0.809), 대각선 밖 0.970 → 0.971 (최저 0.905 → 0.910), test = global 을 뺀 대각선 밖 0.960 → 0.961. 가장 큰 변화는 cluster → cluster −0.025 (fault 에서 0.580, 같은 칸의 `kumo_unsup` 은 0.545) → **S3 의 결론은 그대로** (비지도 TFM 은 본 cluster 에서만 무너지고 나머지 칸은 0.9 이상)
 - **`anomaly_supervised_elo.csv` 에서 바뀐 것**: 기존 풀 26개 중 `sup:la<k>` 6개 · `f1:<종류>` 4개 · `s3:global>*` · `s3:dependency>*` 8개는 **글자까지 그대로** (18개). **`s3:local>*` · `s3:cluster>*` 8개가 바뀜**: `tabpfn_unsup` 의 fault 가 IForest 값으로 채워져 있던 것 (imputed 0.1) 이 실제 값이 됨 (imputed 0). `tabpfn_unsup` 의 Elo: local → local 1250 → 1260, local → dependency 1777 → 1938 (평균 순위 2.7 → 2.0), cluster → local 1270 → 1319, cluster → dependency 1712 → 1929 (2.85 → 2.2), cluster → cluster 602 → 542. local → global · local → cluster · cluster → global 의 셋은 `tabpfn_unsup` 줄의 imputed 열만 바뀜 (fault 에서 1.000 이라 순위가 그대로). 같은 풀의 다른 방법은 그 한 단위의 승패만큼 움직임 (local → dependency 의 `kumo_clf` 1777 → 1817 등)
 - 기존 표의 행: `anomaly.csv` · `anomaly_conditions.csv` 는 한 행도 안 바뀜, `anomaly_supervised.csv` 는 행이 더해지기만
+- **위 "TFM 을 쓰는 법 (1)" 의 M2 와 만나는 곳**: `results/anomaly_mix*.csv` 의 S3 TabPFN 짝은 이 두 칸이 비어 있던 때 (38 대회, fault 의 train = local · cluster 행은 9개 평균) 의 계산이고, 이 작업에서는 `fab ad mix report` 를 다시 돌리지 않음 (M 실험의 수치 · 파일은 그때 것 그대로). 지금 다시 돌리면 `tabpfn_unsup` 의 test 점수가 생긴 두 대회가 **배치 기준** 짝에 더해져 그 행들이 달라짐 (train 기준은 두 대회의 train 행 점수가 없어 38 대회 그대로)
 
 ### L2 결과: 처음 보는 종류 + 라벨 조금 (S3 40 대회 × la 10% · 1%, 2026-11-27)
 
@@ -1666,6 +1667,7 @@ TabPFN 을 로컬에서 돌린 것은 위 "L3 의 원인" 의 두 대회와 ad-w
 | 2026-11-27 11:35 | L1 GPU (Kumo): `kumo_unsup+dropla{10,50,75}` | 공식 12개 × s1, H100 (`ads-l1-20261127-113552`, run_id 563599552804391) + `anomaly__20261127-113559-503838` | 제출 |
 | 2026-11-27 11:36 ~ 11:45 · 11:4x | L3 (6.5분) · L2 CPU (8.0분) · L2 GPU (11.1분) · L1 CPU (3.2분) 모두 SUCCESS → kick (이 worktree, 대기 12개 모두 이 작업 것, 정리 작업 run_id 633040643273184) → `fab sync` | | `anomaly_supervised.csv` +1,504 (L3 8 · L2 1,280 · L1 대조 216), 실패 0. `anomaly.csv` · `anomaly_conditions.csv` 는 그대로. 같이 받은 `mlebench_runs.csv` 변경은 되돌림 |
 | 2026-11-27 13:28 · 13:48 · 13:5x | L1 Kumo (112.8분) · L1 TabPFN (133.0분) SUCCESS → kick (이 worktree, 대기 4개 모두 이 작업 것, run_id 664721663880142) → `fab sync` | | `anomaly_supervised.csv` +108 (12 대회 × 9 방법, 실패 0), 대기 0. `fab ad elo` · `fab ad cond report` → `anomaly_elo.csv` · `anomaly_conditions_elo.csv` 가 바이트 단위로 그대로. `fab ad sup report` → `anomaly_supervised_elo.csv` (기존 풀 26개 중 18개 그대로 · 8개 바뀜, 새 풀 22개) |
+| 2026-11-27 14:xx | #52 ("TFM 을 쓰는 법 (1)", 13:59 머지) 위로 rebase | | 겹친 곳 (목차 · 요약표 · 판단 기준표 · README · roadmap) 은 #52 의 줄을 두고 이 작업의 줄을 뒤에 더함, 절 순서는 (1) → (2). ruff · 테스트 65개 (#52 의 57 + 새 8) 통과, `fab ad sup report` 가 같은 Elo 파일을 냄, `anomaly_elo.csv` · `anomaly_conditions_elo.csv` · `anomaly_mix*.csv` 는 main 과 같음 (`fab ad mix report` 는 안 돌림) |
 | 2026-11-25 15:4x · 18:20 | kick 두 번 (Wilt Agent · 제외, 그다음 TabPFN s2 · s3 채점). forecast 세션과 "상대 트랙 grade 대기 없음 + 상대 agent 대기 항목이 모두 아직 RUNNING" 일 때만 kick 하기로 합의. 18:20 kick 때는 forecast agent 둘이 끝난 채 대기 중이라 그쪽 제안대로 이쪽이 먼저 (그 둘은 시도 1/3, forecast 브랜치 kick 으로 처리) | | SUCCESS, 이상탐지 대기 항목 0 |
 
 ### 기존 방법 맞춤 (원격, 12개 × 3 seed)
