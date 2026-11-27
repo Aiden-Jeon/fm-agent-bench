@@ -132,12 +132,22 @@ def fold_split(n: int, seed: int) -> tuple[np.ndarray, np.ndarray]:
     return perm[: n // 2], perm[n // 2:]
 
 
+def trainable(method: str) -> bool:
+    """train 행 점수를 낼 수 있는 이름: 알려진 방법이고 context 변형 (+clean · +trim) 이 아님. 변형은 context 가 달라 (정상만 · 정리한
+    train), 여기서 내는 "train 전체의 2겹 · in-sample" 점수가 그 변형의 test 점수와 같은 분포가 아님 (기준 분포로 못 씀)."""
+    from fab.bench.anomaly import methods as M
+
+    return M.is_known(method) and (M.is_supervised(method) or M.base(method) == method)
+
+
 def train_scores(method: str, X: np.ndarray, seed: int, y: np.ndarray | None = None) -> tuple[np.ndarray, str]:
     """train 행의 점수 (클수록 이상) 와 만든 방식. 분류기 (+la<k>, y = PU 라벨): 2겹 교차 (한쪽 반으로 fit → 다른 반의 P(이상)).
     pyod: in-sample (methods.train_scores = decision_scores_). 비지도 FM: 2겹 (서로를 context 로) — methods.train_scores 와 같되
     유한 검사 없이 (밀도가 0 이면 +inf = 맨 위 순위로 쓰고, NaN 은 읽는 쪽이 기준 분포에서 뺌)."""
     from fab.bench.anomaly import methods as M
 
+    if not trainable(method):
+        raise ValueError(f"{method}: train 행 점수를 내지 않는 이름 (모르는 방법이거나 context 변형 +clean · +trim)")
     if M.is_supervised(method):
         if y is None:
             raise ValueError(f"{method}: 라벨 (y) 이 필요")
@@ -231,8 +241,6 @@ def auroc_diff(comp: str, a: np.ndarray, b: np.ndarray) -> float | None:
 
 def train_main(argv: list[str]) -> int:
     """원격 전용: `fab run <대회> <방법...> --train-scores [--train-labels <Volume 경로>] [--note <글>]` (fab/runner/run.py 가 넘김)."""
-    from fab.bench.anomaly import methods as M
-
     ap = argparse.ArgumentParser(prog="fab run (anomaly, train 행 점수)")
     ap.add_argument("comp")
     ap.add_argument("methods", nargs="+")
@@ -242,8 +250,8 @@ def train_main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
     if not os.environ.get("FAB_REMOTE"):
         sys.exit(f"원격 전용 (로컬 CPU 방법은 fab ad mix train): {args.comp} {' '.join(args.methods)}")
-    if bad := [m for m in args.methods if not M.is_known(m)]:
-        sys.exit(f"알 수 없는 방법: {bad}")
+    if bad := [m for m in args.methods if not trainable(m)]:
+        sys.exit(f"train 행 점수를 낼 수 없는 방법 (모르는 이름이거나 context 변형 +clean · +trim): {bad}")
     os.environ.setdefault("TABPFN_DISABLE_TELEMETRY", "1")
     failed = train_one(load_competition(args.comp), args.methods, args.train_labels, args.note, refit=False)
     if failed:
@@ -273,8 +281,8 @@ def submit(grid: str, methods: list[str], timeout: int, accelerator: str | None,
     from fab.runner.databricks import settings as dbx_settings
     from fab.runner.databricks import submit as submit_gpu
 
-    if bad := [m for m in methods if not M.is_known(m) or not M.is_gpu(m)]:
-        raise SystemExit(f"GPU 방법이 아님 (로컬 CPU 방법은 fab ad mix train): {bad}")
+    if bad := [m for m in methods if not trainable(m) or not M.is_gpu(m)]:
+        raise SystemExit(f"GPU 방법이 아니거나 context 변형 (+clean · +trim) (로컬 CPU 방법은 fab ad mix train): {bad}")
     comps = grid_comps(grid, need=[MAIN_TFM])
     label = f"adm-{grid}-train"
     unsup = [m for m in methods if not M.is_supervised(m)]
@@ -361,7 +369,8 @@ def pull(data: list[str], runs: bool, outputs: bool, workers: int):
                 for f in sorted((Path(d) / "results").glob(f"*/*/{TRAIN_NPY}")):
                     out = OUTPUTS / f.parent.parent.name / f.parent.name
                     out.mkdir(parents=True, exist_ok=True)
-                    for name in (TRAIN_INFO, TRAIN_NPY):
+                    (out / TRAIN_INFO).unlink(missing_ok=True)  # 새 점수 옆에 옛 출처가 남지 않게 (write_train 과 같은 순서)
+                    for name in (TRAIN_NPY, TRAIN_INFO):
                         if (f.parent / name).exists():
                             shutil.copyfile(f.parent / name, out / name)
                     n += 1
@@ -375,8 +384,8 @@ def train_local(grid: str, methods: list[str], labels_dir: Path):
     (macOS 에서 LightGBM 과 torch 를 한 프로세스에 두면 segfault, docs/known-issues.md)."""
     from fab.bench.anomaly import methods as M
 
-    if bad := [m for m in methods if not M.is_known(m) or (M.is_gpu(m) and not os.environ.get("FAB_MIX_GPU_LOCAL"))]:
-        raise SystemExit(f"로컬 CPU 방법이 아님 (GPU 방법은 fab ad mix submit): {bad}")
+    if bad := [m for m in methods if not trainable(m) or (M.is_gpu(m) and not os.environ.get("FAB_MIX_GPU_LOCAL"))]:
+        raise SystemExit(f"로컬 CPU 방법이 아니거나 context 변형 (+clean · +trim) (GPU 방법은 fab ad mix submit): {bad}")
     comps = grid_comps(grid, need=[MAIN_TFM] if grid == "s3" else None)
     if miss := [c.name for c in comps if not (c.data_dir / "train.csv").exists()]:
         raise SystemExit(f"데이터 없는 대회 {len(miss)}개 (예: {miss[:3]}) → fab ad mix pull --data {grid}")
@@ -408,13 +417,17 @@ def load_test(comp: str, model: str) -> np.ndarray | None:
 
 
 @cache
+def load_train_raw(comp: str, model: str) -> np.ndarray | None:
+    """train 행 점수 (train.csv 행 순서, 이 작업이 낸 것) 그대로. train.json 이 옆에 없으면 안 씀 (저장 도중 멈춘 것, write_train)."""
+    d = OUTPUTS / comp / model
+    return np.load(d / TRAIN_NPY) if (d / TRAIN_NPY).exists() and (d / TRAIN_INFO).exists() else None
+
+
 def load_train(comp: str, model: str) -> np.ndarray | None:
-    """train 행 점수 (train.csv 행 순서, 이 작업이 낸 것). NaN 은 뺌 (기준 분포에 안 넣음), +inf 는 그대로 (맨 위)."""
-    f = OUTPUTS / comp / model / TRAIN_NPY
-    if not f.exists():
-        return None
-    s = np.load(f)
-    return s[~np.isnan(s)]
+    """기준 분포로 쓰는 train 행 점수: NaN 은 뺌 (기준 분포에 안 넣음), +inf 는 그대로 (맨 위). 진단값은 load_train_raw 를 씀
+    (행을 맞춰 NaN 행을 같이 빼야 해서)."""
+    s = load_train_raw(comp, model)
+    return None if s is None else s[~np.isnan(s)]
 
 
 @cache
@@ -541,6 +554,8 @@ def diag_values(s_tfm: np.ndarray, s_if: np.ndarray, s_knn: np.ndarray | None = 
 def fit_tau(d: np.ndarray, hi: np.ndarray, lo: np.ndarray) -> tuple[float, float]:
     """"진단값 ≥ τ 면 hi, 아니면 lo" 로 골랐을 때 평균이 가장 높은 τ 와 그 평균. 후보 = 정렬한 진단값 사이의 중간점과 양 끝
     (−inf = 늘 hi, +inf = 늘 lo), 같은 평균이 여럿이면 가운데 후보 (결정 24)."""
+    if np.isnan(d).any():
+        raise ValueError("진단값에 NaN (일부 단위에만 값이 있는 진단은 부르는 쪽에서 뺌)")
     u = np.unique(d)
     cands = [-np.inf, *((u[:-1] + u[1:]) / 2), np.inf]
     vals = np.array([np.where(d >= t, hi, lo).mean() for t in cands])
@@ -549,12 +564,6 @@ def fit_tau(d: np.ndarray, hi: np.ndarray, lo: np.ndarray) -> tuple[float, float
 
 
 # --- 점수 → 분위 (기준마다) ---------------------------------------------------------------------------------------
-
-
-@cache
-def load_train_raw(comp: str, model: str) -> np.ndarray | None:
-    f = OUTPUTS / comp / model / TRAIN_NPY
-    return np.load(f) if f.exists() else None
 
 
 @cache
@@ -891,10 +900,12 @@ def report_m3(mix: pd.DataFrame, diag: pd.DataFrame) -> tuple[pd.DataFrame, list
                  .reindex(S3_TYPES))
             # (a) 진단값 ~ TFM − IForest: 데이터셋 12개 (split 평균) · 36 단위 · E1 46개의 순위 상관, 무너지는 단위 (TFM − IForest ≤ −0.05) 가르기
             dm = Do.assign(d=Do.auroc_tfm - Do.auroc_if).groupby("dataset")[["d", *DIAGS]].mean()
+            # 일부 단위에만 값이 있는 진단 (예: knn 점수가 몇 대회에만) 은 뺌: NaN 이 τ 후보 · 순위 상관 · AUROC 를 망침
+            usable = [d_ for d_ in DIAGS if not (Do[d_].isna().any() or De[d_].isna().any())]
+            if part := [d_ for d_ in DIAGS if d_ not in usable and not (Do[d_].isna().all() and De[d_].isna().all())]:
+                print(f"\n진단값이 일부 단위에만 있어 뺌 ({tag}): {part}")
             rows = []
-            for d_ in DIAGS:
-                if Do[d_].isna().all():
-                    continue
+            for d_ in usable:
                 coll = (Do.auroc_tfm - Do.auroc_if <= -0.05).to_numpy()
                 rows.append(dict(diag=d_, rho_12=spearmanr(dm[d_], dm.d)[0], rho_36=spearmanr(Do[d_], Do.auroc_tfm - Do.auroc_if)[0],
                                  rho_e1=spearmanr(De[d_], De.auroc_tfm - De.auroc_if)[0],
@@ -902,15 +913,14 @@ def report_m3(mix: pd.DataFrame, diag: pd.DataFrame) -> tuple[pd.DataFrame, list
                                  n_collapse=int(coll.sum())))
             show(f"M3 (a) 진단값과 TFM − IForest 의 순위 상관 ({tag}). auc_collapse = 무너지는 단위 (차 ≤ −0.05) 를 낮은 진단값으로 가르는 AUROC",
                  pd.DataFrame(rows).set_index("diag"))
-            # (b) 임계값: E1 에서 정해 공식 36 단위에. 주 진단은 방향 고정 (낮으면 IForest), 나머지는 방향도 E1 에서
+            # (b) 임계값: E1 에서 정해 공식 36 단위에. if 계열 (주 진단 if10 과 k 만 다른 if5 · if20) 은 방향 고정 (낮으면 IForest),
+            # 나머지 (rho · tfm · knn) 는 방향도 E1 에서
             mixn = mix_name(tfm, PARTNER, MAIN_RULE, basis)
             cols = {"늘 IForest": PARTNER, f"늘 {tfm}": tfm, "늘 섞기 (주 규칙)": mixn}
             T = So.reindex(Do.index).copy()
             T["_oracle"] = T[[tfm, PARTNER]].max(axis=1)
             rows = []
-            for d_ in DIAGS:
-                if Do[d_].isna().all() or De[d_].isna().all():
-                    continue
+            for d_ in usable:
                 e_hi, e_lo = Se[tfm].reindex(De.index).to_numpy(), Se[PARTNER].reindex(De.index).to_numpy()
                 fits = {s: fit_tau(s * De[d_].to_numpy(), e_hi, e_lo) for s in ((1,) if d_.startswith("if") else (1, -1))}
                 sign = max(fits, key=lambda s: fits[s][1])
@@ -1048,6 +1058,8 @@ def report_cross(diag: pd.DataFrame):
         cross, within, same = [], [], 0
         for u in units("official").itertuples():
             st, si = load_test(u.comp, tfm), load_test(u.comp, PARTNER)
+            if st is None or si is None:  # 점수 파일이 없거나 표의 실행과 다른 단위 (cross_half · mix_rows 와 같이 건너뜀)
+                continue
             h = halves(len(st), int(u.split[1:]))
             for me, other in ((h[0], h[1]), (h[1], h[0])):
                 use = {k: diag_values(st[idx], si[idx])[MAIN_DIAG] >= tau for k, idx in (("cross", other), ("within", me))}
@@ -1105,6 +1117,8 @@ def report(rounds: int):
     # M2: 공식 × la (배치 기준)
     for k in LA_LEVELS:
         rows += mix_rows("m2", "official", [(f"{c}+la{k}", MAIN_TFM) for c in CLFS], ["mean", "max"], ["batch"], lambda u, g, k=k: f"la={k}")
+    if not rows:
+        raise SystemExit(f"쓸 점수 파일이 없음 ({OUTPUTS}) → fab ad mix pull (worktree 에서는 앞에 FAB_OUTPUTS=<worktree>/results)")
     mix = pd.DataFrame(rows)
     print(f"섞기 채점 {len(mix)}행: " + ", ".join(f"{k[0]}/{k[1]}/{k[2]} {v}" for k, v in mix.groupby(["exp", "grid", "basis"]).size().items()))
     diag = pd.DataFrame([r for grid in ("official", "e1") for tfm in TFMS for basis in BASES for r in diag_rows(grid, tfm, basis)]

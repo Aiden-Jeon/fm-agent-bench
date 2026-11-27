@@ -114,6 +114,11 @@ class Threshold(unittest.TestCase):
         tau, _ = mix.fit_tau(d, np.full(3, 0.7), np.full(3, 0.7))
         self.assertAlmostEqual(tau, 0.7)
 
+    def test_fit_tau_rejects_nan(self):
+        # NaN 진단값은 τ 후보를 NaN 으로 만듦 → 받지 않음 (일부 단위에만 값이 있는 진단은 보고가 뺌)
+        with self.assertRaises(ValueError):
+            mix.fit_tau(np.array([0.1, np.nan, 0.9]), np.ones(3), np.zeros(3))
+
 
 class TrainScores(unittest.TestCase):
     def test_fold_split_is_methods_split(self):
@@ -147,6 +152,32 @@ class TrainScores(unittest.TestCase):
             mix.train_scores("lgbm_clf+la100", X, 1, np.zeros(20, int))
         with self.assertRaises(ValueError):
             mix.train_scores("lgbm_clf+la100", X, 1)
+
+    def test_context_variants_are_not_trainable(self):
+        # +clean · +trim 은 context 가 다른 변형: 여기서 내는 train 전체의 점수는 그 변형의 기준 분포가 아님
+        for name in ("tabpfn_unsup", "iforest", "lgbm_clf+la100"):
+            self.assertTrue(mix.trainable(name), name)
+        for name in ("tabpfn_unsup+clean", "iforest+trim10", "tabpfn_unsup+iftrim10", "no_such_method"):
+            self.assertFalse(mix.trainable(name), name)
+        with self.assertRaises(ValueError):
+            mix.train_scores("iforest+trim10", np.zeros((20, 2)), 1)
+
+    def test_train_scores_need_their_json(self):
+        # train.json 이 옆에 없는 train.npy (저장 도중 멈춘 것) 는 안 씀. NaN 은 기준 분포에서만 빠짐
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(mix, "OUTPUTS", Path(d)):
+            out = Path(d) / "ad-x" / "iforest"
+            out.mkdir(parents=True)
+            np.save(out / mix.TRAIN_NPY, np.array([1.0, np.nan, np.inf]))
+            mix.load_train_raw.cache_clear()
+            self.assertIsNone(mix.load_train("ad-x", "iforest"))
+            (out / mix.TRAIN_INFO).write_text("{}")
+            mix.load_train_raw.cache_clear()
+            self.assertEqual(len(mix.load_train_raw("ad-x", "iforest")), 3)
+            np.testing.assert_array_equal(mix.load_train("ad-x", "iforest"), np.array([1.0, np.inf]))
+        mix.load_train_raw.cache_clear()
 
     def test_nonfinite_count(self):
         self.assertEqual(mix.nonfinite(np.array([1.0, np.inf, -np.inf, np.nan, np.nan])), dict(posinf=1, neginf=1, nan=2))
