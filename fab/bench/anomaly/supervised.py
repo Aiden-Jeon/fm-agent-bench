@@ -571,8 +571,9 @@ def l1_report(sup: pd.DataFrame, rounds: int) -> list:
             t = h.set_index("dataset").score.reindex(s.index)
             r[c], r[f"{c}_wins"] = t.mean(), f"{int((s > t).sum())}/{int(t.notna().sum())}"
         rows.append(r)
-    print("\n== L1: 같은 la 의 분류기와 (12개 평균 AUROC, <분류기>_wins = 빼기 변형이 그 분류기보다 높은 데이터셋 수)\n"
-          + pd.DataFrame(rows).round(3).to_string(index=False))
+    if rows:
+        print("\n== L1: 같은 la 의 분류기와 (12개 평균 AUROC, <분류기>_wins = 빼기 변형이 그 분류기보다 높은 데이터셋 수)\n"
+              + pd.DataFrame(rows).round(3).to_string(index=False))
     ref = unsup_reference()
     ref = ref[(ref.split == L1_SPLIT) & ref.model.isin([*UNSUP_REF, "lof"])][["model", "dataset", "split", "metric_error"]]
     for k in sorted(d.la.unique()):

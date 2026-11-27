@@ -1469,6 +1469,68 @@ TabPFN 을 로컬에서 돌린 것은 위 "L3 의 원인" 의 두 대회와 ad-w
 | 테스트 | `ruff check fab tests` 통과, 테스트 45개 (새 8개: 이름 · 표 나누기 · +inf 처리 · S3 la 라벨). `uv run --frozen pytest` 는 프로젝트 환경에 pytest 가 없어 다른 Python 의 pytest 가 잡힘 (`No module named 'fab'`) → `uv run --frozen --with pytest pytest` 또는 `python -m unittest discover -s tests` |
 | 미리 본 값 (ad-wilt, MPS) | `tabpfn_unsup` 0.745 → `+dropla10` 0.756 → clean 0.949 (메운 몫 0.05), IForest 0.409 → 0.419 → 0.459 |
 
+### L3 결과: 밀도 0 (점수 +inf) 처리 (fault 두 대회, 2026-11-27)
+
+`tabpfn_unsup` 을 고친 코드로 원격 (H100) 에서 다시 냄 → 두 대회 모두 통과 (작업 6.5분, 실행기 안 5.3분). `results/anomaly_supervised.csv` 에 8행 (대회 2 × test 종류 4).
+
+| 대회 | +inf 였던 행 (`opts` 의 `posinf`) | test local | global | dependency | cluster |
+|---|---|---|---|---|---|
+| `adc-s3-local-fault-s1` (train = local) | 2 (로컬 MPS 는 9) | 0.928 | 1.000 | 1.000 | 1.000 |
+| `adc-s3-cluster-fault-s1` (train = cluster) | 2 (로컬 MPS 는 11) | 0.970 | 1.000 | 1.000 | 0.580 |
+
+- **H14 확인.** 두 칸이 채워졌고 dependency 칸은 1.000. AUROC 는 로컬에서 미리 본 값 (위 "L3 의 원인") 과 0.0003 안에서 같음. +inf 행 수는 장치마다 다름 (H100 2행, MPS 9 · 11행): 확률이 정확히 0 이 되는 칸이 정밀도에 달려 있음 (위 "확인 못 함" 의 답은 "원격은 2행")
+- `tabpfn_unsup` 의 S3 표가 10개 평균이 됨 (위 "S3 결과" 표의 `tabpfn_unsup` 줄과 fault 를 뺀 9개 평균 값은 그때 적은 그대로 두고, 여기 값이 지금 것)
+
+| train → test | local | global | dependency | cluster |
+|---|---|---|---|---|
+| local (9개 → 10개) | 0.896 → 0.899 | 1.000 → 1.000 | 0.968 → 0.971 | 1.000 → 1.000 |
+| cluster (9개 → 10개) | 0.905 → 0.912 | 1.000 → 1.000 | 0.970 → 0.973 | 0.834 → **0.809** |
+
+- 요약 줄: 대각선 평균 0.921 → 0.916 (최저 칸 0.834 → 0.809), 대각선 밖 0.970 → 0.971 (최저 0.905 → 0.910), test = global 을 뺀 대각선 밖 0.960 → 0.961. 가장 큰 변화는 cluster → cluster −0.025 (fault 에서 0.580, 같은 칸의 `kumo_unsup` 은 0.545) → **S3 의 결론은 그대로** (비지도 TFM 은 본 cluster 에서만 무너지고 나머지 칸은 0.9 이상)
+- **`anomaly_supervised_elo.csv` 에서 바뀐 것**: 기존 풀 26개 중 `sup:la<k>` 6개 · `f1:<종류>` 4개 · `s3:global>*` · `s3:dependency>*` 8개는 **글자까지 그대로** (18개). **`s3:local>*` · `s3:cluster>*` 8개가 바뀜**: `tabpfn_unsup` 의 fault 가 IForest 값으로 채워져 있던 것 (imputed 0.1) 이 실제 값이 됨 (imputed 0). `tabpfn_unsup` 의 Elo: local → local 1250 → 1260, local → dependency 1777 → 1938 (평균 순위 2.7 → 2.0), cluster → local 1270 → 1319, cluster → dependency 1712 → 1929 (2.85 → 2.2), cluster → cluster 602 → 542. local → global · local → cluster · cluster → global 의 셋은 `tabpfn_unsup` 줄의 imputed 열만 바뀜 (fault 에서 1.000 이라 순위가 그대로). 같은 풀의 다른 방법은 그 한 단위의 승패만큼 움직임 (local → dependency 의 `kumo_clf` 1777 → 1817 등)
+- 기존 표의 행: `anomaly.csv` · `anomaly_conditions.csv` 는 한 행도 안 바뀜, `anomaly_supervised.csv` 는 행이 더해지기만
+
+### L2 결과: 처음 보는 종류 + 라벨 조금 (S3 40 대회 × la 10% · 1%, 2026-11-27)
+
+`uv run --frozen fab ad sup report`. 분류기 4개를 la 10% (라벨 7 ~ 249개) · la 1% (1 ~ 25개) 로, 실패 0 (1,280행). 비지도 쪽은 라벨을 안 써 la 와 상관없는 같은 값 (L3 뒤 10개 평균). 칸 = 데이터셋 평균, 괄호 = 가장 낮은 칸.
+
+| 방법 | 대각선 (본 종류) 평균: la 100 → **10** → 1% | 대각선 밖 (처음 보는 종류) 평균: la 100 → **10** → 1% | 대각선 밖, test = global 뺌 |
+|---|---|---|---|
+| `kumo_clf` | 0.988 → **0.985** (0.955) → 0.977 (0.934) | 0.973 → **0.974** (0.918) → 0.975 (0.928) | 0.965 → 0.966 → 0.967 |
+| `tabpfn_clf` | 0.980 → **0.958** (0.882) → 0.881 (0.768) | 0.920 → **0.891** (0.684) → 0.869 (0.670) | 0.896 → 0.861 → 0.829 |
+| `catboost_clf` | 0.973 → **0.929** (0.821) → 0.898 (0.775) | 0.878 → **0.835** (0.665) → 0.881 (0.730) | 0.851 → 0.798 → 0.847 |
+| `lgbm_clf` | 0.971 → **0.896** (0.808) → 0.647 (0.551) | 0.808 → **0.771** (0.536) → 0.632 (0.502) | 0.776 → 0.740 → 0.615 |
+| `tabpfn_unsup` · `kumo_unsup` (la 무관) | 0.916 (0.809) · 0.901 (0.763) | 0.971 (0.910) · 0.969 (0.909) | 0.961 · 0.959 |
+| `fomo0d` · LOF · KNN · IForest | 0.823 · 0.767 · 0.890 · 0.890 | 0.957 · 0.955 · 0.936 · 0.891 | 0.943 · 0.941 · 0.915 · 0.856 |
+
+본 종류 (대각선) 를 종류별로, la 10% (괄호 la 1%)
+
+| 본 종류 | `kumo_clf` | `tabpfn_clf` | `catboost_clf` | `lgbm_clf` | `tabpfn_unsup` | `kumo_unsup` |
+|---|---|---|---|---|---|---|
+| local | **0.955** (0.934) | 0.882 (0.791) | 0.821 (0.847) | 0.808 (0.669) | 0.899 | 0.896 |
+| global | 1.000 (0.999) | 0.999 (0.985) | 0.996 (0.985) | 0.975 (0.738) | 1.000 | 1.000 |
+| dependency | **0.986** (0.980) | 0.952 (0.768) | 0.901 (0.775) | 0.859 (0.551) | 0.955 | 0.946 |
+| cluster | 1.000 (0.998) | 1.000 (0.982) | 0.999 (0.986) | 0.940 (0.631) | **0.809** | **0.763** |
+
+처음 보는 종류 (가장 크게 갈리는 칸, la 10%)
+
+| train → test | `kumo_clf` | `tabpfn_clf` | `catboost_clf` | `lgbm_clf` | `tabpfn_unsup` | `kumo_unsup` |
+|---|---|---|---|---|---|---|
+| cluster → dependency | 0.958 | 0.684 | 0.665 | 0.536 | **0.973** | 0.961 |
+| cluster → local | 0.935 | 0.719 | 0.807 | 0.586 | 0.912 | 0.909 |
+| global → dependency | 0.972 | 0.842 | 0.691 | 0.629 | 0.973 | 0.968 |
+| local → dependency | 0.974 | 0.787 | 0.710 | 0.717 | 0.971 | 0.967 |
+| dependency → local | 0.918 | 0.849 | 0.667 | 0.665 | 0.910 | 0.911 |
+
+- **H13a 는 반쯤.** 대각선 평균으로는 Kumo · TabPFN 분류기 · CatBoost 가 `tabpfn_unsup` (0.916) 보다 높고 LightGBM (0.896) 은 낮음. 종류별로 보면 la 10% 에서 "본 종류는 분류기" 가 그대로인 것은 **cluster · global 뿐**이고, **local · dependency 는 Kumo 분류기만** 비지도 TFM 을 넘음 (TabPFN 분류기 local 0.882 대 0.899, dependency 0.952 대 0.955. GBDT 는 0.81 ~ 0.90). 미리 적어 둔 대로 (PU: 라벨 없는 A 이상 90% 가 정상 0 으로 들어감). la 1% 면 TabPFN 분류기 · GBDT 는 local · dependency 에서 0.55 ~ 0.85
+- **cluster 는 라벨 몇 개로도 분류기가 고침**: la 10% (7 ~ 249개) 에서 0.94 ~ 1.000, la 1% (1 ~ 25개) 에서도 Kumo 0.998 · CatBoost 0.986 · TabPFN 0.982 (LightGBM 만 0.631) 대 비지도 TFM 0.809 · 0.763. ADBench 그림 6d ("few labeled anomalies can already represent similar behaviors in the clustered anomalies") 와 같은 방향
+- **H13b 확인.** 처음 보는 종류에서 GBDT · TabPFN 분류기는 la 10% 에서 la 100% 보다 더 낮음 (대각선 밖 LightGBM 0.771 · CatBoost 0.835 · TabPFN 0.891 대 `tabpfn_unsup` 0.971). 데이터셋 × 칸 160개 중 `tabpfn_unsup` 이 TabPFN 분류기보다 높은 수: la 100% 103 → la 10% 118 → la 1% 136 (그중 대각선 40개에서 7 → 19 → 29) → **라벨이 적을수록 비지도 TFM 이 메우는 칸이 늘고, 본 종류까지 넘어옴**
+- **H13c 확인.** Kumo 분류기는 la 10% 에서 대각선 0.985 (최저 칸 0.955 = local) · 대각선 밖 0.974 (최저 0.918 = dependency → local), la 1% 에서도 0.977 · 0.975. 라벨이 100 → 1% 로 줄어도 처음 보는 종류의 값이 안 내려감 (0.973 → 0.974 → 0.975). `tabpfn_unsup` 이 Kumo 분류기보다 높은 칸은 160개 중 52개 (la 10%), 대각선은 2개. 까닭은 여전히 안 가름 (위 "남은 것")
+- CatBoost 의 대각선 밖은 la 1% (0.881) 가 la 10% (0.835) 보다 높음. 라벨이 1 ~ 25개면 본 종류에 덜 맞춰져서로 보이지만 가르지 않음
+- 풀 `s3la10:A>B` (칸마다, IForest = 1000): 본 cluster 에서 Kumo 1364 · TabPFN 분류기 1306 · CatBoost 1226 · IForest 1000 · LightGBM 813 · `tabpfn_unsup` 564. cluster → dependency 에서 `tabpfn_unsup` 1958 · Kumo 분류기 1788 · `kumo_unsup` 1779 … TabPFN 분류기 986 · CatBoost 943 · LightGBM 698. local → local 에서 Kumo 분류기 1694 · LOF 1341 · `tabpfn_unsup` 1244 … TabPFN 분류기 1064 · CatBoost 717 · LightGBM 680. 단위가 10개라 구간이 넓음 → 순위 · AUROC 로 읽음
+- **고쳐 읽기**: la 100% 에서 본 "본 종류는 분류기, 처음 보는 종류는 비지도 TFM" 은 라벨이 조금일 때 **"무리 · 범위 밖인 본 종류 (cluster · global) 는 분류기, 그 밖 (본 local · dependency 와 처음 보는 종류) 은 비지도 TFM"** 으로 좁아짐 (TabPFN 분류기 · GBDT 기준). Kumo 분류기는 la 1% 에서도 둘 다 강함
+- 잰 시간 (실행기 안): TabPFN 분류기 3.8분 · Kumo 분류기 3.4분 · CatBoost 4.4분 · LightGBM 0.2분 (40 대회 × la 2개). 작업은 GPU 11.1분 · CPU 8.0분
+
 ## 실행 기록
 
 | 때 (KST) | 무엇 | 대상 | 상태 |
@@ -1514,6 +1576,13 @@ TabPFN 을 로컬에서 돌린 것은 위 "L3 의 원인" 의 두 대회와 ad-w
 | 2026-11-26 16:06 ~ 16:13 | S1 · S2 CPU (15분) · GPU (16분) · S3 CPU 둘 (6 · 4분) · F0 · F1 · F2 (5 · 6 · 9분) 모두 SUCCESS → kick (이 worktree, 대기 9개 모두 이 작업 것) → `fab sync` | | `anomaly.csv` +72 (F0, 기존 행 그대로), `anomaly_conditions.csv` +186 (F1 92 · F2 94), `anomaly_supervised.csv` 1,664행, 실패 0. 같이 받은 `mlebench_runs.csv` 변경은 되돌림 |
 | 2026-11-26 17:01 | S3 GPU (TabPFN) `INTERNAL_ERROR/FAILED` (57분): 40 대회 끝까지, `tabpfn_unsup` 이 fault 의 local · cluster 두 대회에서 실패 → 종료 코드 1 (나머지 118칸은 됨). 원격 로그는 API 로 못 받음 → 로컬 (CPU) 에서 `adc-s3-local-fault-s1` 을 다시 돌려 재현: test 9행의 점수가 NaN/inf | | 다시 안 냄 |
 | 2026-11-26 18:05 · 18:1x | S3 GPU (Kumo) SUCCESS (122분) → kick (이 worktree) → `fab sync` | | `anomaly_supervised.csv` +792 (198 실행 × test 종류 4), 대기 0. `fab ad elo`: FoMo-0D 를 뺀 Elo 가 이전 `anomaly_elo.csv` 와 바이트 단위로 같음 확인 → FoMo-0D 를 넣어 다시 씀. `fab ad cond report` → `anomaly_conditions_elo.csv` 그대로 |
+| 2026-11-27 11:2x | 라벨이 조금 있을 때 (2) L1 ~ L3 (사용자: 결정 26 ~ 30 추천안, 제출 승인). 내기 전 `fab remote status` 대기 0. 커밋 b6738ff (이 worktree `Aiden-Jeon/anomaly-tfm-label-context`, 채점 행의 표 나누기가 바뀌어 **머지 전 kick 은 이 worktree 에서만**). la 파일 (공식 s1 12개 · S3 40개) 은 열이 는 파일로 Volume 에 다시 올림 | | |
+| 2026-11-27 11:23 | L3: `tabpfn_unsup` (+inf 처리) | `adc-s3-local-fault-s1` · `adc-s3-cluster-fault-s1`, H100 (`ads-l3-20261127-112352`, run_id 904019424661107) + `anomaly__20261127-112400-520617` | 제출 |
+| 2026-11-27 11:27 | L2 CPU: `lgbm_clf` · `catboost_clf` × `+la10` · `+la1` | S3 40, CPU (`ads-l2-cpu-cpu-20261127-112733`, run_id 1017098676246285) + `anomaly__20261127-112911-153142` | 제출 |
+| 2026-11-27 11:32 | L2 GPU: `tabpfn_clf` · `kumo_clf` × `+la10` · `+la1` | S3 40, H100 (`ads-l2-gpu-20261127-113245`, run_id 790657224970207) + `anomaly__20261127-113252-117723` | 제출 |
+| 2026-11-27 11:33 | L1 CPU: `iforest` · `knn` · `lof` × `+dropla{1,5,10,25,50,75}` | 공식 12개 × s1, CPU (`ads-l1-cpu-cpu-20261127-113308`, run_id 236849991977486) + `anomaly__20261127-113446-916099` | 제출 |
+| 2026-11-27 11:35 | L1 GPU (TabPFN): `tabpfn_unsup+dropla{1,5,10,25,50,75}` | 공식 12개 × s1, H100 (`ads-l1-20261127-113528`, run_id 363781162674800) + `anomaly__20261127-113535-289830` | 제출 |
+| 2026-11-27 11:35 | L1 GPU (Kumo): `kumo_unsup+dropla{10,50,75}` | 공식 12개 × s1, H100 (`ads-l1-20261127-113552`, run_id 563599552804391) + `anomaly__20261127-113559-503838` | 제출 |
 | 2026-11-25 15:4x · 18:20 | kick 두 번 (Wilt Agent · 제외, 그다음 TabPFN s2 · s3 채점). forecast 세션과 "상대 트랙 grade 대기 없음 + 상대 agent 대기 항목이 모두 아직 RUNNING" 일 때만 kick 하기로 합의. 18:20 kick 때는 forecast agent 둘이 끝난 채 대기 중이라 그쪽 제안대로 이쪽이 먼저 (그 둘은 시도 1/3, forecast 브랜치 kick 으로 처리) | | SUCCESS, 이상탐지 대기 항목 0 |
 
 ### 기존 방법 맞춤 (원격, 12개 × 3 seed)
